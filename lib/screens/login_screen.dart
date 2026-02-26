@@ -11,42 +11,47 @@ class LoginScreen extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // 1. Top Image/Header Section
+            // Header Image Section
             Stack(
               children: [
                 Container(
-                  height: 250,
-                  width: double.infinity,
+                  height: 300,
                   decoration: const BoxDecoration(
                     image: DecorationImage(
                       image: AssetImage(
-                        "assets/images/login_header.png",
-                      ), // Service truck image
+                        'assets/header_image.png',
+                      ), // Replace with your asset
                       fit: BoxFit.cover,
                     ),
                   ),
                 ),
                 Positioned(
-                  bottom: 20,
                   left: 20,
+                  bottom: 40,
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
+                      CircleAvatar(
+                        backgroundColor: Colors.amber.withOpacity(0.8),
+                        radius: 30,
+                        child: const Icon(
+                          Icons.car_repair,
+                          color: Colors.black,
+                          size: 30,
+                        ),
+                      ),
+                      const SizedBox(height: 10),
                       const Text(
                         "Help is on the way",
                         style: TextStyle(
-                          fontSize: 32,
+                          fontSize: 28,
                           fontWeight: FontWeight.bold,
-                          color: Color(0xFF0D286F),
+                          color: Colors.black87,
                         ),
                       ),
-                      Text(
+                      const Text(
                         "Sri Lanka's fastest emergency assistance.",
-                        style: TextStyle(
-                          fontSize: 16,
-                          color: Colors.grey[800],
-                          fontWeight: FontWeight.w500,
-                        ),
+                        style: TextStyle(fontSize: 14, color: Colors.black54),
                       ),
                     ],
                   ),
@@ -59,57 +64,75 @@ class LoginScreen extends StatelessWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const SizedBox(height: 20),
                   const Text(
-                    "Login with Mobile",
+                    "Sign up with Mobile",
                     style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
                   ),
-                  const SizedBox(height: 8),
+                  const SizedBox(height: 20),
+                  const Text(
+                    "Choose Your Role",
+                    style: TextStyle(
+                      color: Colors.blue,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                  const SizedBox(height: 10),
+
+                  // Role Dropdown
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 12),
+                    decoration: BoxDecoration(
+                      color: Colors.grey[200],
+                      borderRadius: BorderRadius.circular(15),
+                    ),
+                    child: DropdownButtonHideUnderline(
+                      child: DropdownButton<String>(
+                        isExpanded: true,
+                        hint: const Text("Choose Your Type"),
+                        items: const [], // Add your roles here
+                        onChanged: (val) {},
+                      ),
+                    ),
+                  ),
+
+                  const SizedBox(height: 20),
                   const Text(
                     "Enter your phone number to receive a verification code.",
-                    style: TextStyle(color: Colors.grey),
+                    style: TextStyle(color: Colors.blueGrey, fontSize: 13),
                   ),
-                  const SizedBox(height: 30),
+                  const SizedBox(height: 15),
 
-                  // 2. Mobile Input Row
+                  // Phone Input Row
                   Row(
                     children: [
-                      // Country Picker Placeholder
                       Container(
                         padding: const EdgeInsets.symmetric(
                           horizontal: 12,
-                          vertical: 15,
+                          vertical: 12,
                         ),
                         decoration: BoxDecoration(
-                          color: Colors.grey[100],
-                          borderRadius: BorderRadius.circular(15),
+                          color: Colors.indigo[50],
+                          borderRadius: BorderRadius.circular(12),
                         ),
-                        child: Row(
+                        child: const Row(
                           children: [
-                            Image.network(
-                              "https://flagcdn.com/w40/lk.png",
-                              width: 24,
-                            ), // Sri Lanka Flag
-                            const SizedBox(width: 8),
-                            const Text(
-                              "+94",
+                            Text(
+                              "🇱🇰 +94",
                               style: TextStyle(fontWeight: FontWeight.bold),
                             ),
-                            const Icon(Icons.arrow_drop_down),
+                            Icon(Icons.arrow_drop_down),
                           ],
                         ),
                       ),
-                      const SizedBox(width: 12),
-                      // Number Input
+                      const SizedBox(width: 10),
                       Expanded(
                         child: TextField(
-                          keyboardType: TextInputType.phone,
                           decoration: InputDecoration(
-                            hintText: "07X XXX XXXX",
+                            hintText: "7X XXX XXXX",
                             filled: true,
-                            fillColor: Colors.grey[100],
+                            fillColor: Colors.indigo[50],
                             border: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(15),
+                              borderRadius: BorderRadius.circular(12),
                               borderSide: BorderSide.none,
                             ),
                           ),
@@ -118,23 +141,22 @@ class LoginScreen extends StatelessWidget {
                     ],
                   ),
 
-                  const SizedBox(height: 24),
+                  const SizedBox(height: 25),
 
-                  // 3. Get OTP Button
+                  // Get OTP Button
                   SizedBox(
                     width: double.infinity,
                     height: 55,
                     child: ElevatedButton(
-                      onPressed: () => Navigator.pushReplacementNamed(context, '/home'),
+                      onPressed: () {},
                       style: ElevatedButton.styleFrom(
                         backgroundColor: const Color(
-                          0xFFFFE162,
-                        ), // Yellow color from your design
-                        foregroundColor: Colors.black,
+                          0xFFD4AF37,
+                        ), // Amber/Gold color
                         shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(15),
+                          borderRadius: BorderRadius.circular(30),
                         ),
-                        elevation: 0,
+                        elevation: 5,
                       ),
                       child: const Row(
                         mainAxisAlignment: MainAxisAlignment.center,
@@ -142,84 +164,44 @@ class LoginScreen extends StatelessWidget {
                           Text(
                             "Get OTP",
                             style: TextStyle(
-                              fontSize: 18,
+                              color: Colors.black,
+                              fontSize: 16,
                               fontWeight: FontWeight.bold,
                             ),
                           ),
                           SizedBox(width: 10),
-                          Icon(Icons.arrow_forward),
+                          Icon(Icons.arrow_forward, color: Colors.black),
                         ],
                       ),
                     ),
                   ),
 
-                  const SizedBox(height: 40),
-
-                  // 4. Social Logins
-                  const Row(
-                    children: [
-                      Expanded(child: Divider()),
-                      Padding(
-                        padding: EdgeInsets.symmetric(horizontal: 10),
-                        child: Text(
-                          "OR CONTINUE WITH",
-                          style: TextStyle(color: Colors.grey, fontSize: 12),
-                        ),
-                      ),
-                      Expanded(child: Divider()),
-                    ],
-                  ),
-
                   const SizedBox(height: 30),
+                  const Center(
+                    child: Text(
+                      "Or continue with",
+                      style: TextStyle(color: Colors.grey),
+                    ),
+                  ),
+                  const SizedBox(height: 20),
 
+                  // Social Buttons
                   Row(
                     children: [
                       Expanded(
-                        child: SocialButton(
-                          icon: Icons.g_mobiledata,
-                          label: "Google",
-                        ),
+                        child: _socialButton("Google", Icons.g_mobiledata),
                       ),
                       const SizedBox(width: 15),
-                      Expanded(
-                        child: SocialButton(icon: Icons.apple, label: "Apple"),
-                      ),
+                      Expanded(child: _socialButton("Apple", Icons.apple)),
                     ],
                   ),
 
-                  const SizedBox(height: 50),
-
-                  // 5. Terms and Privacy
-                  Center(
-                    child: RichText(
+                  const SizedBox(height: 40),
+                  const Center(
+                    child: Text(
+                      "By logging in, you agree to our Terms of Service & Privacy Policy.",
                       textAlign: TextAlign.center,
-                      text: TextSpan(
-                        style: const TextStyle(
-                          color: Colors.grey,
-                          fontSize: 12,
-                        ),
-                        children: [
-                          const TextSpan(
-                            text: "By logging in, you agree to our ",
-                          ),
-                          TextSpan(
-                            text: "Terms of Service",
-                            style: TextStyle(
-                              color: Colors.black,
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
-                          const TextSpan(text: " & "),
-                          TextSpan(
-                            text: "Privacy Policy",
-                            style: TextStyle(
-                              color: Colors.black,
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
-                          const TextSpan(text: "."),
-                        ],
-                      ),
+                      style: TextStyle(fontSize: 11, color: Colors.grey),
                     ),
                   ),
                 ],
@@ -230,24 +212,17 @@ class LoginScreen extends StatelessWidget {
       ),
     );
   }
-}
 
-// Custom widget for Social Buttons
-class SocialButton extends StatelessWidget {
-  final IconData icon;
-  final String label;
-  const SocialButton({super.key, required this.icon, required this.label});
-
-  @override
-  Widget build(BuildContext context) {
+  Widget _socialButton(String label, IconData icon) {
     return OutlinedButton.icon(
       onPressed: () {},
       icon: Icon(icon, color: Colors.black),
       label: Text(label, style: const TextStyle(color: Colors.black)),
       style: OutlinedButton.styleFrom(
         padding: const EdgeInsets.symmetric(vertical: 12),
-        side: BorderSide(color: Colors.grey[300]!),
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
+        backgroundColor: Colors.grey[100],
+        side: BorderSide.none,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
       ),
     );
   }
