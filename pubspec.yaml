@@ -64,6 +64,7 @@ flutter:
     - lib/assets/apple.png
     - lib/assets/google.png
     - lib/assets/facebook.png
+    - lib/assets/image.jpg
   # An image asset can refer to one or more resolution-specific "variants", see
   # https://flutter.dev/to/resolution-aware-images
 

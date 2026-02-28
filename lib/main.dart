@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'screens/splash_screen.dart';
-import 'screens/onboarding_screen.dart';
-import 'screens/login_screen.dart';
+import 'screens/verification_screen.dart';
 
 void main() {
   runApp(const FixOnGoApp());
@@ -25,9 +24,7 @@ class FixOnGoApp extends StatelessWidget {
       // 2. Route Map (The Connector)
       routes: {
         '/': (context) => const FixOnGoSplashScreen(),
-        '/onboarding': (context) => const OnboardingScreen(),
-        '/login': (context) => const LoginScreen(),
-        '/home': (context) => const HomeScreen(),
+        'verification' :(context) => const VerificationScreen(),
       },
     );
   }
