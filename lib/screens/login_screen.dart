@@ -18,10 +18,9 @@ class LoginScreen extends StatelessWidget {
                   height: 300,
                   decoration: const BoxDecoration(
                     image: DecorationImage(
-                      image: AssetImage(flutter run
-                      
-                        'assets/header_image.png',
-                      ), // Replace with your asset
+                      image: AssetImage(
+                        'assets/image.jpg', // Replace with your asset
+                      ),
                       fit: BoxFit.cover,
                     ),
                   ),
