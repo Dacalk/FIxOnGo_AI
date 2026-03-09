@@ -1,24 +1,38 @@
 import 'package:flutter/material.dart';
+import '../theme_provider.dart';
+import '../components/primary_button.dart';
+import '../components/otp_box.dart';
 
 class VerificationScreen extends StatelessWidget {
   const VerificationScreen({super.key});
 
   @override
   Widget build(BuildContext context) {
+    // Get the role passed from the login screen
+    final role =
+        ModalRoute.of(context)?.settings.arguments as String? ?? 'User';
+    final dark = isDarkMode(context);
+    final bgColor = dark ? AppColors.darkBackground : Colors.white;
+    final titleColor = dark ? Colors.white : Colors.black;
+    final subtitleColor = dark ? Colors.grey[400]! : Colors.blueGrey;
+    final phoneColor = dark ? Colors.white : Colors.black;
+    final backBtnBg = dark ? AppColors.darkSurface : Colors.blue[50]!;
+    final backBtnIcon = dark ? Colors.white : Colors.black;
+
     return Scaffold(
-      backgroundColor: Colors.white,
+      backgroundColor: bgColor,
       appBar: AppBar(
-        backgroundColor: Colors.white,
+        backgroundColor: bgColor,
         elevation: 0,
         leading: Padding(
           padding: const EdgeInsets.all(8.0),
           child: CircleAvatar(
-            backgroundColor: Colors.blue[50],
+            backgroundColor: backBtnBg,
             child: IconButton(
-              icon: const Icon(
+              icon: Icon(
                 Icons.arrow_back_ios_new,
                 size: 18,
-                color: Colors.black,
+                color: backBtnIcon,
               ),
               onPressed: () => Navigator.pop(context),
             ),
@@ -31,25 +45,26 @@ class VerificationScreen extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             const SizedBox(height: 40),
-            const Text(
+            Text(
               "Verify Your Phone\nNumber",
               style: TextStyle(
                 fontSize: 28,
                 fontWeight: FontWeight.bold,
                 height: 1.2,
+                color: titleColor,
               ),
             ),
             const SizedBox(height: 15),
             RichText(
-              text: const TextSpan(
-                text: "We've sent a code to ",
-                style: TextStyle(color: Colors.blueGrey, fontSize: 16),
+              text: TextSpan(
+                text: "We've sent a code to  ",
+                style: TextStyle(color: subtitleColor, fontSize: 16),
                 children: [
                   TextSpan(
-                    text: "+94 77 123 4567",
+                    text: "94 77 123 4567",
                     style: TextStyle(
                       fontWeight: FontWeight.bold,
-                      color: Colors.black,
+                      color: phoneColor,
                     ),
                   ),
                 ],
@@ -57,13 +72,11 @@ class VerificationScreen extends StatelessWidget {
             ),
             const SizedBox(height: 40),
 
-            // OTP Input Fields
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: List.generate(
-                4,
-                (index) => _otpBox(context, index == 0 ? "4" : ""),
-              ),
+            // ── Interactive OTP Input (type or paste) ──
+            OtpInput(
+              onCompleted: (otp) {
+                debugPrint('OTP entered: $otp');
+              },
             ),
 
             const SizedBox(height: 30),
@@ -75,12 +88,14 @@ class VerificationScreen extends StatelessWidget {
                 Icon(
                   Icons.timer_outlined,
                   size: 18,
-                  color: Colors.blueGrey[300],
+                  color: dark ? Colors.grey[600] : Colors.blueGrey[300],
                 ),
                 const SizedBox(width: 5),
                 Text(
                   "Resend code in ",
-                  style: TextStyle(color: Colors.blueGrey[400]),
+                  style: TextStyle(
+                    color: dark ? Colors.grey[500] : Colors.blueGrey[400],
+                  ),
                 ),
                 const Text(
                   "00:27",
@@ -94,56 +109,20 @@ class VerificationScreen extends StatelessWidget {
 
             const Spacer(),
 
-            // Verify Button
-            Container(
-              width: double.infinity,
-              height: 55,
-              margin: const EdgeInsets.only(bottom: 40),
-              decoration: BoxDecoration(
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.blue.withOpacity(0.3),
-                    blurRadius: 10,
-                    offset: const Offset(0, 5),
-                  ),
-                ],
-              ),
-              child: ElevatedButton(
-                onPressed: () {},
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: const Color(0xFF2962FF), // Vibrant Blue
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(15),
-                  ),
-                ),
-                child: const Text(
-                  "Verify & Continue",
-                  style: TextStyle(
-                    color: Colors.white,
-                    fontSize: 16,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
+            // ── Reusable Primary Button (Verify) ──
+            Padding(
+              padding: const EdgeInsets.only(bottom: 40),
+              child: PrimaryButton(
+                label: "Verify & Continue",
+                onPressed: () {
+                  Navigator.pushNamed(context, '/signup',
+                      arguments: role);
+                },
+                borderRadius: 15,
               ),
             ),
           ],
         ),
-      ),
-    );
-  }
-
-  Widget _otpBox(BuildContext context, String value) {
-    return Container(
-      width: 70,
-      height: 70,
-      decoration: BoxDecoration(
-        color: const Color(0xFFF1F6FF), // Very light blue
-        borderRadius: BorderRadius.circular(15),
-      ),
-      alignment: Alignment.center,
-      child: Text(
-        value,
-        style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
       ),
     );
   }

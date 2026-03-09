@@ -1,12 +1,51 @@
 import 'package:flutter/material.dart';
+import '../theme_provider.dart';
+import '../components/primary_button.dart';
+import '../components/social_button.dart';
+import '../components/phone_input.dart';
+import '../components/role_dropdown.dart';
 
-class LoginScreen extends StatelessWidget {
+class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
 
   @override
+  State<LoginScreen> createState() => _LoginScreenState();
+}
+
+class _LoginScreenState extends State<LoginScreen> {
+  final TextEditingController _phoneController = TextEditingController();
+  String? _phoneError;
+  String _selectedRole = 'User';
+
+  @override
+  void dispose() {
+    _phoneController.dispose();
+    super.dispose();
+  }
+
+  void _onGetOtp() {
+    final error =
+        PhoneInput.validateSriLankanPhone(_phoneController.text);
+    setState(() => _phoneError = error);
+
+    if (error == null) {
+      // Phone is valid — navigate to verification, pass the role
+      Navigator.pushNamed(context, '/verification',
+          arguments: _selectedRole);
+    }
+  }
+
+  @override
   Widget build(BuildContext context) {
+    final dark = isDarkMode(context);
+    final bgColor = dark ? AppColors.darkBackground : AppColors.lightBackground;
+    final titleColor =
+        dark ? AppColors.darkTitleText : const Color(0xFF1A1A1A);
+    final subtitleColor =
+        dark ? AppColors.darkSubtitleText : Colors.blueGrey;
+
     return Scaffold(
-      backgroundColor: Colors.white,
+      backgroundColor: bgColor,
       body: SingleChildScrollView(
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -18,10 +57,24 @@ class LoginScreen extends StatelessWidget {
                   height: 300,
                   decoration: const BoxDecoration(
                     image: DecorationImage(
-                      image: AssetImage(
-                        'assets/image.jpg', // Replace with your asset
-                      ),
+                      image: AssetImage('lib/assets/image.jpg'),
                       fit: BoxFit.cover,
+                    ),
+                  ),
+                ),
+                // Dark overlay for better text readability
+                Container(
+                  height: 300,
+                  decoration: BoxDecoration(
+                    gradient: LinearGradient(
+                      begin: Alignment.topCenter,
+                      end: Alignment.bottomCenter,
+                      colors: [
+                        Colors.transparent,
+                        bgColor.withValues(alpha: 0.8),
+                        bgColor,
+                      ],
+                      stops: const [0.3, 0.75, 1.0],
                     ),
                   ),
                 ),
@@ -31,27 +84,46 @@ class LoginScreen extends StatelessWidget {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      CircleAvatar(
-                        backgroundColor: Colors.amber.withOpacity(0.8),
-                        radius: 30,
-                        child: const Icon(
-                          Icons.car_repair,
-                          color: Colors.black,
-                          size: 30,
-                        ),
+                      Row(
+                        children: [
+                          CircleAvatar(
+                            backgroundColor: dark
+                                ? AppColors.darkCardSurface
+                                : Colors.amber.withValues(alpha: 0.8),
+                            radius: 24,
+                            child: Icon(
+                              Icons.car_repair,
+                              color: dark ? AppColors.brandYellow : Colors.black,
+                              size: 24,
+                            ),
+                          ),
+                          const SizedBox(width: 10),
+                          Text(
+                            "ROADSIDE AI",
+                            style: TextStyle(
+                              fontSize: 13,
+                              fontWeight: FontWeight.bold,
+                              color: dark ? Colors.white70 : Colors.black54,
+                              letterSpacing: 1,
+                            ),
+                          ),
+                        ],
                       ),
                       const SizedBox(height: 10),
-                      const Text(
+                      Text(
                         "Help is on the way",
                         style: TextStyle(
                           fontSize: 28,
                           fontWeight: FontWeight.bold,
-                          color: Colors.black87,
+                          color: dark ? Colors.white : Colors.black87,
                         ),
                       ),
-                      const Text(
+                      Text(
                         "Sri Lanka's fastest emergency assistance.",
-                        style: TextStyle(fontSize: 14, color: Colors.black54),
+                        style: TextStyle(
+                          fontSize: 14,
+                          color: dark ? Colors.white60 : Colors.black54,
+                        ),
                       ),
                     ],
                   ),
@@ -64,144 +136,143 @@ class LoginScreen extends StatelessWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const Text(
+                  Text(
                     "Sign up with Mobile",
-                    style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
+                    style: TextStyle(
+                      fontSize: 22,
+                      fontWeight: FontWeight.bold,
+                      color: titleColor,
+                    ),
                   ),
                   const SizedBox(height: 20),
-                  const Text(
+                  Text(
                     "Choose Your Role",
                     style: TextStyle(
-                      color: Colors.blue,
+                      color: dark ? AppColors.brandYellow : Colors.blue,
                       fontWeight: FontWeight.bold,
                     ),
                   ),
                   const SizedBox(height: 10),
 
-                  // Role Dropdown
-                  Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 12),
-                    decoration: BoxDecoration(
-                      color: Colors.grey[200],
-                      borderRadius: BorderRadius.circular(15),
-                    ),
-                    child: DropdownButtonHideUnderline(
-                      child: DropdownButton<String>(
-                        isExpanded: true,
-                        hint: const Text("Choose Your Type"),
-                        items: const [], // Add your roles here
-                        onChanged: (val) {},
-                      ),
-                    ),
+                  // ── Reusable Role Dropdown ──
+                  RoleDropdown(
+                    onChanged: (role) {
+                      if (role != null) {
+                        setState(() => _selectedRole = role);
+                      }
+                    },
                   ),
 
                   const SizedBox(height: 20),
-                  const Text(
+                  Text(
                     "Enter your phone number to receive a verification code.",
-                    style: TextStyle(color: Colors.blueGrey, fontSize: 13),
+                    style: TextStyle(
+                      color: subtitleColor,
+                      fontSize: 13,
+                    ),
                   ),
                   const SizedBox(height: 15),
 
-                  // Phone Input Row
-                  Row(
-                    children: [
-                      Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 12,
-                          vertical: 12,
-                        ),
-                        decoration: BoxDecoration(
-                          color: Colors.indigo[50],
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                        child: const Row(
-                          children: [
-                            Text(
-                              "🇱🇰 +94",
-                              style: TextStyle(fontWeight: FontWeight.bold),
-                            ),
-                            Icon(Icons.arrow_drop_down),
-                          ],
-                        ),
-                      ),
-                      const SizedBox(width: 10),
-                      Expanded(
-                        child: TextField(
-                          decoration: InputDecoration(
-                            hintText: "7X XXX XXXX",
-                            filled: true,
-                            fillColor: Colors.indigo[50],
-                            border: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(12),
-                              borderSide: BorderSide.none,
-                            ),
-                          ),
-                        ),
-                      ),
-                    ],
+                  // ── Reusable Phone Input with validation ──
+                  PhoneInput(
+                    controller: _phoneController,
+                    errorText: _phoneError,
                   ),
 
                   const SizedBox(height: 25),
 
-                  // Get OTP Button
-                  SizedBox(
-                    width: double.infinity,
-                    height: 55,
-                    child: ElevatedButton(
-                      onPressed: () {},
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: const Color(
-                          0xFFD4AF37,
-                        ), // Amber/Gold color
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(30),
-                        ),
-                        elevation: 5,
-                      ),
-                      child: const Row(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          Text(
-                            "Get OTP",
-                            style: TextStyle(
-                              color: Colors.black,
-                              fontSize: 16,
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
-                          SizedBox(width: 10),
-                          Icon(Icons.arrow_forward, color: Colors.black),
-                        ],
-                      ),
-                    ),
+                  // ── Reusable Primary Button (Get OTP) ──
+                  PrimaryButton(
+                    label: "Get OTP",
+                    onPressed: _onGetOtp,
+                    icon: Icons.arrow_forward,
+                    borderRadius: 30,
                   ),
 
                   const SizedBox(height: 30),
-                  const Center(
-                    child: Text(
-                      "Or continue with",
-                      style: TextStyle(color: Colors.grey),
-                    ),
-                  ),
-                  const SizedBox(height: 20),
 
-                  // Social Buttons
+                  // Divider with "Or continue with"
                   Row(
                     children: [
                       Expanded(
-                        child: _socialButton("Google", Icons.g_mobiledata),
+                        child: Divider(
+                          color: dark ? Colors.grey[700] : Colors.grey[300],
+                        ),
                       ),
-                      const SizedBox(width: 15),
-                      Expanded(child: _socialButton("Apple", Icons.apple)),
+                      Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 12),
+                        child: Text(
+                          "Or continue with",
+                          style: TextStyle(
+                            color: dark ? Colors.grey[500] : Colors.grey,
+                          ),
+                        ),
+                      ),
+                      Expanded(
+                        child: Divider(
+                          color: dark ? Colors.grey[700] : Colors.grey[300],
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 20),
+
+                  // ── Reusable Social Buttons ──
+                  const Row(
+                    children: [
+                      Expanded(
+                        child: SocialButton(
+                          label: "Google",
+                          imagePath: "lib/assets/google.png",
+                        ),
+                      ),
+                      SizedBox(width: 15),
+                      Expanded(
+                        child: SocialButton(
+                          label: "Apple",
+                          imagePath: "lib/assets/apple.png",
+                        ),
+                      ),
                     ],
                   ),
 
                   const SizedBox(height: 40),
-                  const Center(
-                    child: Text(
-                      "By logging in, you agree to our Terms of Service & Privacy Policy.",
+                  Center(
+                    child: RichText(
                       textAlign: TextAlign.center,
-                      style: TextStyle(fontSize: 11, color: Colors.grey),
+                      text: TextSpan(
+                        text: "By logging in, you agree to our ",
+                        style: TextStyle(
+                          fontSize: 11,
+                          color: dark ? Colors.grey[500] : Colors.grey,
+                        ),
+                        children: [
+                          TextSpan(
+                            text: "Terms of Service",
+                            style: TextStyle(
+                              color: dark
+                                  ? AppColors.brandYellow
+                                  : Colors.blue,
+                              fontWeight: FontWeight.w500,
+                            ),
+                          ),
+                          TextSpan(
+                            text: " & ",
+                            style: TextStyle(
+                              color: dark ? Colors.grey[500] : Colors.grey,
+                            ),
+                          ),
+                          TextSpan(
+                            text: "Privacy policy",
+                            style: TextStyle(
+                              color: dark
+                                  ? AppColors.brandYellow
+                                  : Colors.blue,
+                              fontWeight: FontWeight.w500,
+                            ),
+                          ),
+                        ],
+                      ),
                     ),
                   ),
                 ],
@@ -209,20 +280,6 @@ class LoginScreen extends StatelessWidget {
             ),
           ],
         ),
-      ),
-    );
-  }
-
-  Widget _socialButton(String label, IconData icon) {
-    return OutlinedButton.icon(
-      onPressed: () {},
-      icon: Icon(icon, color: Colors.black),
-      label: Text(label, style: const TextStyle(color: Colors.black)),
-      style: OutlinedButton.styleFrom(
-        padding: const EdgeInsets.symmetric(vertical: 12),
-        backgroundColor: Colors.grey[100],
-        side: BorderSide.none,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
       ),
     );
   }

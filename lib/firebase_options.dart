@@ -84,5 +84,5 @@ class DefaultFirebaseOptions {
     authDomain: 'fixongo-dad40.firebaseapp.com',
     storageBucket: 'fixongo-dad40.firebasestorage.app',
     measurementId: 'G-TLJYQ2K3L9',
-  );
-}
+  ); // Closed the parameters and added semicolon
+} // Closed the class
