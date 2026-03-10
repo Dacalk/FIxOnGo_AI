@@ -8,9 +8,12 @@ class VerificationScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // Get the role passed from the login screen
-    final role =
-        ModalRoute.of(context)?.settings.arguments as String? ?? 'User';
+    // Get the role + phone passed from the login screen
+    final args =
+        ModalRoute.of(context)?.settings.arguments as Map<String, String>? ??
+            {};
+    final role = args['role'] ?? 'User';
+    final phone = args['phone'] ?? '7X XXX XXXX';
     final dark = isDarkMode(context);
     final bgColor = dark ? AppColors.darkBackground : Colors.white;
     final titleColor = dark ? Colors.white : Colors.black;
@@ -61,7 +64,7 @@ class VerificationScreen extends StatelessWidget {
                 style: TextStyle(color: subtitleColor, fontSize: 16),
                 children: [
                   TextSpan(
-                    text: "94 77 123 4567",
+                    text: "+94 $phone",
                     style: TextStyle(
                       fontWeight: FontWeight.bold,
                       color: phoneColor,

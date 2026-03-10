@@ -123,7 +123,8 @@ class SignupScreen extends StatelessWidget {
             PrimaryButton(
               label: 'Verify & Continue',
               onPressed: () {
-                // TODO: Handle form submission
+                Navigator.pushNamed(context, '/dashboard',
+                    arguments: role);
               },
               borderRadius: 15,
             ),

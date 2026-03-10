@@ -34,6 +34,16 @@ class AppColors {
   static const Color vibrantBlue = Color(0xFF2962FF);
 }
 
+/// Global theme notifier — drives light / dark switching app-wide.
+final ValueNotifier<ThemeMode> themeNotifier =
+    ValueNotifier(ThemeMode.system);
+
+/// Toggle between light and dark (ignores system after first tap).
+void toggleTheme() {
+  themeNotifier.value =
+      themeNotifier.value == ThemeMode.dark ? ThemeMode.light : ThemeMode.dark;
+}
+
 /// Helper to check if current context is in dark mode.
 bool isDarkMode(BuildContext context) {
   return Theme.of(context).brightness == Brightness.dark;

@@ -29,9 +29,12 @@ class _LoginScreenState extends State<LoginScreen> {
     setState(() => _phoneError = error);
 
     if (error == null) {
-      // Phone is valid — navigate to verification, pass the role
+      // Phone is valid — navigate to verification, pass role + phone
       Navigator.pushNamed(context, '/verification',
-          arguments: _selectedRole);
+          arguments: {
+            'role': _selectedRole,
+            'phone': _phoneController.text,
+          });
     }
   }
 
