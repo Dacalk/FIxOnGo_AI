@@ -22,6 +22,9 @@ import 'screens/checkout_screen.dart';
 import 'screens/order_tracking_screen.dart';
 import 'screens/order_delivered_screen.dart';
 import 'screens/call_support_screen.dart';
+import 'screens/garage_screen.dart';
+import 'screens/payment_history_screen.dart';
+import 'screens/help_support_screen.dart';
 import 'screens/profile_screen.dart';
 import 'theme_provider.dart';
 
@@ -99,6 +102,9 @@ class FixOnGoApp extends StatelessWidget {
             '/order-delivered': (context) => const OrderDeliveredScreen(),
             '/profile': (context) => const ProfileScreen(),
             '/call-support': (context) => const CallSupportScreen(),
+            '/garage': (context) => const GarageScreen(),
+            '/payment-history': (context) => const PaymentHistoryScreen(),
+            '/help-support': (context) => const HelpSupportScreen(),
           },
         );
       },

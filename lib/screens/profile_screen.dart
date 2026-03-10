@@ -177,6 +177,9 @@ class ProfileScreen extends StatelessWidget {
                           dark: dark,
                           titleColor: titleColor,
                           subColor: subColor,
+                          onTap: () {
+                            Navigator.pushNamed(context, '/call-support');
+                          },
                         ),
                         _buildMenuItem(
                           icon: Icons.help_outline,
@@ -185,6 +188,9 @@ class ProfileScreen extends StatelessWidget {
                           titleColor: titleColor,
                           subColor: subColor,
                           showDivider: false,
+                          onTap: () {
+                            Navigator.pushNamed(context, '/help-support');
+                          },
                         ),
                       ],
                     ),
@@ -240,7 +246,7 @@ class ProfileScreen extends StatelessWidget {
           ),
         ],
       ),
-      bottomNavigationBar: _buildBottomNav(dark),
+      bottomNavigationBar: _buildBottomNav(context, dark),
     );
   }
 
@@ -252,6 +258,7 @@ class ProfileScreen extends StatelessWidget {
     required Color titleColor,
     required Color subColor,
     bool showDivider = true,
+    VoidCallback? onTap,
   }) {
     return Column(
       children: [
@@ -307,13 +314,13 @@ class ProfileScreen extends StatelessWidget {
                 Icon(Icons.chevron_right, size: 20, color: subColor),
             ],
           ),
-          onTap: () {},
+          onTap: onTap ?? () {},
         ),
       ],
     );
   }
 
-  Widget _buildBottomNav(bool dark) {
+  Widget _buildBottomNav(BuildContext context, bool dark) {
     return Container(
       padding: const EdgeInsets.symmetric(vertical: 12),
       decoration: BoxDecoration(
@@ -331,35 +338,71 @@ class ProfileScreen extends StatelessWidget {
         child: Row(
           mainAxisAlignment: MainAxisAlignment.spaceAround,
           children: [
-            _navItem(Icons.home, 'Dashboard', false, dark),
-            _navItem(Icons.garage, 'Garage', false, dark),
-            _navItem(Icons.payments, 'Payment', false, dark),
-            _navItem(Icons.person, 'Profile', true, dark), // Active state
+            _navItem(
+              context,
+              Icons.home,
+              'Dashboard',
+              false,
+              dark,
+              '/dashboard',
+            ),
+            _navItem(context, Icons.garage, 'Garage', false, dark, '/garage'),
+            _navItem(
+              context,
+              Icons.payments,
+              'Payment',
+              false,
+              dark,
+              '/payment-history',
+            ),
+            _navItem(
+              context,
+              Icons.person,
+              'Profile',
+              true,
+              dark,
+              '/profile',
+            ), // Active state
           ],
         ),
       ),
     );
   }
 
-  Widget _navItem(IconData icon, String label, bool isActive, bool dark) {
+  Widget _navItem(
+    BuildContext context,
+    IconData icon,
+    String label,
+    bool isActive,
+    bool dark,
+    String routeName,
+  ) {
     final color = isActive
         ? AppColors.primaryBlue
         : (dark ? Colors.grey[500]! : Colors.grey[400]!);
 
-    return Column(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        Icon(icon, color: color, size: 24),
-        const SizedBox(height: 4),
-        Text(
-          label,
-          style: TextStyle(
-            fontSize: 10,
-            fontWeight: isActive ? FontWeight.bold : FontWeight.normal,
-            color: color,
+    return GestureDetector(
+      onTap: () {
+        if (!isActive) {
+          Navigator.pushReplacementNamed(context, routeName);
+        }
+      },
+      behavior: HitTestBehavior.opaque,
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, color: color, size: 24),
+          const SizedBox(height: 4),
+          Text(
+            label,
+            style: TextStyle(
+              fontSize: 10,
+              fontWeight: isActive ? FontWeight.bold : FontWeight.normal,
+              color: color,
+            ),
           ),
-        ),
-      ],
+        ],
+      ),
     );
   }
 }

@@ -64,7 +64,26 @@ class _DashboardScreenState extends State<DashboardScreen> {
         ),
         child: BottomNavigationBar(
           currentIndex: _currentIndex,
-          onTap: (i) => setState(() => _currentIndex = i),
+          onTap: (i) {
+            setState(() {
+              _currentIndex = i;
+            });
+            // Handle navigation based on index
+            switch (i) {
+              case 0:
+                // Dashboard is already handled by IndexedStack
+                break;
+              case 1:
+                Navigator.pushReplacementNamed(context, '/garage');
+                break;
+              case 2:
+                Navigator.pushReplacementNamed(context, '/payment-history');
+                break;
+              case 3:
+                Navigator.pushReplacementNamed(context, '/profile');
+                break;
+            }
+          },
           type: BottomNavigationBarType.fixed,
           backgroundColor: dark ? const Color(0xFF111D35) : Colors.white,
           selectedItemColor: dark
@@ -271,7 +290,9 @@ class _DashboardScreenState extends State<DashboardScreen> {
                         subtitle: 'LIVE SUPPORT',
                         title: 'Call Support',
                         color: const Color(0xFF1A2940),
-                        onTap: () {},
+                        onTap: () {
+                          Navigator.pushNamed(context, '/call-support');
+                        },
                       ),
                     ),
                   ],
@@ -811,10 +832,10 @@ class _DashboardScreenState extends State<DashboardScreen> {
                             Text(
                               'Deliver to: Colombo 07 • 3.2 km',
                               style: TextStyle(
-                                fontSize: 12,
                                 color: dark
                                     ? Colors.grey[400]
                                     : Colors.grey[600],
+                                fontSize: 12,
                               ),
                             ),
                           ],
