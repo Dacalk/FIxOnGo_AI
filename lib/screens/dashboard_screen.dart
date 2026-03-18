@@ -254,7 +254,9 @@ class _DashboardScreenState extends State<DashboardScreen> {
                         subtitle: 'VIRTUAL AID',
                         title: 'AI Assistant',
                         color: const Color(0xFF2E7D32),
-                        onTap: () {},
+                        onTap: () {
+                          Navigator.pushNamed(context, '/ai-chat');
+                        },
                       ),
                     ),
                     const SizedBox(width: 14),

@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import '../theme_provider.dart';
+import '../services/gemini_service.dart';
+import 'package:intl/intl.dart';
 
 /// A model representing a single chat message.
 class ChatMessage {
@@ -29,34 +31,23 @@ class AiChatScreen extends StatefulWidget {
 class _AiChatScreenState extends State<AiChatScreen> {
   final TextEditingController _messageController = TextEditingController();
   final ScrollController _scrollController = ScrollController();
+  late GeminiService _geminiService;
+  bool _isLoading = false;
 
-  // Sample conversation to match the design screenshot
-  final List<ChatMessage> _messages = const [
+  final List<ChatMessage> _messages = [
     ChatMessage(
       text:
-          "Hi there. I see you're having trouble starting the car. Let's troubleshoot this together.",
-      time: '10:23 AM',
+          "Hi there. I'm your FixOnGo AI Assistant. How can I help you today?",
+      time: DateFormat('hh:mm a').format(DateTime.now()),
       isUser: false,
-    ),
-    ChatMessage(
-      text: "The engine clicks but won't turn over. It's really frustrating.",
-      time: '10:24 AM',
-      isUser: true,
-    ),
-    ChatMessage(
-      text:
-          'Got it. A clicking sound usually points to a starter or battery issue. First, please pop the hood and locate the battery.',
-      time: '10:24 AM',
-      isUser: false,
-    ),
-    ChatMessage(
-      text:
-          'Check the terminals marked below. Do they look loose or is there any white/green corrosion?',
-      time: '10:25 AM',
-      isUser: false,
-      imagePath: 'lib/assets/image.jpg',
     ),
   ];
+
+  @override
+  void initState() {
+    super.initState();
+    _geminiService = GeminiService();
+  }
 
   @override
   void dispose() {
@@ -65,23 +56,49 @@ class _AiChatScreenState extends State<AiChatScreen> {
     super.dispose();
   }
 
-  void _sendMessage() {
+  void _sendMessage() async {
     final text = _messageController.text.trim();
-    if (text.isEmpty) return;
+    if (text.isEmpty || _isLoading) return;
+
+    final userMessage = ChatMessage(
+      text: text,
+      time: DateFormat('hh:mm a').format(DateTime.now()),
+      isUser: true,
+    );
 
     setState(() {
-      _messages.add(
-        ChatMessage(
-          text: text,
-          time: TimeOfDay.now().format(context),
-          isUser: true,
-        ),
-      );
+      _messages.add(userMessage);
+      _isLoading = true;
     });
 
     _messageController.clear();
+    _scrollToBottom();
 
-    // Scroll to bottom
+    try {
+      final aiResponse = await _geminiService.sendMessage(text);
+
+      setState(() {
+        _messages.add(
+          ChatMessage(
+            text: aiResponse,
+            time: DateFormat('hh:mm a').format(DateTime.now()),
+            isUser: false,
+          ),
+        );
+        _isLoading = false;
+      });
+      _scrollToBottom();
+    } catch (e) {
+      setState(() {
+        _isLoading = false;
+      });
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('Error: $e')));
+    }
+  }
+
+  void _scrollToBottom() {
     Future.delayed(const Duration(milliseconds: 100), () {
       if (_scrollController.hasClients) {
         _scrollController.animateTo(
@@ -173,10 +190,13 @@ class _AiChatScreenState extends State<AiChatScreen> {
             child: ListView.builder(
               controller: _scrollController,
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-              itemCount: _messages.length + 1, // +1 for the date header
+              itemCount: _messages.length + 1 + (_isLoading ? 1 : 0),
               itemBuilder: (context, index) {
                 if (index == 0) {
                   return _buildDateHeader(dark);
+                }
+                if (_isLoading && index == _messages.length + 1) {
+                  return _buildTypingIndicator(dark);
                 }
                 return _buildMessageBubble(_messages[index - 1], dark);
               },
@@ -203,12 +223,51 @@ class _AiChatScreenState extends State<AiChatScreen> {
           borderRadius: BorderRadius.circular(20),
         ),
         child: Text(
-          'TODAY, 10:23 AM',
+          DateFormat('EEEE, hh:mm a').format(DateTime.now()).toUpperCase(),
           style: TextStyle(
             fontSize: 12,
             fontWeight: FontWeight.w600,
             color: dark ? Colors.grey[400] : AppColors.primaryBlue,
           ),
+        ),
+      ),
+    );
+  }
+
+  /// Typing indicator shown when AI is thinking
+  Widget _buildTypingIndicator(bool dark) {
+    return Align(
+      alignment: Alignment.centerLeft,
+      child: Container(
+        margin: const EdgeInsets.only(bottom: 12),
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+        decoration: BoxDecoration(
+          color: dark ? AppColors.darkSurface : Colors.grey[100],
+          borderRadius: BorderRadius.circular(18),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            SizedBox(
+              width: 12,
+              height: 12,
+              child: CircularProgressIndicator(
+                strokeWidth: 2,
+                valueColor: AlwaysStoppedAnimation<Color>(
+                  dark ? Colors.white70 : AppColors.primaryBlue,
+                ),
+              ),
+            ),
+            const SizedBox(width: 8),
+            Text(
+              'Roadside AI is thinking...',
+              style: TextStyle(
+                fontSize: 13,
+                color: dark ? Colors.grey[400] : Colors.grey[600],
+                fontStyle: FontStyle.italic,
+              ),
+            ),
+          ],
         ),
       ),
     );
