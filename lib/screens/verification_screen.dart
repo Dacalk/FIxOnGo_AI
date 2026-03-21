@@ -1,19 +1,74 @@
 import 'package:flutter/material.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import '../theme_provider.dart';
 import '../components/primary_button.dart';
 import '../components/otp_box.dart';
 
-class VerificationScreen extends StatelessWidget {
+class VerificationScreen extends StatefulWidget {
   const VerificationScreen({super.key});
 
   @override
-  Widget build(BuildContext context) {
-    // Get the role + phone passed from the login screen
+  State<VerificationScreen> createState() => _VerificationScreenState();
+}
+
+class _VerificationScreenState extends State<VerificationScreen> {
+  String _enteredOtp = '';
+  String _verificationId = '';
+  bool _isLoading = false;
+
+  Future<void> _sendOtp() async {
     final args =
         ModalRoute.of(context)?.settings.arguments as Map<String, String>? ??
-            {};
+        {};
+
+    final rawPhone = args['phone'] ?? '';
+    final phone = rawPhone.startsWith('0') ? rawPhone.substring(1) : rawPhone;
+
+    await FirebaseAuth.instance.verifyPhoneNumber(
+      phoneNumber: '+94$phone',
+
+      verificationCompleted: (PhoneAuthCredential credential) async {
+        await FirebaseAuth.instance.signInWithCredential(credential);
+      },
+
+      verificationFailed: (FirebaseAuthException e) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(e.message ?? "Verification failed")),
+        );
+      },
+
+      codeSent: (String verificationId, int? resendToken) {
+        setState(() {
+          _verificationId = verificationId;
+        });
+
+        print("Verification ID: $verificationId"); // 🔥 DEBUG
+      },
+
+      codeAutoRetrievalTimeout: (String verificationId) {
+        _verificationId = verificationId;
+      },
+    );
+  }
+
+  @override
+  void initState() {
+    super.initState();
+
+    // 🔥 FIXED WAY (IMPORTANT)
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _sendOtp();
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final args =
+        ModalRoute.of(context)?.settings.arguments as Map<String, String>? ??
+        {};
     final role = args['role'] ?? 'User';
     final phone = args['phone'] ?? '7X XXX XXXX';
+
     final dark = isDarkMode(context);
     final bgColor = dark ? AppColors.darkBackground : Colors.white;
     final titleColor = dark ? Colors.white : Colors.black;
@@ -48,6 +103,7 @@ class VerificationScreen extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             const SizedBox(height: 40),
+
             Text(
               "Verify Your Phone\nNumber",
               style: TextStyle(
@@ -57,7 +113,9 @@ class VerificationScreen extends StatelessWidget {
                 color: titleColor,
               ),
             ),
+
             const SizedBox(height: 15),
+
             RichText(
               text: TextSpan(
                 text: "We've sent a code to  ",
@@ -73,18 +131,20 @@ class VerificationScreen extends StatelessWidget {
                 ],
               ),
             ),
+
             const SizedBox(height: 40),
 
-            // ── Interactive OTP Input (type or paste) ──
             OtpInput(
+              length: 6,
               onCompleted: (otp) {
-                debugPrint('OTP entered: $otp');
+                setState(() {
+                  _enteredOtp = otp;
+                });
               },
             ),
 
             const SizedBox(height: 30),
 
-            // Timer Row
             Row(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
@@ -112,14 +172,45 @@ class VerificationScreen extends StatelessWidget {
 
             const Spacer(),
 
-            // ── Reusable Primary Button (Verify) ──
             Padding(
               padding: const EdgeInsets.only(bottom: 40),
               child: PrimaryButton(
-                label: "Verify & Continue",
-                onPressed: () {
-                  Navigator.pushNamed(context, '/signup',
-                      arguments: role);
+                label: _isLoading ? "Verifying..." : "Verify & Continue",
+                onPressed: () async {
+                  if (_verificationId.isEmpty) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(content: Text("OTP not sent yet")),
+                    );
+                    return;
+                  }
+
+                  if (_enteredOtp.length != 6) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(content: Text("Enter valid 6-digit OTP")),
+                    );
+                    return;
+                  }
+
+                  setState(() => _isLoading = true);
+
+                  try {
+                    final credential = PhoneAuthProvider.credential(
+                      verificationId: _verificationId,
+                      smsCode: _enteredOtp,
+                    );
+
+                    await FirebaseAuth.instance.signInWithCredential(
+                      credential,
+                    );
+
+                    Navigator.pushNamed(context, '/signup', arguments: role);
+                  } catch (e) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(content: Text("Invalid OTP")),
+                    );
+                  }
+
+                  setState(() => _isLoading = false);
                 },
                 borderRadius: 15,
               ),
