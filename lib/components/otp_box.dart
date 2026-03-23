@@ -12,11 +12,7 @@ class OtpInput extends StatefulWidget {
   final int length;
   final ValueChanged<String>? onCompleted;
 
-  const OtpInput({
-    super.key,
-    this.length = 4,
-    this.onCompleted,
-  });
+  const OtpInput({super.key, this.length = 6, this.onCompleted});
 
   @override
   State<OtpInput> createState() => _OtpInputState();
@@ -29,8 +25,7 @@ class _OtpInputState extends State<OtpInput> {
   @override
   void initState() {
     super.initState();
-    _controllers =
-        List.generate(widget.length, (_) => TextEditingController());
+    _controllers = List.generate(widget.length, (_) => TextEditingController());
     _focusNodes = List.generate(widget.length, (_) => FocusNode());
   }
 
@@ -55,8 +50,9 @@ class _OtpInputState extends State<OtpInput> {
       _controllers[i].text = digits[i];
     }
     // Focus the last filled box or the next empty one
-    final focusIndex =
-        digits.length >= widget.length ? widget.length - 1 : digits.length;
+    final focusIndex = digits.length >= widget.length
+        ? widget.length - 1
+        : digits.length;
     _focusNodes[focusIndex].requestFocus();
 
     if (digits.length >= widget.length) {
@@ -72,10 +68,10 @@ class _OtpInputState extends State<OtpInput> {
     final cursorColor = dark ? AppColors.brandYellow : AppColors.primaryBlue;
 
     return Row(
-      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      mainAxisAlignment: MainAxisAlignment.spaceEvenly,
       children: List.generate(widget.length, (index) {
         return Container(
-          width: 70,
+          width: 50,
           height: 70,
           decoration: BoxDecoration(
             color: boxColor,
@@ -103,10 +99,7 @@ class _OtpInputState extends State<OtpInput> {
             inputFormatters: [
               FilteringTextInputFormatter.digitsOnly,
               // Intercept paste of multiple digits
-              _OtpPasteFormatter(
-                length: widget.length,
-                onPaste: _handlePaste,
-              ),
+              _OtpPasteFormatter(length: widget.length, onPaste: _handlePaste),
             ],
             onChanged: (value) {
               if (value.length == 1 && index < widget.length - 1) {
