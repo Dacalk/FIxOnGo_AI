@@ -15,6 +15,7 @@ import 'screens/request_tools_screen.dart';
 import 'screens/video_call_screen.dart';
 import 'screens/voice_call_screen.dart';
 import 'screens/mechanic_chat_screen.dart';
+import 'screens/ai_chat_history_screen.dart';
 import 'screens/arrival_confirmation_screen.dart';
 import 'screens/dashboard_screen.dart';
 import 'screens/payment_successful_screen.dart';
@@ -92,6 +93,7 @@ class FixOnGoApp extends StatelessWidget {
             '/verification': (context) => const VerificationScreen(),
             '/signup': (context) => const SignupScreen(),
             '/ai-chat': (context) => const AiChatScreen(),
+            '/ai-chat-history': (context) => const AiChatHistoryScreen(),
             '/service-request': (context) => const ServiceRequestScreen(),
             '/location': (context) => const LocationScreen(),
             '/add-location': (context) => const AddLocationScreen(),

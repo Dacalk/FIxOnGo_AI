@@ -16,9 +16,11 @@ class GeminiService {
     }
 
     _model = GenerativeModel(model: 'gemini-flash-latest', apiKey: apiKey);
+  }
 
-    // Start a new chat session to maintain context
-    _chatSession = _model.startChat();
+  /// Starts or resumes a chat session with the provided history.
+  void startChat({List<Content>? history}) {
+    _chatSession = _model.startChat(history: history);
   }
 
   /// Sends a message and receives the AI's response.
@@ -33,6 +35,6 @@ class GeminiService {
 
   /// Resets the chat session.
   void resetChat() {
-    _chatSession = _model.startChat();
+    startChat();
   }
 }
