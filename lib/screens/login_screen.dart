@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:cloud_firestore/cloud_firestore.dart'; // ✅ ADD THIS
 import '../theme_provider.dart';
 import '../components/primary_button.dart';
 import '../components/social_button.dart';
@@ -23,18 +24,37 @@ class _LoginScreenState extends State<LoginScreen> {
     super.dispose();
   }
 
-  void _onGetOtp() {
-    final error =
-        PhoneInput.validateSriLankanPhone(_phoneController.text);
+  // ✅ 🔥 SAVE USER DATA TO FIRESTORE
+  Future<void> _saveUserData(String phone, String role) async {
+    try {
+      await FirebaseFirestore.instance
+          .collection('users')
+          .doc(phone) // unique ID
+          .set({'phone': phone, 'role': role, 'createdAt': Timestamp.now()});
+
+      print("User saved to Firestore");
+    } catch (e) {
+      print("Error saving user: $e");
+    }
+  }
+
+  // ✅ 🔥 UPDATED FUNCTION
+  void _onGetOtp() async {
+    final error = PhoneInput.validateSriLankanPhone(_phoneController.text);
     setState(() => _phoneError = error);
 
     if (error == null) {
-      // Phone is valid — navigate to verification, pass role + phone
-      Navigator.pushNamed(context, '/verification',
-          arguments: {
-            'role': _selectedRole,
-            'phone': _phoneController.text,
-          });
+      String phone = _phoneController.text;
+
+      // 🔥 SAVE DATA FIRST
+      await _saveUserData(phone, _selectedRole);
+
+      // 👉 Navigate to OTP screen
+      Navigator.pushNamed(
+        context,
+        '/verification',
+        arguments: {'role': _selectedRole, 'phone': phone},
+      );
     }
   }
 
@@ -42,10 +62,8 @@ class _LoginScreenState extends State<LoginScreen> {
   Widget build(BuildContext context) {
     final dark = isDarkMode(context);
     final bgColor = dark ? AppColors.darkBackground : AppColors.lightBackground;
-    final titleColor =
-        dark ? AppColors.darkTitleText : const Color(0xFF1A1A1A);
-    final subtitleColor =
-        dark ? AppColors.darkSubtitleText : Colors.blueGrey;
+    final titleColor = dark ? AppColors.darkTitleText : const Color(0xFF1A1A1A);
+    final subtitleColor = dark ? AppColors.darkSubtitleText : Colors.blueGrey;
 
     return Scaffold(
       backgroundColor: bgColor,
@@ -65,7 +83,6 @@ class _LoginScreenState extends State<LoginScreen> {
                     ),
                   ),
                 ),
-                // Dark overlay for better text readability
                 Container(
                   height: 300,
                   decoration: BoxDecoration(
@@ -96,7 +113,9 @@ class _LoginScreenState extends State<LoginScreen> {
                             radius: 24,
                             child: Icon(
                               Icons.car_repair,
-                              color: dark ? AppColors.brandYellow : Colors.black,
+                              color: dark
+                                  ? AppColors.brandYellow
+                                  : Colors.black,
                               size: 24,
                             ),
                           ),
@@ -148,6 +167,7 @@ class _LoginScreenState extends State<LoginScreen> {
                     ),
                   ),
                   const SizedBox(height: 20),
+
                   Text(
                     "Choose Your Role",
                     style: TextStyle(
@@ -157,7 +177,6 @@ class _LoginScreenState extends State<LoginScreen> {
                   ),
                   const SizedBox(height: 10),
 
-                  // ── Reusable Role Dropdown ──
                   RoleDropdown(
                     onChanged: (role) {
                       if (role != null) {
@@ -167,16 +186,13 @@ class _LoginScreenState extends State<LoginScreen> {
                   ),
 
                   const SizedBox(height: 20),
+
                   Text(
                     "Enter your phone number to receive a verification code.",
-                    style: TextStyle(
-                      color: subtitleColor,
-                      fontSize: 13,
-                    ),
+                    style: TextStyle(color: subtitleColor, fontSize: 13),
                   ),
                   const SizedBox(height: 15),
 
-                  // ── Reusable Phone Input with validation ──
                   PhoneInput(
                     controller: _phoneController,
                     errorText: _phoneError,
@@ -184,7 +200,7 @@ class _LoginScreenState extends State<LoginScreen> {
 
                   const SizedBox(height: 25),
 
-                  // ── Reusable Primary Button (Get OTP) ──
+                  // 🔥 BUTTON (UPDATED FUNCTION)
                   PrimaryButton(
                     label: "Get OTP",
                     onPressed: _onGetOtp,
@@ -194,7 +210,6 @@ class _LoginScreenState extends State<LoginScreen> {
 
                   const SizedBox(height: 30),
 
-                  // Divider with "Or continue with"
                   Row(
                     children: [
                       Expanded(
@@ -218,9 +233,9 @@ class _LoginScreenState extends State<LoginScreen> {
                       ),
                     ],
                   ),
+
                   const SizedBox(height: 20),
 
-                  // ── Reusable Social Buttons ──
                   const Row(
                     children: [
                       Expanded(
@@ -240,42 +255,15 @@ class _LoginScreenState extends State<LoginScreen> {
                   ),
 
                   const SizedBox(height: 40),
+
                   Center(
-                    child: RichText(
-                      textAlign: TextAlign.center,
-                      text: TextSpan(
-                        text: "By logging in, you agree to our ",
-                        style: TextStyle(
-                          fontSize: 11,
-                          color: dark ? Colors.grey[500] : Colors.grey,
-                        ),
-                        children: [
-                          TextSpan(
-                            text: "Terms of Service",
-                            style: TextStyle(
-                              color: dark
-                                  ? AppColors.brandYellow
-                                  : Colors.blue,
-                              fontWeight: FontWeight.w500,
-                            ),
-                          ),
-                          TextSpan(
-                            text: " & ",
-                            style: TextStyle(
-                              color: dark ? Colors.grey[500] : Colors.grey,
-                            ),
-                          ),
-                          TextSpan(
-                            text: "Privacy policy",
-                            style: TextStyle(
-                              color: dark
-                                  ? AppColors.brandYellow
-                                  : Colors.blue,
-                              fontWeight: FontWeight.w500,
-                            ),
-                          ),
-                        ],
+                    child: Text(
+                      "By logging in, you agree to our Terms & Privacy Policy",
+                      style: TextStyle(
+                        fontSize: 11,
+                        color: dark ? Colors.grey[500] : Colors.grey,
                       ),
+                      textAlign: TextAlign.center,
                     ),
                   ),
                 ],
