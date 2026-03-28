@@ -72,7 +72,7 @@ class _AiChatScreenState extends State<AiChatScreen> {
       _sessionTitle = widget.existingSession!.title;
       _messages = List.from(widget.existingSession!.messages);
     } else {
-      _sessionId = const Uuid().v4();
+      final _sessionId = Uuid().v4();
       _sessionTitle = 'New Chat';
       _messages = [
         ChatMessage(
