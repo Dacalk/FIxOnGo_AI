@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:cloud_firestore/cloud_firestore.dart'; // ✅ ADD THIS
+import 'package:cloud_firestore/cloud_firestore.dart';
 import '../theme_provider.dart';
 import '../components/primary_button.dart';
 import '../components/social_button.dart';
@@ -24,21 +24,6 @@ class _LoginScreenState extends State<LoginScreen> {
     super.dispose();
   }
 
-  // ✅ 🔥 SAVE USER DATA TO FIRESTORE
-  Future<void> _saveUserData(String phone, String role) async {
-    try {
-      await FirebaseFirestore.instance
-          .collection('users')
-          .doc(phone) // unique ID
-          .set({'phone': phone, 'role': role, 'createdAt': Timestamp.now()});
-
-      print("User saved to Firestore");
-    } catch (e) {
-      print("Error saving user: $e");
-    }
-  }
-
-  // ✅ 🔥 UPDATED FUNCTION
   void _onGetOtp() async {
     final error = PhoneInput.validateSriLankanPhone(_phoneController.text);
     setState(() => _phoneError = error);
@@ -46,10 +31,6 @@ class _LoginScreenState extends State<LoginScreen> {
     if (error == null) {
       String phone = _phoneController.text;
 
-      // 🔥 SAVE DATA FIRST
-      await _saveUserData(phone, _selectedRole);
-
-      // 👉 Navigate to OTP screen
       Navigator.pushNamed(
         context,
         '/verification',
@@ -71,7 +52,6 @@ class _LoginScreenState extends State<LoginScreen> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // Header Image Section
             Stack(
               children: [
                 Container(
@@ -178,11 +158,8 @@ class _LoginScreenState extends State<LoginScreen> {
                   const SizedBox(height: 10),
 
                   RoleDropdown(
-                    onChanged: (role) {
-                      if (role != null) {
-                        setState(() => _selectedRole = role);
-                      }
-                    },
+                    onChanged: (role) =>
+                        setState(() => _selectedRole = role ?? 'User'),
                   ),
 
                   const SizedBox(height: 20),
@@ -200,7 +177,6 @@ class _LoginScreenState extends State<LoginScreen> {
 
                   const SizedBox(height: 25),
 
-                  // 🔥 BUTTON (UPDATED FUNCTION)
                   PrimaryButton(
                     label: "Get OTP",
                     onPressed: _onGetOtp,

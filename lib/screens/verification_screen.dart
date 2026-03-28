@@ -1,8 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:cloud_firestore/cloud_firestore.dart'; // ADD THIS
 import '../theme_provider.dart';
 import '../components/primary_button.dart';
 import '../components/otp_box.dart';
+
+import 'package:cloud_firestore/cloud_firestore.dart';
 
 class VerificationScreen extends StatefulWidget {
   const VerificationScreen({super.key});
@@ -42,7 +45,7 @@ class _VerificationScreenState extends State<VerificationScreen> {
           _verificationId = verificationId;
         });
 
-        print("Verification ID: $verificationId"); // 🔥 DEBUG
+        print("Verification ID: $verificationId");
       },
 
       codeAutoRetrievalTimeout: (String verificationId) {
@@ -55,7 +58,6 @@ class _VerificationScreenState extends State<VerificationScreen> {
   void initState() {
     super.initState();
 
-    // 🔥 FIXED WAY (IMPORTANT)
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _sendOtp();
     });
@@ -202,6 +204,29 @@ class _VerificationScreenState extends State<VerificationScreen> {
                     await FirebaseAuth.instance.signInWithCredential(
                       credential,
                     );
+
+                    // GET UID
+                    final user = FirebaseAuth.instance.currentUser;
+                    String uid = user!.uid;
+
+                    // GET DATA FROM LOGIN SCREEN
+                    final args =
+                        ModalRoute.of(context)?.settings.arguments
+                            as Map<String, String>? ??
+                        {};
+
+                    final phone = args['phone'] ?? '';
+                    final role = args['role'] ?? 'User';
+
+                    // SAVE TO FIRESTORE
+                    await FirebaseFirestore.instance
+                        .collection('users')
+                        .doc(uid)
+                        .set({
+                          'phone': phone,
+                          'role': role,
+                          'createdAt': FieldValue.serverTimestamp(),
+                        }, SetOptions(merge: true));
 
                     Navigator.pushNamed(context, '/signup', arguments: role);
                   } catch (e) {
