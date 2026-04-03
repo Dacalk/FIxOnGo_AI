@@ -1,7 +1,11 @@
 import 'package:flutter/material.dart';
 import '../theme_provider.dart';
 import '../services/gemini_service.dart';
+import '../services/chat_history_service.dart';
+import '../models/chat_session.dart';
+import 'package:google_generative_ai/google_generative_ai.dart' as genai;
 import 'package:intl/intl.dart';
+import 'package:uuid/uuid.dart';
 
 /// A model representing a single chat message.
 class ChatMessage {
@@ -16,13 +20,32 @@ class ChatMessage {
     required this.isUser,
     this.imagePath,
   });
+
+  Map<String, dynamic> toMap() {
+    return {
+      'text': text,
+      'time': time,
+      'isUser': isUser,
+      'imagePath': imagePath,
+    };
+  }
+
+  factory ChatMessage.fromMap(Map<String, dynamic> map) {
+    return ChatMessage(
+      text: map['text'] as String,
+      time: map['time'] as String,
+      isUser: map['isUser'] as bool,
+      imagePath: map['imagePath'] as String?,
+    );
+  }
 }
 
 /// Roadside AI Assistant chat screen.
 /// Displays a conversation-style UI with AI and user message bubbles,
 /// timestamps, and optional image attachments.
 class AiChatScreen extends StatefulWidget {
-  const AiChatScreen({super.key});
+  final ChatSession? existingSession;
+  const AiChatScreen({super.key, this.existingSession});
 
   @override
   State<AiChatScreen> createState() => _AiChatScreenState();
@@ -31,22 +54,106 @@ class AiChatScreen extends StatefulWidget {
 class _AiChatScreenState extends State<AiChatScreen> {
   final TextEditingController _messageController = TextEditingController();
   final ScrollController _scrollController = ScrollController();
+  final ChatHistoryService _historyService = ChatHistoryService();
   late GeminiService _geminiService;
+  late String _sessionId;
+  late String _sessionTitle;
   bool _isLoading = false;
 
-  final List<ChatMessage> _messages = [
-    ChatMessage(
-      text:
-          "Hi there. I'm your FixOnGo AI Assistant. How can I help you today?",
-      time: DateFormat('hh:mm a').format(DateTime.now()),
-      isUser: false,
-    ),
-  ];
+  List<ChatMessage> _messages = [];
 
   @override
   void initState() {
     super.initState();
     _geminiService = GeminiService();
+
+    if (widget.existingSession != null) {
+      _sessionId = widget.existingSession!.id;
+      _sessionTitle = widget.existingSession!.title;
+      _messages = List.from(widget.existingSession!.messages);
+    } else {
+      final _sessionId = Uuid().v4();
+      _sessionTitle = 'New Chat';
+      _messages = [
+        ChatMessage(
+          text:
+              "Hi there. I'm your FixOnGo AI Assistant. How can I help you today?",
+          time: DateFormat('hh:mm a').format(DateTime.now()),
+          isUser: false,
+        ),
+      ];
+    }
+
+    _initializeGemini();
+  }
+
+  void _initializeGemini() {
+    if (_messages.isNotEmpty && widget.existingSession != null) {
+      // Let's do it manually to be safe
+      final List<genai.Content> history = _messages
+          .where(
+            (m) =>
+                m.text !=
+                "Hi there. I'm your FixOnGo AI Assistant. How can I help you today?",
+          )
+          .map((m) {
+            return genai.Content(m.isUser ? 'user' : 'model', [
+              genai.TextPart(m.text),
+            ]);
+          })
+          .toList();
+      _geminiService.startChat(history: history);
+    } else {
+      _geminiService.startChat();
+    }
+    _scrollToBottom();
+  }
+
+  Future<void> _saveCurrentSession() async {
+    if (_messages.isEmpty) return;
+
+    // Use the first user message as the title if it's still "New Chat"
+    if (_sessionTitle == 'New Chat') {
+      try {
+        final firstUserMsg = _messages.firstWhere((m) => m.isUser);
+        _sessionTitle = firstUserMsg.text.length > 30
+            ? '${firstUserMsg.text.substring(0, 27)}...'
+            : firstUserMsg.text;
+      } catch (_) {
+        // No user message yet
+      }
+    }
+
+    final session = ChatSession(
+      id: _sessionId,
+      title: _sessionTitle,
+      lastMessage: _messages.last.text,
+      timestamp: DateTime.now(),
+      messages: _messages,
+    );
+
+    await _historyService.saveSession(session);
+  }
+
+  void _clearHistory() async {
+    // For Multi-session, "Clear" means resetting this specific session
+    _geminiService.resetChat();
+    setState(() {
+      _sessionTitle = 'New Chat';
+      _messages = [
+        ChatMessage(
+          text:
+              "Hi there. I'm your FixOnGo AI Assistant. How can I help you today?",
+          time: DateFormat('hh:mm a').format(DateTime.now()),
+          isUser: false,
+        ),
+      ];
+    });
+    // Update the saved session to clear messages
+    _saveCurrentSession();
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(const SnackBar(content: Text('Chat reset')));
   }
 
   @override
@@ -74,20 +181,26 @@ class _AiChatScreenState extends State<AiChatScreen> {
     _messageController.clear();
     _scrollToBottom();
 
+    // Save session immediately
+    _saveCurrentSession();
+
     try {
       final aiResponse = await _geminiService.sendMessage(text);
 
+      final aiMessage = ChatMessage(
+        text: aiResponse,
+        time: DateFormat('hh:mm a').format(DateTime.now()),
+        isUser: false,
+      );
+
       setState(() {
-        _messages.add(
-          ChatMessage(
-            text: aiResponse,
-            time: DateFormat('hh:mm a').format(DateTime.now()),
-            isUser: false,
-          ),
-        );
+        _messages.add(aiMessage);
         _isLoading = false;
       });
       _scrollToBottom();
+
+      // Save session with AI response
+      _saveCurrentSession();
     } catch (e) {
       setState(() {
         _isLoading = false;
@@ -177,6 +290,45 @@ class _AiChatScreenState extends State<AiChatScreen> {
           ],
         ),
         actions: [
+          IconButton(
+            icon: Icon(
+              Icons.history,
+              color: dark ? Colors.white : Colors.black,
+            ),
+            onPressed: () {
+              Navigator.pushNamed(context, '/ai-chat-history');
+            },
+          ),
+          IconButton(
+            icon: Icon(
+              Icons.delete_sweep,
+              color: dark ? Colors.white : Colors.black,
+            ),
+            onPressed: () {
+              showDialog(
+                context: context,
+                builder: (context) => AlertDialog(
+                  title: const Text('Clear History'),
+                  content: const Text(
+                    'Are you sure you want to clear the chat history?',
+                  ),
+                  actions: [
+                    TextButton(
+                      onPressed: () => Navigator.pop(context),
+                      child: const Text('Cancel'),
+                    ),
+                    TextButton(
+                      onPressed: () {
+                        Navigator.pop(context);
+                        _clearHistory();
+                      },
+                      child: const Text('Clear'),
+                    ),
+                  ],
+                ),
+              );
+            },
+          ),
           IconButton(
             icon: Icon(Icons.close, color: dark ? Colors.white : Colors.black),
             onPressed: () => Navigator.pop(context),

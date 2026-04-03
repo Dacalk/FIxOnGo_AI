@@ -8,6 +8,7 @@ class FormDropdown extends StatefulWidget {
   final String hintText;
   final List<String> items;
   final ValueChanged<String?>? onChanged;
+  final String? initialValue;
 
   const FormDropdown({
     super.key,
@@ -15,6 +16,7 @@ class FormDropdown extends StatefulWidget {
     required this.hintText,
     required this.items,
     this.onChanged,
+    this.initialValue,
   });
 
   @override
@@ -23,6 +25,12 @@ class FormDropdown extends StatefulWidget {
 
 class _FormDropdownState extends State<FormDropdown> {
   String? _selected;
+
+  @override
+  void initState() {
+    super.initState();
+    _selected = widget.initialValue;
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -57,26 +65,19 @@ class _FormDropdownState extends State<FormDropdown> {
               value: _selected,
               dropdownColor: dark ? AppColors.darkSurface : Colors.white,
               borderRadius: BorderRadius.circular(12),
-              hint: Text(
-                widget.hintText,
-                style: TextStyle(color: hintColor),
-              ),
-              icon: Icon(
-                Icons.keyboard_arrow_down,
-                color: hintColor,
-              ),
+              hint: Text(widget.hintText, style: TextStyle(color: hintColor)),
+              icon: Icon(Icons.keyboard_arrow_down, color: hintColor),
               items: widget.items
-                  .map((item) => DropdownMenuItem(
-                        value: item,
-                        child: Text(
-                          item,
-                          style: TextStyle(color: textColor),
-                        ),
-                      ))
+                  .map(
+                    (item) => DropdownMenuItem(
+                      value: item,
+                      child: Text(item, style: TextStyle(color: textColor)),
+                    ),
+                  )
                   .toList(),
               onChanged: (val) {
-                setState(() => _selected = val);
-                widget.onChanged?.call(val);
+                setState(() => _selected = val ?? '');
+                widget.onChanged?.call(val ?? '');
               },
             ),
           ),

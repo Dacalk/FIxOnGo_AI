@@ -9,6 +9,7 @@ class FormInput extends StatelessWidget {
   final String? helperText;
   final TextEditingController? controller;
   final TextInputType keyboardType;
+  final Function(String)? onChanged; //  ADD THIS
 
   const FormInput({
     super.key,
@@ -17,6 +18,7 @@ class FormInput extends StatelessWidget {
     this.helperText,
     this.controller,
     this.keyboardType = TextInputType.text,
+    this.onChanged, //  ADD THIS
   });
 
   @override
@@ -50,8 +52,10 @@ class FormInput extends StatelessWidget {
             hintStyle: TextStyle(color: hintColor),
             filled: true,
             fillColor: fillColor,
-            contentPadding:
-                const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+            contentPadding: const EdgeInsets.symmetric(
+              horizontal: 16,
+              vertical: 16,
+            ),
             border: OutlineInputBorder(
               borderRadius: BorderRadius.circular(12),
               borderSide: BorderSide.none,
@@ -68,13 +72,11 @@ class FormInput extends StatelessWidget {
               ),
             ),
           ),
+          onChanged: onChanged, //  ADD THIS
         ),
         if (helperText != null) ...[
           const SizedBox(height: 6),
-          Text(
-            helperText!,
-            style: TextStyle(fontSize: 12, color: helperColor),
-          ),
+          Text(helperText!, style: TextStyle(fontSize: 12, color: helperColor)),
         ],
       ],
     );
