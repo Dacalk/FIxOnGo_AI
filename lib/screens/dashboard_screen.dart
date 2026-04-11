@@ -4,10 +4,15 @@ import '../components/dashboard_header.dart';
 import '../components/stat_card.dart';
 import '../components/quick_action_card.dart';
 
+import 'package:firebase_auth/firebase_auth.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
+
 /// Main dashboard screen with bottom navigation.
 /// Renders role-specific content based on the user's role.
 class DashboardScreen extends StatefulWidget {
-  const DashboardScreen({super.key});
+  final String role; //  ADD THIS
+
+  const DashboardScreen({super.key, required this.role}); // 🔥 UPDATE
 
   @override
   State<DashboardScreen> createState() => _DashboardScreenState();
@@ -16,10 +21,42 @@ class DashboardScreen extends StatefulWidget {
 class _DashboardScreenState extends State<DashboardScreen> {
   int _currentIndex = 0;
 
+  String userName = '';
+  bool isLoading = true;
+
+  @override
+  void initState() {
+    super.initState();
+    loadUserData();
+  }
+
+  Future<void> loadUserData() async {
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null) return;
+
+    final role = widget.role;
+
+    var doc = await FirebaseFirestore.instance
+        .collection('users')
+        .doc(user.uid)
+        .get();
+
+    if (doc.exists) {
+      final data = doc.data();
+      final roleData = data?['roles']?[role];
+
+      print("NAME FROM FIREBASE: ${roleData?['fullName']}");
+
+      setState(() {
+        userName = roleData?['fullName'] ?? 'User';
+        isLoading = false;
+      });
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
-    final role =
-        ModalRoute.of(context)?.settings.arguments as String? ?? 'User';
+    final role = widget.role;
     final dark = isDarkMode(context);
     final bgColor = dark ? AppColors.darkBackground : const Color(0xFFF5F8FF);
 
@@ -86,9 +123,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
           },
           type: BottomNavigationBarType.fixed,
           backgroundColor: dark ? const Color(0xFF111D35) : Colors.white,
-          selectedItemColor: dark
-              ? AppColors.brandYellow
-              : AppColors.primaryBlue,
+          selectedItemColor:
+              dark ? AppColors.brandYellow : AppColors.primaryBlue,
           unselectedItemColor: dark ? Colors.grey[600] : Colors.grey[400],
           selectedFontSize: 12,
           unselectedFontSize: 11,
@@ -142,9 +178,9 @@ class _DashboardScreenState extends State<DashboardScreen> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           // Header
-          const DashboardHeader(
-            userName: 'Anna',
-            role: 'User',
+          DashboardHeader(
+            userName: isLoading ? 'Loading...' : userName,
+            role: widget.role,
             vehicleInfo: 'Ford F-150',
           ),
           const SizedBox(height: 16),
@@ -229,9 +265,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
                     style: TextStyle(
                       fontSize: 11,
                       fontWeight: FontWeight.bold,
-                      color: dark
-                          ? AppColors.brandYellow
-                          : AppColors.primaryBlue,
+                      color:
+                          dark ? AppColors.brandYellow : AppColors.primaryBlue,
                       letterSpacing: 0.5,
                     ),
                   ),
@@ -316,9 +351,9 @@ class _DashboardScreenState extends State<DashboardScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const DashboardHeader(
-            userName: 'Anna',
-            role: 'Mechanic',
+          DashboardHeader(
+            userName: isLoading ? 'Loading...' : userName,
+            role: widget.role,
             vehicleInfo: 'AutoFix Pro',
           ),
           const SizedBox(height: 20),
@@ -470,9 +505,9 @@ class _DashboardScreenState extends State<DashboardScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const DashboardHeader(
-            userName: 'Anna',
-            role: 'Tow',
+          DashboardHeader(
+            userName: isLoading ? 'Loading...' : userName,
+            role: widget.role,
             vehicleInfo: 'Hino 300',
           ),
           const SizedBox(height: 20),
@@ -607,9 +642,9 @@ class _DashboardScreenState extends State<DashboardScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const DashboardHeader(
-            userName: 'Anna',
-            role: 'Seller',
+          DashboardHeader(
+            userName: isLoading ? 'Loading...' : userName,
+            role: widget.role,
             vehicleInfo: 'Auto Parts LK',
           ),
           const SizedBox(height: 20),
@@ -742,9 +777,9 @@ class _DashboardScreenState extends State<DashboardScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const DashboardHeader(
-            userName: 'Anna',
-            role: 'Driver',
+          DashboardHeader(
+            userName: isLoading ? 'Loading...' : userName,
+            role: widget.role,
             vehicleInfo: 'Colombo Zone',
           ),
           const SizedBox(height: 20),
@@ -834,9 +869,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
                             Text(
                               'Deliver to: Colombo 07 • 3.2 km',
                               style: TextStyle(
-                                color: dark
-                                    ? Colors.grey[400]
-                                    : Colors.grey[600],
+                                color:
+                                    dark ? Colors.grey[400] : Colors.grey[600],
                                 fontSize: 12,
                               ),
                             ),

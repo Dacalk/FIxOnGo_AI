@@ -7,6 +7,8 @@ import '../components/primary_button.dart';
 import '../components/form_input.dart';
 import '../components/form_dropdown.dart';
 
+import 'dashboard_screen.dart';
+
 class SignupScreen extends StatefulWidget {
   const SignupScreen({super.key});
 
@@ -15,7 +17,7 @@ class SignupScreen extends StatefulWidget {
 }
 
 class _SignupScreenState extends State<SignupScreen> {
-  //  VARIABLES
+  // ================= VARIABLES =================
   String fullName = '';
   String vehicleType = '';
   String plate = '';
@@ -36,6 +38,42 @@ class _SignupScreenState extends State<SignupScreen> {
   String category = '';
   String address = '';
 
+  // ================= SAVE FUNCTION =================
+  Future<void> _saveUser(String role) async {
+    final user = FirebaseAuth.instance.currentUser;
+
+    if (user == null) return;
+
+    await FirebaseFirestore.instance.collection('users').doc(user.uid).set({
+      // 🔹 COMMON DATA
+      'uid': user.uid,
+      'email': user.email ?? '',
+      'phone': user.phoneNumber ?? '',
+
+      //  ROLE BASED DATA
+      'roles': {
+        role: {
+          'fullName': fullName,
+          'vehicleType': vehicleType,
+          'plate': plate,
+          'color': color,
+          'emergency': emergency,
+          'expertise': expertise,
+          'nic': nic,
+          'workshop': workshop,
+          'experience': experience,
+          'truckModel': truckModel,
+          'towingCapacity': towingCapacity,
+          'deliveryArea': deliveryArea,
+          'shopName': shopName,
+          'category': category,
+          'address': address,
+          'createdAt': FieldValue.serverTimestamp(),
+        }
+      }
+    }, SetOptions(merge: true)); //  IMPORTANT
+  }
+
   @override
   Widget build(BuildContext context) {
     final role =
@@ -45,6 +83,7 @@ class _SignupScreenState extends State<SignupScreen> {
     final bgColor = dark ? AppColors.darkBackground : Colors.white;
     final titleColor = dark ? Colors.white : Colors.black;
     final subtitleColor = dark ? Colors.grey[400]! : Colors.grey[600]!;
+
     final backBtnBg = dark ? AppColors.darkSurface : Colors.blue[50]!;
     final backBtnIcon = dark ? Colors.white : Colors.black;
     final appBarTitleColor = dark ? Colors.white : AppColors.primaryBlue;
@@ -64,18 +103,15 @@ class _SignupScreenState extends State<SignupScreen> {
         break;
       case 'Driver':
         appBarTitle = 'DRIVER ACCOUNT';
-        description =
-            'Deliver parts and essentials to drivers in need, right where they are.';
+        description = 'Deliver parts and essentials to drivers in need.';
         break;
       case 'Seller':
         appBarTitle = 'SELLER ACCOUNT';
-        description =
-            'Sell vehicle parts and accessories to drivers who need them most.';
+        description = 'Sell vehicle parts and accessories.';
         break;
       default:
         appBarTitle = 'CREATE ACCOUNT';
-        description =
-            'We need this info to help our response team identify you faster during an emergency.';
+        description = 'We need this info to help identify you faster.';
     }
 
     return Scaffold(
@@ -124,7 +160,11 @@ class _SignupScreenState extends State<SignupScreen> {
             const SizedBox(height: 8),
             Text(
               description,
-              style: TextStyle(fontSize: 14, color: subtitleColor, height: 1.4),
+              style: TextStyle(
+                fontSize: 14,
+                color: subtitleColor,
+                height: 1.4,
+              ),
             ),
             const SizedBox(height: 28),
             ..._buildFormFields(role),
@@ -133,7 +173,13 @@ class _SignupScreenState extends State<SignupScreen> {
               label: 'Verify & Continue',
               onPressed: () async {
                 await _saveUser(role);
-                Navigator.pushNamed(context, '/dashboard', arguments: role);
+
+                Navigator.pushReplacement(
+                  context,
+                  MaterialPageRoute(
+                    builder: (_) => DashboardScreen(role: role),
+                  ),
+                );
               },
               borderRadius: 15,
             ),
@@ -144,44 +190,14 @@ class _SignupScreenState extends State<SignupScreen> {
     );
   }
 
-  //  FIREBASE SAVE
-  Future<void> _saveUser(String role) async {
-    final user = FirebaseAuth.instance.currentUser;
-    if (user == null) return;
+  // ================= FORM FIELDS =================
 
-    await FirebaseFirestore.instance.collection('users').doc(user.uid).set({
-      'uid': user.uid,
-      'phone': user.phoneNumber,
-      'role': role,
-      'fullName': fullName,
-      'vehicleType': vehicleType,
-      'plate': plate,
-      'color': color,
-      'emergency': emergency,
-      'expertise': expertise,
-      'nic': nic,
-      'workshop': workshop,
-      'experience': experience,
-      'truckModel': truckModel,
-      'towingCapacity': towingCapacity,
-      'deliveryArea': deliveryArea,
-      'shopName': shopName,
-      'category': category,
-      'address': address,
-      'createdAt': FieldValue.serverTimestamp(),
-    }, SetOptions(merge: true));
-
-    print(" Saved with SAME UID");
-  }
-
-  // ───────── FORM FIELDS ─────────
   List<Widget> _defaultUserFields() {
     return [
       FormInput(
-        label: 'Full Name',
-        hintText: 'Anna De Parie',
-        onChanged: (v) => fullName = v,
-      ),
+          label: 'Full Name',
+          hintText: 'Anna De Parie',
+          onChanged: (v) => fullName = v),
       const SizedBox(height: 20),
       FormDropdown(
         label: 'Vehicle Type',
@@ -193,190 +209,149 @@ class _SignupScreenState extends State<SignupScreen> {
           'Motorcycle',
           'Three-Wheeler',
           'Bus',
-          'Truck',
-          'Other',
+          'Truck'
         ],
         onChanged: (v) => vehicleType = v ?? '',
       ),
       const SizedBox(height: 20),
       FormInput(
-        label: 'Vehicle Plate Number',
-        hintText: 'PH-1234',
-        onChanged: (v) => plate = v,
-      ),
+          label: 'Vehicle Plate Number',
+          hintText: 'PH-1234',
+          onChanged: (v) => plate = v),
       const SizedBox(height: 20),
       FormInput(
-        label: 'Vehicle Color',
-        hintText: 'White',
-        onChanged: (v) => color = v,
-      ),
+          label: 'Vehicle Color',
+          hintText: 'White',
+          onChanged: (v) => color = v),
       const SizedBox(height: 20),
       FormInput(
-        label: 'Emergency Contact',
-        hintText: '7XXXXXXXX',
-        onChanged: (v) => emergency = v,
-      ),
+          label: 'Emergency Contact',
+          hintText: '7XXXXXXXX',
+          onChanged: (v) => emergency = v),
     ];
   }
 
   List<Widget> _mechanicFields() {
     return [
       FormInput(
-        label: 'Full Name',
-        hintText: 'Anna',
-        onChanged: (v) => fullName = v,
-      ),
+          label: 'Full Name', hintText: 'Anna', onChanged: (v) => fullName = v),
       const SizedBox(height: 20),
       FormDropdown(
         label: 'Expertise',
         hintText: 'Select Skill',
-        items: [
-          'Engine',
-          'Electrical',
-          'Brake',
-          'Transmission',
-          'Paint',
-          'AC',
-          'General',
-        ],
+        items: ['Engine', 'Electrical', 'Brake', 'Transmission', 'Paint', 'AC'],
         onChanged: (v) => expertise = v ?? '',
       ),
       const SizedBox(height: 20),
       FormInput(
-        label: 'NIC / ID Number',
-        hintText: '123456789V',
-        onChanged: (v) => nic = v,
-      ),
+          label: 'NIC / ID Number',
+          hintText: '123456789V',
+          onChanged: (v) => nic = v),
       const SizedBox(height: 20),
       FormInput(
-        label: 'Workshop Name',
-        hintText: 'ABC Garage',
-        onChanged: (v) => workshop = v,
-      ),
+          label: 'Workshop Name',
+          hintText: 'ABC Garage',
+          onChanged: (v) => workshop = v),
       const SizedBox(height: 20),
       FormInput(
-        label: 'Years of Experience',
-        hintText: '5',
-        onChanged: (v) => experience = v,
-      ),
+          label: 'Years of Experience',
+          hintText: '5',
+          onChanged: (v) => experience = v),
     ];
   }
 
   List<Widget> _towFields() {
     return [
       FormInput(
-        label: 'Full Name',
-        hintText: 'Anna',
-        onChanged: (v) => fullName = v,
-      ),
+          label: 'Full Name', hintText: 'Anna', onChanged: (v) => fullName = v),
       const SizedBox(height: 20),
       FormInput(
-        label: 'Tow Truck Model',
-        hintText: 'Hino',
-        onChanged: (v) => truckModel = v,
-      ),
+          label: 'Tow Truck Model',
+          hintText: 'Hino',
+          onChanged: (v) => truckModel = v),
       const SizedBox(height: 20),
       FormDropdown(
         label: 'Towing Capacity',
-        hintText: 'Select',
+        hintText: 'Select Capacity',
         items: ['1-2', '2-5', '5-10', '10-20', '20+'],
         onChanged: (v) => towingCapacity = v ?? '',
       ),
       const SizedBox(height: 20),
       FormInput(
-        label: 'Vehicle Plate Number',
-        hintText: 'ABC-1234',
-        onChanged: (v) => plate = v,
-      ),
+          label: 'Vehicle Plate Number',
+          hintText: 'ABC-1234',
+          onChanged: (v) => plate = v),
       const SizedBox(height: 20),
       FormInput(
-        label: 'Workshop Name',
-        hintText: 'Garage',
-        onChanged: (v) => workshop = v,
-      ),
+          label: 'Workshop Name',
+          hintText: 'Garage',
+          onChanged: (v) => workshop = v),
     ];
   }
 
   List<Widget> _driverFields() {
     return [
       FormInput(
-        label: 'Full Name',
-        hintText: 'Anna',
-        onChanged: (v) => fullName = v,
-      ),
+          label: 'Full Name', hintText: 'Anna', onChanged: (v) => fullName = v),
       const SizedBox(height: 20),
       FormDropdown(
         label: 'Vehicle Type',
-        hintText: 'Select',
-        items: ['Motorcycle', 'Three-Wheeler', 'Car', 'Van', 'Truck'],
+        hintText: 'Select Vehicle',
+        items: ['Motorcycle', 'Three-Wheeler', 'Car', 'Van'],
         onChanged: (v) => vehicleType = v ?? '',
       ),
       const SizedBox(height: 20),
       FormInput(
-        label: 'Vehicle Plate Number',
-        hintText: 'ABC-1234',
-        onChanged: (v) => plate = v,
-      ),
+          label: 'Vehicle Plate Number',
+          hintText: 'ABC-1234',
+          onChanged: (v) => plate = v),
       const SizedBox(height: 20),
       FormInput(
-        label: 'NIC',
-        hintText: '123456789V',
-        onChanged: (v) => nic = v,
-      ),
+          label: 'NIC / ID', hintText: '123456789V', onChanged: (v) => nic = v),
       const SizedBox(height: 20),
       FormDropdown(
         label: 'Delivery Area',
-        hintText: 'Select',
+        hintText: 'Select Area',
         items: ['Colombo', 'Gampaha', 'Kandy', 'Galle', 'Matara'],
         onChanged: (v) => deliveryArea = v ?? '',
       ),
       const SizedBox(height: 20),
       FormInput(
-        label: 'Emergency Contact',
-        hintText: '7XXXXXXXX',
-        onChanged: (v) => emergency = v,
-      ),
+          label: 'Emergency Contact',
+          hintText: '7XXXXXXXX',
+          onChanged: (v) => emergency = v),
     ];
   }
 
   List<Widget> _sellerFields() {
     return [
       FormInput(
-        label: 'Full Name',
-        hintText: 'Anna',
-        onChanged: (v) => fullName = v,
-      ),
+          label: 'Full Name', hintText: 'Anna', onChanged: (v) => fullName = v),
       const SizedBox(height: 20),
       FormInput(
-        label: 'Shop Name',
-        hintText: 'My Shop',
-        onChanged: (v) => shopName = v,
-      ),
+          label: 'Shop Name',
+          hintText: 'My Shop',
+          onChanged: (v) => shopName = v),
       const SizedBox(height: 20),
       FormInput(
-        label: 'NIC',
-        hintText: '123456789V',
-        onChanged: (v) => nic = v,
-      ),
+          label: 'NIC / ID', hintText: '123456789V', onChanged: (v) => nic = v),
       const SizedBox(height: 20),
       FormDropdown(
         label: 'Business Category',
-        hintText: 'Select',
+        hintText: 'Select Category',
         items: ['Spare Parts', 'Tires', 'Engine', 'Electrical', 'Accessories'],
         onChanged: (v) => category = v ?? '',
       ),
       const SizedBox(height: 20),
       FormInput(
-        label: 'Business Address',
-        hintText: 'Colombo',
-        onChanged: (v) => address = v,
-      ),
+          label: 'Business Address',
+          hintText: 'Colombo',
+          onChanged: (v) => address = v),
       const SizedBox(height: 20),
       FormInput(
-        label: 'Emergency Contact',
-        hintText: '7XXXXXXXX',
-        onChanged: (v) => emergency = v,
-      ),
+          label: 'Emergency Contact',
+          hintText: '7XXXXXXXX',
+          onChanged: (v) => emergency = v),
     ];
   }
 
