@@ -1,11 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
-import 'package:cloud_firestore/cloud_firestore.dart'; // ADD THIS
+import 'package:cloud_firestore/cloud_firestore.dart';
+
 import '../theme_provider.dart';
 import '../components/primary_button.dart';
 import '../components/otp_box.dart';
 
-import 'package:cloud_firestore/cloud_firestore.dart';
+import 'dashboard_screen.dart';
+import 'signup_screen.dart';
 
 class VerificationScreen extends StatefulWidget {
   const VerificationScreen({super.key});
@@ -19,27 +21,25 @@ class _VerificationScreenState extends State<VerificationScreen> {
   String _verificationId = '';
   bool _isLoading = false;
 
+  // 🔹 SEND OTP
   Future<void> _sendOtp() async {
     final args =
         ModalRoute.of(context)?.settings.arguments as Map<String, String>? ??
-        {};
+            {};
 
     final rawPhone = args['phone'] ?? '';
     final phone = rawPhone.startsWith('0') ? rawPhone.substring(1) : rawPhone;
 
     await FirebaseAuth.instance.verifyPhoneNumber(
       phoneNumber: '+94$phone',
-
       verificationCompleted: (PhoneAuthCredential credential) async {
         await FirebaseAuth.instance.signInWithCredential(credential);
       },
-
       verificationFailed: (FirebaseAuthException e) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text(e.message ?? "Verification failed")),
         );
       },
-
       codeSent: (String verificationId, int? resendToken) {
         setState(() {
           _verificationId = verificationId;
@@ -47,7 +47,6 @@ class _VerificationScreenState extends State<VerificationScreen> {
 
         print("Verification ID: $verificationId");
       },
-
       codeAutoRetrievalTimeout: (String verificationId) {
         _verificationId = verificationId;
       },
@@ -67,7 +66,8 @@ class _VerificationScreenState extends State<VerificationScreen> {
   Widget build(BuildContext context) {
     final args =
         ModalRoute.of(context)?.settings.arguments as Map<String, String>? ??
-        {};
+            {};
+
     final role = args['role'] ?? 'User';
     final phone = args['phone'] ?? '7X XXX XXXX';
 
@@ -105,7 +105,6 @@ class _VerificationScreenState extends State<VerificationScreen> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             const SizedBox(height: 40),
-
             Text(
               "Verify Your Phone\nNumber",
               style: TextStyle(
@@ -115,9 +114,7 @@ class _VerificationScreenState extends State<VerificationScreen> {
                 color: titleColor,
               ),
             ),
-
             const SizedBox(height: 15),
-
             RichText(
               text: TextSpan(
                 text: "We've sent a code to  ",
@@ -133,9 +130,7 @@ class _VerificationScreenState extends State<VerificationScreen> {
                 ],
               ),
             ),
-
             const SizedBox(height: 40),
-
             OtpInput(
               length: 6,
               onCompleted: (otp) {
@@ -144,9 +139,7 @@ class _VerificationScreenState extends State<VerificationScreen> {
                 });
               },
             ),
-
             const SizedBox(height: 30),
-
             Row(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
@@ -171,9 +164,7 @@ class _VerificationScreenState extends State<VerificationScreen> {
                 ),
               ],
             ),
-
             const Spacer(),
-
             Padding(
               padding: const EdgeInsets.only(bottom: 40),
               child: PrimaryButton(
@@ -201,34 +192,39 @@ class _VerificationScreenState extends State<VerificationScreen> {
                       smsCode: _enteredOtp,
                     );
 
-                    await FirebaseAuth.instance.signInWithCredential(
-                      credential,
-                    );
+                    // ✅ LOGIN ONCE
+                    await FirebaseAuth.instance
+                        .signInWithCredential(credential);
 
-                    // GET UID
                     final user = FirebaseAuth.instance.currentUser;
-                    String uid = user!.uid;
+                    if (user == null) return;
 
-                    // GET DATA FROM LOGIN SCREEN
-                    final args =
-                        ModalRoute.of(context)?.settings.arguments
-                            as Map<String, String>? ??
-                        {};
+                    final selectedRole = role;
 
-                    final phone = args['phone'] ?? '';
-                    final role = args['role'] ?? 'User';
-
-                    // SAVE TO FIRESTORE
-                    await FirebaseFirestore.instance
+                    //  CHECK FIRESTORE
+                    var doc = await FirebaseFirestore.instance
                         .collection('users')
-                        .doc(uid)
-                        .set({
-                          'phone': phone,
-                          'role': role,
-                          'createdAt': FieldValue.serverTimestamp(),
-                        }, SetOptions(merge: true));
+                        .doc(user.uid)
+                        .get();
 
-                    Navigator.pushNamed(context, '/signup', arguments: role);
+                    Map roles = doc.data()?['roles'] ?? {};
+
+                    if (roles.containsKey(selectedRole)) {
+                      Navigator.pushReplacement(
+                        context,
+                        MaterialPageRoute(
+                          builder: (_) => DashboardScreen(role: selectedRole),
+                        ),
+                      );
+                    } else {
+                      Navigator.pushReplacement(
+                        context,
+                        MaterialPageRoute(
+                          builder: (_) => SignupScreen(),
+                          settings: RouteSettings(arguments: selectedRole),
+                        ),
+                      );
+                    }
                   } catch (e) {
                     ScaffoldMessenger.of(context).showSnackBar(
                       const SnackBar(content: Text("Invalid OTP")),

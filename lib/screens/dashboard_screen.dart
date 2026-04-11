@@ -7,7 +7,9 @@ import '../components/quick_action_card.dart';
 /// Main dashboard screen with bottom navigation.
 /// Renders role-specific content based on the user's role.
 class DashboardScreen extends StatefulWidget {
-  const DashboardScreen({super.key});
+  final String role; //  ADD THIS
+
+  const DashboardScreen({super.key, required this.role}); // 🔥 UPDATE
 
   @override
   State<DashboardScreen> createState() => _DashboardScreenState();
@@ -86,9 +88,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
           },
           type: BottomNavigationBarType.fixed,
           backgroundColor: dark ? const Color(0xFF111D35) : Colors.white,
-          selectedItemColor: dark
-              ? AppColors.brandYellow
-              : AppColors.primaryBlue,
+          selectedItemColor:
+              dark ? AppColors.brandYellow : AppColors.primaryBlue,
           unselectedItemColor: dark ? Colors.grey[600] : Colors.grey[400],
           selectedFontSize: 12,
           unselectedFontSize: 11,
@@ -229,9 +230,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
                     style: TextStyle(
                       fontSize: 11,
                       fontWeight: FontWeight.bold,
-                      color: dark
-                          ? AppColors.brandYellow
-                          : AppColors.primaryBlue,
+                      color:
+                          dark ? AppColors.brandYellow : AppColors.primaryBlue,
                       letterSpacing: 0.5,
                     ),
                   ),
@@ -834,9 +834,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
                             Text(
                               'Deliver to: Colombo 07 • 3.2 km',
                               style: TextStyle(
-                                color: dark
-                                    ? Colors.grey[400]
-                                    : Colors.grey[600],
+                                color:
+                                    dark ? Colors.grey[400] : Colors.grey[600],
                                 fontSize: 12,
                               ),
                             ),

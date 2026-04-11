@@ -32,6 +32,7 @@ import 'theme_provider.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'firebase_options.dart';
+import 'screens/dashboard_screen.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -91,7 +92,7 @@ class FixOnGoApp extends StatelessWidget {
             '/onboarding': (context) => const OnboardingScreen(),
             '/login': (context) => const LoginScreen(),
             '/verification': (context) => const VerificationScreen(),
-            '/signup': (context) => const SignupScreen(),
+            '/signup': (context) => SignupScreen(),
             '/ai-chat': (context) => const AiChatScreen(),
             '/ai-chat-history': (context) => const AiChatHistoryScreen(),
             '/service-request': (context) => const ServiceRequestScreen(),
@@ -107,7 +108,7 @@ class FixOnGoApp extends StatelessWidget {
             '/mechanic-chat': (context) => const MechanicChatScreen(),
             '/arrival-confirmation': (context) =>
                 const ArrivalConfirmationScreen(),
-            '/dashboard': (context) => const DashboardScreen(),
+            '/dashboard': (context) => DashboardScreen(role: 'User'),
             '/payment-successful': (context) => const PaymentSuccessfulScreen(),
             '/checkout': (context) => const CheckoutScreen(),
             '/order-tracking': (context) => const OrderTrackingScreen(),
@@ -117,6 +118,7 @@ class FixOnGoApp extends StatelessWidget {
             '/garage': (context) => const GarageScreen(),
             '/payment-history': (context) => const PaymentHistoryScreen(),
             '/help-support': (context) => const HelpSupportScreen(),
+            '/home': (context) => HomeScreen(),
           },
         );
       },
