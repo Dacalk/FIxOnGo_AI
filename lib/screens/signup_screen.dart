@@ -220,6 +220,17 @@ class _SignupScreenState extends State<SignupScreen> {
                       ),
                     );
                   }
+                } on FirebaseAuthException catch (e) {
+                  String message = "Auth Error: ${e.message}";
+                  if (e.code == 'email-already-in-use') {
+                    message =
+                        "This email is already in use. If you signed up with Google, please use 'Sign in with Google' on the login screen.";
+                  }
+                  if (mounted) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(content: Text(message)),
+                    );
+                  }
                 } catch (e) {
                   if (mounted) {
                     ScaffoldMessenger.of(context).showSnackBar(

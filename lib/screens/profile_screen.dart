@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import '../theme_provider.dart';
+import '../components/form_input.dart';
 
 /// Profile screen — user settings, payment methods, vehicles, and sign out.
 /// Features a bottom navigation bar.
@@ -19,6 +20,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
   String userPhotoUrl = '';
   String userRole = '';
   bool isLoading = true;
+  bool hasPassword = false;
 
   @override
   void initState() {
@@ -29,6 +31,10 @@ class _ProfileScreenState extends State<ProfileScreen> {
   Future<void> _loadProfile() async {
     final user = FirebaseAuth.instance.currentUser;
     if (user == null) return;
+
+    // Check providers
+    final providers = user.providerData.map((p) => p.providerId).toList();
+    hasPassword = providers.contains('password');
 
     try {
       final doc = await FirebaseFirestore.instance
@@ -75,6 +81,81 @@ class _ProfileScreenState extends State<ProfileScreen> {
         isLoading = false;
       });
     }
+  }
+
+  void _showPasswordDialog() {
+    final TextEditingController passController = TextEditingController();
+    final dark = isDarkMode(context);
+
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        backgroundColor: dark ? AppColors.darkSurface : Colors.white,
+        title: Text(
+          hasPassword ? 'Change Password' : 'Enable Email Login',
+          style: TextStyle(color: dark ? Colors.white : Colors.black),
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(
+              hasPassword
+                  ? 'Enter your new password below.'
+                  : 'Set a password to enable logging in with your email address.',
+              style: TextStyle(
+                  fontSize: 13,
+                  color: dark ? Colors.grey[400] : Colors.grey[600]),
+            ),
+            const SizedBox(height: 16),
+            FormInput(
+              label: 'New Password',
+              hintText: '••••••••',
+              controller: passController,
+              obscureText: true,
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Cancel'),
+          ),
+          ElevatedButton(
+            onPressed: () async {
+              if (passController.text.length < 6) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(
+                      content: Text('Password must be at least 6 characters')),
+                );
+                return;
+              }
+
+              try {
+                final user = FirebaseAuth.instance.currentUser;
+                if (user != null) {
+                  await user.updatePassword(passController.text.trim());
+                  if (mounted) {
+                    Navigator.pop(context);
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(
+                          content: Text('Password updated successfully!')),
+                    );
+                    _loadProfile(); // Refresh provider status
+                  }
+                }
+              } catch (e) {
+                if (mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(content: Text('Error: ${e.toString()}')),
+                  );
+                }
+              }
+            },
+            child: Text(hasPassword ? 'Update' : 'Enable'),
+          ),
+        ],
+      ),
+    );
   }
 
   String _getInitials(String name) {
@@ -287,6 +368,16 @@ class _ProfileScreenState extends State<ProfileScreen> {
                                 onTap: () {
                                   Navigator.pushNamed(context, '/call-support');
                                 },
+                              ),
+                              _buildMenuItem(
+                                icon: Icons.security,
+                                title: 'Account Security',
+                                trailingText:
+                                    hasPassword ? 'Protected' : 'Incomplete',
+                                dark: dark,
+                                titleColor: titleColor,
+                                subColor: subColor,
+                                onTap: _showPasswordDialog,
                               ),
                               _buildMenuItem(
                                 icon: Icons.help_outline,
