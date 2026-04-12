@@ -105,7 +105,7 @@ class OnboardingContent extends StatelessWidget {
       child: Column(
         children: [
           const SizedBox(height: 20),
-          // Image Container matching your rounded screenshot look
+          // Image Container
           Expanded(
             flex: 3,
             child: Container(
@@ -131,56 +131,59 @@ class OnboardingContent extends StatelessWidget {
               ),
             ),
           ),
-          const SizedBox(height: 40),
+          const SizedBox(height: 30),
           // Text Content
-          Expanded(
+          Flexible(
             flex: 2,
-            child: Column(
-              children: [
-                Text(
-                  title,
-                  textAlign: TextAlign.center,
-                  style: TextStyle(
-                    fontSize: 32,
-                    fontWeight: FontWeight.w900,
-                    color: isDark
-                        ? AppColors.darkTitleText
-                        : AppColors.lightTitleText,
-                    height: 1.1,
-                  ),
-                ),
-                const SizedBox(height: 16),
-                Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 20),
-                  child: Text(
-                    subtitle,
+            child: SingleChildScrollView(
+              physics: const BouncingScrollPhysics(),
+              child: Column(
+                children: [
+                  Text(
+                    title,
                     textAlign: TextAlign.center,
                     style: TextStyle(
-                      fontSize: 16,
+                      fontSize: 32,
+                      fontWeight: FontWeight.w900,
                       color: isDark
-                          ? AppColors.darkSubtitleText
-                          : Colors.grey[600],
-                      height: 1.5,
+                          ? AppColors.darkTitleText
+                          : AppColors.lightTitleText,
+                      height: 1.1,
                     ),
                   ),
-                ),
-                const Spacer(),
-                // ── Reusable Page Indicator ──
-                PageIndicator(
-                  currentIndex: currentIndex,
-                  totalPages: totalPages,
-                ),
-                const SizedBox(height: 32),
-                // ── Reusable Primary Button ──
-                PrimaryButton(
-                  label: isLastPage ? "Get Started" : "Next",
-                  onPressed: onNext,
-                  icon: Icons.arrow_forward_rounded,
-                  height: 60,
-                  borderRadius: 18,
-                ),
-                const SizedBox(height: 24),
-              ],
+                  const SizedBox(height: 16),
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 20),
+                    child: Text(
+                      subtitle,
+                      textAlign: TextAlign.center,
+                      style: TextStyle(
+                        fontSize: 16,
+                        color: isDark
+                            ? AppColors.darkSubtitleText
+                            : Colors.grey[600],
+                        height: 1.5,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 24),
+                  // ── Reusable Page Indicator ──
+                  PageIndicator(
+                    currentIndex: currentIndex,
+                    totalPages: totalPages,
+                  ),
+                  const SizedBox(height: 32),
+                  // ── Reusable Primary Button ──
+                  PrimaryButton(
+                    label: isLastPage ? "Get Started" : "Next",
+                    onPressed: onNext,
+                    icon: Icons.arrow_forward_rounded,
+                    height: 60,
+                    borderRadius: 18,
+                  ),
+                  const SizedBox(height: 24),
+                ],
+              ),
             ),
           ),
         ],
