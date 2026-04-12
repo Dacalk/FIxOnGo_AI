@@ -21,8 +21,15 @@ class DashboardScreen extends StatefulWidget {
 class _DashboardScreenState extends State<DashboardScreen> {
   int _currentIndex = 0;
 
+  // Common
   String userName = '';
+  String userEmail = '';
+  String userPhone = '';
+  String userPhotoUrl = '';
   bool isLoading = true;
+
+  // Role-specific data map
+  Map<String, dynamic> roleData = {};
 
   @override
   void initState() {
@@ -36,23 +43,63 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
     final role = widget.role;
 
-    var doc = await FirebaseFirestore.instance
-        .collection('users')
-        .doc(user.uid)
-        .get();
+    try {
+      var doc = await FirebaseFirestore.instance
+          .collection('users')
+          .doc(user.uid)
+          .get();
 
-    if (doc.exists) {
-      final data = doc.data();
-      final roleData = data?['roles']?[role];
+      if (doc.exists) {
+        final data = doc.data();
+        final rolesMap = data?['roles'] as Map<String, dynamic>? ?? {};
 
-      print("NAME FROM FIREBASE: ${roleData?['fullName']}");
+        // Check both lowercase and original casing
+        Map<String, dynamic> rd = {};
+        if (rolesMap.containsKey(role.toLowerCase())) {
+          rd = rolesMap[role.toLowerCase()] as Map<String, dynamic>? ?? {};
+        } else if (rolesMap.containsKey(role)) {
+          rd = rolesMap[role] as Map<String, dynamic>? ?? {};
+        }
 
+        setState(() {
+          userName = rd['fullName']?.toString().isNotEmpty == true
+              ? rd['fullName']
+              : user.displayName ?? 'User';
+          userEmail = data?['email']?.toString().isNotEmpty == true
+              ? data!['email']
+              : user.email ?? '';
+          userPhone = data?['phone']?.toString().isNotEmpty == true
+              ? data!['phone']
+              : user.phoneNumber ?? '';
+          roleData = rd;
+          userPhotoUrl = data?['photoUrl']?.toString() ?? user.photoURL ?? '';
+          isLoading = false;
+        });
+      } else {
+        // No Firestore doc — use Google profile data
+        setState(() {
+          userName = user.displayName ?? 'User';
+          userEmail = user.email ?? '';
+          userPhone = user.phoneNumber ?? '';
+          userPhotoUrl = user.photoURL ?? '';
+          isLoading = false;
+        });
+      }
+    } catch (e) {
+      print("Dashboard load error: $e");
+      // Fallback to Google profile on any error
       setState(() {
-        userName = roleData?['fullName'] ?? 'User';
+        userName = user.displayName ?? 'User';
+        userEmail = user.email ?? '';
+        userPhotoUrl = user.photoURL ?? '';
         isLoading = false;
       });
     }
   }
+
+  // Helper to get a role field with a fallback
+  String _rd(String key, [String fallback = '']) =>
+      roleData[key]?.toString() ?? fallback;
 
   @override
   Widget build(BuildContext context) {
@@ -181,7 +228,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
           DashboardHeader(
             userName: isLoading ? 'Loading...' : userName,
             role: widget.role,
-            vehicleInfo: 'Ford F-150',
+            photoUrl: userPhotoUrl,
+            vehicleInfo: _rd('vehicleType', 'My Vehicle'),
           ),
           const SizedBox(height: 16),
 
@@ -354,7 +402,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
           DashboardHeader(
             userName: isLoading ? 'Loading...' : userName,
             role: widget.role,
-            vehicleInfo: 'AutoFix Pro',
+            photoUrl: userPhotoUrl,
+            vehicleInfo: _rd('workshop', 'My Workshop'),
           ),
           const SizedBox(height: 20),
 
@@ -508,7 +557,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
           DashboardHeader(
             userName: isLoading ? 'Loading...' : userName,
             role: widget.role,
-            vehicleInfo: 'Hino 300',
+            photoUrl: userPhotoUrl,
+            vehicleInfo: _rd('truckModel', 'My Truck'),
           ),
           const SizedBox(height: 20),
 
@@ -645,7 +695,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
           DashboardHeader(
             userName: isLoading ? 'Loading...' : userName,
             role: widget.role,
-            vehicleInfo: 'Auto Parts LK',
+            photoUrl: userPhotoUrl,
+            vehicleInfo: _rd('shopName', 'My Shop'),
           ),
           const SizedBox(height: 20),
 
@@ -780,7 +831,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
           DashboardHeader(
             userName: isLoading ? 'Loading...' : userName,
             role: widget.role,
-            vehicleInfo: 'Colombo Zone',
+            photoUrl: userPhotoUrl,
+            vehicleInfo: _rd('deliveryArea', 'My Area'),
           ),
           const SizedBox(height: 20),
 

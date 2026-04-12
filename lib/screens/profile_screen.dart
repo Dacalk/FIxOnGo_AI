@@ -1,11 +1,91 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 import '../theme_provider.dart';
 
 /// Profile screen — user settings, payment methods, vehicles, and sign out.
 /// Features a bottom navigation bar.
-class ProfileScreen extends StatelessWidget {
+class ProfileScreen extends StatefulWidget {
   const ProfileScreen({super.key});
+
+  @override
+  State<ProfileScreen> createState() => _ProfileScreenState();
+}
+
+class _ProfileScreenState extends State<ProfileScreen> {
+  String userName = '';
+  String userEmail = '';
+  String userPhone = '';
+  String userPhotoUrl = '';
+  String userRole = '';
+  bool isLoading = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadProfile();
+  }
+
+  Future<void> _loadProfile() async {
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null) return;
+
+    try {
+      final doc = await FirebaseFirestore.instance
+          .collection('users')
+          .doc(user.uid)
+          .get();
+
+      if (doc.exists) {
+        final data = doc.data();
+        final roles = data?['roles'] as Map<String, dynamic>? ?? {};
+        final firstRole = roles.isNotEmpty ? roles.keys.first : '';
+        final rd = roles.isNotEmpty
+            ? roles[firstRole] as Map<String, dynamic>? ?? {}
+            : <String, dynamic>{};
+
+        setState(() {
+          userName = rd['fullName']?.toString().isNotEmpty == true
+              ? rd['fullName']
+              : user.displayName ?? 'User';
+          userEmail = data?['email']?.toString().isNotEmpty == true
+              ? data!['email']
+              : user.email ?? '';
+          userPhone = data?['phone']?.toString().isNotEmpty == true
+              ? data!['phone']
+              : user.phoneNumber ?? '';
+          userPhotoUrl = data?['photoUrl']?.toString() ?? user.photoURL ?? '';
+          userRole = firstRole;
+          isLoading = false;
+        });
+      } else {
+        setState(() {
+          userName = user.displayName ?? 'User';
+          userEmail = user.email ?? '';
+          userPhone = user.phoneNumber ?? '';
+          userPhotoUrl = user.photoURL ?? '';
+          isLoading = false;
+        });
+      }
+    } catch (e) {
+      setState(() {
+        userName = user.displayName ?? 'User';
+        userEmail = user.email ?? '';
+        userPhotoUrl = user.photoURL ?? '';
+        isLoading = false;
+      });
+    }
+  }
+
+  String _getInitials(String name) {
+    final parts = name.trim().split(' ');
+    if (parts.length >= 2) {
+      return '${parts[0][0]}${parts[1][0]}'.toUpperCase();
+    } else if (parts.isNotEmpty && parts[0].isNotEmpty) {
+      return parts[0][0].toUpperCase();
+    }
+    return 'U';
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -63,192 +143,220 @@ class ProfileScreen extends StatelessWidget {
           const SizedBox(width: 8),
         ],
       ),
-      body: Column(
-        children: [
-          Container(
-            width: double.infinity,
-            color: topBgColor,
-            padding: const EdgeInsets.only(bottom: 24),
-            child: Column(
+      body: isLoading
+          ? const Center(child: CircularProgressIndicator())
+          : Column(
               children: [
-                // ── Avatar ──
-                Stack(
-                  alignment: Alignment.bottomRight,
-                  children: [
-                    Container(
-                      width: 100,
-                      height: 100,
-                      decoration: BoxDecoration(
-                        color: const Color(0xFFE8F0FE),
-                        shape: BoxShape.circle,
-                        border: Border.all(
-                          color: dark
-                              ? const Color(0xFF2A3A50)
-                              : const Color(0xFFD4E3FB),
-                          width: 4,
-                        ),
-                      ),
-                      child: const Center(
-                        child: Text(
-                          'JD',
-                          style: TextStyle(
-                            fontSize: 32,
-                            fontWeight: FontWeight.bold,
-                            color: AppColors.primaryBlue,
-                          ),
-                        ),
-                      ),
-                    ),
-                    Positioned(
-                      bottom: 4,
-                      right: 4,
-                      child: Container(
-                        padding: const EdgeInsets.all(6),
-                        decoration: BoxDecoration(
-                          color: Colors.orange,
-                          shape: BoxShape.circle,
-                          border: Border.all(color: topBgColor, width: 3),
-                        ),
-                        child: const Icon(
-                          Icons.camera_alt,
-                          size: 14,
-                          color: Colors.white,
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 16),
-                Text(
-                  'Anna De Parie',
-                  style: TextStyle(
-                    fontSize: 20,
-                    fontWeight: FontWeight.bold,
-                    color: titleColor,
-                  ),
-                ),
-                const SizedBox(height: 4),
-                Text(
-                  'anne@example.com',
-                  style: TextStyle(fontSize: 13, color: subColor),
-                ),
-              ],
-            ),
-          ),
-          Expanded(
-            child: SingleChildScrollView(
-              padding: const EdgeInsets.all(24),
-              child: Column(
-                children: [
-                  // ── Menu List ──
-                  Container(
-                    decoration: BoxDecoration(
-                      color: cardBg,
-                      borderRadius: BorderRadius.circular(20),
-                    ),
-                    padding: const EdgeInsets.symmetric(vertical: 8),
-                    child: Column(
-                      children: [
-                        _buildMenuItem(
-                          icon: Icons.directions_car_outlined,
-                          title: 'My Vehicles',
-                          dark: dark,
-                          titleColor: titleColor,
-                          subColor: subColor,
-                        ),
-                        _buildMenuItem(
-                          icon: Icons.credit_card_outlined,
-                          title: 'Payment Methods',
-                          trailingText: 'Visa **42',
-                          dark: dark,
-                          titleColor: titleColor,
-                          subColor: subColor,
-                        ),
-                        _buildMenuItem(
-                          icon: Icons.history,
-                          title: 'Payment History',
-                          dark: dark,
-                          titleColor: titleColor,
-                          subColor: subColor,
-                        ),
-                        _buildMenuItem(
-                          icon: Icons.people_outline,
-                          title: 'Emergency Contacts',
-                          dark: dark,
-                          titleColor: titleColor,
-                          subColor: subColor,
-                          onTap: () {
-                            Navigator.pushNamed(context, '/call-support');
-                          },
-                        ),
-                        _buildMenuItem(
-                          icon: Icons.help_outline,
-                          title: 'Help & Support',
-                          dark: dark,
-                          titleColor: titleColor,
-                          subColor: subColor,
-                          showDivider: false,
-                          onTap: () {
-                            Navigator.pushNamed(context, '/help-support');
-                          },
-                        ),
-                      ],
-                    ),
-                  ),
-
-                  const SizedBox(height: 32),
-
-                  // ── Sign Out Button ──
-                  SizedBox(
-                    width: double.infinity,
-                    child: ElevatedButton(
-                      onPressed: () async {
-                        await FirebaseAuth.instance.signOut();
-                        if (context.mounted) {
-                          Navigator.pushNamedAndRemoveUntil(
-                            context,
-                            '/login',
-                            (route) => false,
-                          );
-                        }
-                      },
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: dark ? signOutBgDark : signOutBgLight,
-                        foregroundColor: dark ? Colors.black : Colors.red,
-                        elevation: 0,
-                        padding: const EdgeInsets.symmetric(vertical: 16),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(16),
-                        ),
-                      ),
-                      child: Row(
-                        mainAxisAlignment: MainAxisAlignment.center,
+                Container(
+                  width: double.infinity,
+                  color: topBgColor,
+                  padding: const EdgeInsets.only(bottom: 24),
+                  child: Column(
+                    children: [
+                      // ── Avatar ──
+                      Stack(
+                        alignment: Alignment.bottomRight,
                         children: [
-                          Icon(
-                            Icons.logout,
-                            size: 20,
-                            color: dark ? Colors.black : Colors.red,
+                          Container(
+                            width: 100,
+                            height: 100,
+                            decoration: BoxDecoration(
+                              color: const Color(0xFFE8F0FE),
+                              shape: BoxShape.circle,
+                              border: Border.all(
+                                color: dark
+                                    ? const Color(0xFF2A3A50)
+                                    : const Color(0xFFD4E3FB),
+                                width: 4,
+                              ),
+                            ),
+                            child: ClipOval(
+                              child: userPhotoUrl.isNotEmpty
+                                  ? Image.network(
+                                      userPhotoUrl,
+                                      fit: BoxFit.cover,
+                                      width: 100,
+                                      height: 100,
+                                      errorBuilder: (_, __, ___) => Center(
+                                        child: Text(
+                                          _getInitials(userName),
+                                          style: const TextStyle(
+                                            fontSize: 32,
+                                            fontWeight: FontWeight.bold,
+                                            color: AppColors.primaryBlue,
+                                          ),
+                                        ),
+                                      ),
+                                    )
+                                  : Center(
+                                      child: Text(
+                                        _getInitials(userName),
+                                        style: const TextStyle(
+                                          fontSize: 32,
+                                          fontWeight: FontWeight.bold,
+                                          color: AppColors.primaryBlue,
+                                        ),
+                                      ),
+                                    ),
+                            ),
                           ),
-                          const SizedBox(width: 8),
-                          Text(
-                            'Sign Out',
-                            style: TextStyle(
-                              fontSize: 15,
-                              fontWeight: FontWeight.bold,
-                              color: dark ? Colors.black : Colors.red,
+                          Positioned(
+                            bottom: 4,
+                            right: 4,
+                            child: Container(
+                              padding: const EdgeInsets.all(6),
+                              decoration: BoxDecoration(
+                                color: Colors.orange,
+                                shape: BoxShape.circle,
+                                border: Border.all(color: topBgColor, width: 3),
+                              ),
+                              child: const Icon(
+                                Icons.camera_alt,
+                                size: 14,
+                                color: Colors.white,
+                              ),
                             ),
                           ),
                         ],
                       ),
+                      const SizedBox(height: 16),
+                      Text(
+                        userName,
+                        style: TextStyle(
+                          fontSize: 20,
+                          fontWeight: FontWeight.bold,
+                          color: titleColor,
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        userEmail,
+                        style: TextStyle(fontSize: 13, color: subColor),
+                      ),
+                      if (userPhone.isNotEmpty) ...[
+                        const SizedBox(height: 2),
+                        Text(
+                          userPhone,
+                          style: TextStyle(fontSize: 12, color: subColor),
+                        ),
+                      ],
+                    ],
+                  ),
+                ),
+                Expanded(
+                  child: SingleChildScrollView(
+                    padding: const EdgeInsets.all(24),
+                    child: Column(
+                      children: [
+                        // ── Menu List ──
+                        Container(
+                          decoration: BoxDecoration(
+                            color: cardBg,
+                            borderRadius: BorderRadius.circular(20),
+                          ),
+                          padding: const EdgeInsets.symmetric(vertical: 8),
+                          child: Column(
+                            children: [
+                              _buildMenuItem(
+                                icon: Icons.directions_car_outlined,
+                                title: 'My Vehicles',
+                                dark: dark,
+                                titleColor: titleColor,
+                                subColor: subColor,
+                              ),
+                              _buildMenuItem(
+                                icon: Icons.credit_card_outlined,
+                                title: 'Payment Methods',
+                                dark: dark,
+                                titleColor: titleColor,
+                                subColor: subColor,
+                              ),
+                              _buildMenuItem(
+                                icon: Icons.history,
+                                title: 'Payment History',
+                                dark: dark,
+                                titleColor: titleColor,
+                                subColor: subColor,
+                              ),
+                              _buildMenuItem(
+                                icon: Icons.people_outline,
+                                title: 'Emergency Contacts',
+                                dark: dark,
+                                titleColor: titleColor,
+                                subColor: subColor,
+                                onTap: () {
+                                  Navigator.pushNamed(context, '/call-support');
+                                },
+                              ),
+                              _buildMenuItem(
+                                icon: Icons.help_outline,
+                                title: 'Help & Support',
+                                dark: dark,
+                                titleColor: titleColor,
+                                subColor: subColor,
+                                showDivider: false,
+                                onTap: () {
+                                  Navigator.pushNamed(context, '/help-support');
+                                },
+                              ),
+                            ],
+                          ),
+                        ),
+
+                        const SizedBox(height: 32),
+
+                        // ── Sign Out Button ──
+                        SizedBox(
+                          width: double.infinity,
+                          child: ElevatedButton(
+                            onPressed: () async {
+                              await FirebaseAuth.instance.signOut();
+                              if (context.mounted) {
+                                Navigator.pushNamedAndRemoveUntil(
+                                  context,
+                                  '/login',
+                                  (route) => false,
+                                );
+                              }
+                            },
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor:
+                                  dark ? signOutBgDark : signOutBgLight,
+                              foregroundColor: dark ? Colors.black : Colors.red,
+                              elevation: 0,
+                              padding: const EdgeInsets.symmetric(vertical: 16),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(16),
+                              ),
+                            ),
+                            child: Row(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                Icon(
+                                  Icons.logout,
+                                  size: 20,
+                                  color: dark ? Colors.black : Colors.red,
+                                ),
+                                const SizedBox(width: 8),
+                                Text(
+                                  'Sign Out',
+                                  style: TextStyle(
+                                    fontSize: 15,
+                                    fontWeight: FontWeight.bold,
+                                    color: dark ? Colors.black : Colors.red,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                        const SizedBox(height: 40),
+                      ],
                     ),
                   ),
-                  const SizedBox(height: 40),
-                ],
-              ),
+                ),
+              ],
             ),
-          ),
-        ],
-      ),
       bottomNavigationBar: _buildBottomNav(context, dark),
     );
   }

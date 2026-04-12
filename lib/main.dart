@@ -40,7 +40,14 @@ void main() async {
 
   await dotenv.load(fileName: ".env");
 
-  await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
+  if (Firebase.apps.isEmpty) {
+    await Firebase.initializeApp(
+      options: DefaultFirebaseOptions.currentPlatform,
+    );
+  }
+
+  // Optional: Initialize Firestore with specific settings if needed
+  // FirebaseFirestore.instance.settings = const Settings(persistenceEnabled: true);
 
   runApp(const FixOnGoApp());
 }

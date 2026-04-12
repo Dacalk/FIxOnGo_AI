@@ -1,14 +1,14 @@
 {
   "project_info": {
-    "project_number": "1027971540802",
-    "firebase_url": "https://fixongo-b8337-default-rtdb.asia-southeast1.firebasedatabase.app",
-    "project_id": "fixongo-b8337",
-    "storage_bucket": "fixongo-b8337.firebasestorage.app"
+    "project_number": "932295588051",
+    "firebase_url": "https://fixongo-dad40-default-rtdb.firebaseio.com",
+    "project_id": "fixongo-dad40",
+    "storage_bucket": "fixongo-dad40.firebasestorage.app"
   },
   "client": [
     {
       "client_info": {
-        "mobilesdk_app_id": "1:1027971540802:android:9ca87e6a0d568f596fcadb",
+        "mobilesdk_app_id": "1:932295588051:android:c8327b7a388b94a8037c26",
         "android_client_info": {
           "package_name": "com.example.project_1"
         }
@@ -16,7 +16,7 @@
       "oauth_client": [],
       "api_key": [
         {
-          "current_key": "AIzaSyCky40HbTpUdHzopKC8cP6ncw7fyZ-uiZo"
+          "current_key": "AIzaSyBOMovVoXQbjxBQgODiB6RZNIEsS6JxQB8"
         }
       ],
       "services": {

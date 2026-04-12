@@ -1,4 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'dashboard_screen.dart';
 
 class FixOnGoSplashScreen extends StatefulWidget {
   const FixOnGoSplashScreen({super.key});
@@ -26,13 +29,58 @@ class _FixOnGoSplashScreenState extends State<FixOnGoSplashScreen>
     _animation = Tween<double>(begin: 0.0, end: 1.0).animate(_controller)
       ..addStatusListener((status) {
         if (status == AnimationStatus.completed) {
-          // SUCCESS: This directs the app to the Onboarding screens after the bar fills
-          Navigator.pushReplacementNamed(context, '/onboarding');
+          _checkAuthAndNavigate();
         }
       });
 
     // Start the animation
     _controller.forward();
+  }
+
+  Future<void> _checkAuthAndNavigate() async {
+    final user = FirebaseAuth.instance.currentUser;
+
+    if (user != null) {
+      // User is logged in — find their role and go to dashboard
+      try {
+        final doc = await FirebaseFirestore.instance
+            .collection('users')
+            .doc(user.uid)
+            .get();
+
+        String role = 'User'; // default
+        if (doc.exists) {
+          final roles = doc.data()?['roles'] as Map<String, dynamic>? ?? {};
+          if (roles.isNotEmpty) {
+            role = roles.keys.first; // Use first available role
+          }
+        }
+
+        if (mounted) {
+          Navigator.pushReplacement(
+            context,
+            MaterialPageRoute(
+              builder: (_) => DashboardScreen(role: role),
+            ),
+          );
+        }
+      } catch (e) {
+        // On error, still go to dashboard with default role
+        if (mounted) {
+          Navigator.pushReplacement(
+            context,
+            MaterialPageRoute(
+              builder: (_) => const DashboardScreen(role: 'User'),
+            ),
+          );
+        }
+      }
+    } else {
+      // Not logged in — go to onboarding
+      if (mounted) {
+        Navigator.pushReplacementNamed(context, '/onboarding');
+      }
+    }
   }
 
   @override

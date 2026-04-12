@@ -38,21 +38,42 @@ class _SignupScreenState extends State<SignupScreen> {
   String category = '';
   String address = '';
 
+  final TextEditingController _emailController = TextEditingController();
+  final TextEditingController _passwordController = TextEditingController();
+
+  @override
+  void dispose() {
+    _emailController.dispose();
+    _passwordController.dispose();
+    super.dispose();
+  }
+
   // ================= SAVE FUNCTION =================
   Future<void> _saveUser(String role) async {
-    final user = FirebaseAuth.instance.currentUser;
+    User? user = FirebaseAuth.instance.currentUser;
+
+    if (user == null) {
+      if (_emailController.text.isEmpty || _passwordController.text.isEmpty) {
+        throw Exception("Email and Password are required");
+      }
+      final cred = await FirebaseAuth.instance.createUserWithEmailAndPassword(
+        email: _emailController.text.trim(),
+        password: _passwordController.text.trim(),
+      );
+      user = cred.user;
+    }
 
     if (user == null) return;
 
     await FirebaseFirestore.instance.collection('users').doc(user.uid).set({
       // 🔹 COMMON DATA
       'uid': user.uid,
-      'email': user.email ?? '',
+      'email': user.email ?? _emailController.text.trim(),
       'phone': user.phoneNumber ?? '',
 
       //  ROLE BASED DATA
       'roles': {
-        role: {
+        role.toLowerCase(): {
           'fullName': fullName,
           'vehicleType': vehicleType,
           'plate': plate,
@@ -68,7 +89,7 @@ class _SignupScreenState extends State<SignupScreen> {
           'shopName': shopName,
           'category': category,
           'address': address,
-          'createdAt': FieldValue.serverTimestamp(),
+          'updatedAt': FieldValue.serverTimestamp(),
         }
       }
     }, SetOptions(merge: true)); //  IMPORTANT
@@ -167,19 +188,45 @@ class _SignupScreenState extends State<SignupScreen> {
               ),
             ),
             const SizedBox(height: 28),
+            if (FirebaseAuth.instance.currentUser == null) ...[
+              FormInput(
+                label: 'Email Address',
+                hintText: 'example@mail.com',
+                controller: _emailController,
+                keyboardType: TextInputType.emailAddress,
+              ),
+              const SizedBox(height: 20),
+              FormInput(
+                label: 'Password',
+                hintText: '••••••••',
+                controller: _passwordController,
+                obscureText: true,
+              ),
+              const SizedBox(height: 20),
+            ],
             ..._buildFormFields(role),
             const SizedBox(height: 32),
             PrimaryButton(
               label: 'Verify & Continue',
               onPressed: () async {
-                await _saveUser(role);
+                try {
+                  await _saveUser(role);
 
-                Navigator.pushReplacement(
-                  context,
-                  MaterialPageRoute(
-                    builder: (_) => DashboardScreen(role: role),
-                  ),
-                );
+                  if (mounted) {
+                    Navigator.pushReplacement(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) => DashboardScreen(role: role),
+                      ),
+                    );
+                  }
+                } catch (e) {
+                  if (mounted) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(content: Text("Error: ${e.toString()}")),
+                    );
+                  }
+                }
               },
               borderRadius: 15,
             ),
