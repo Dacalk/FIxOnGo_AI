@@ -113,9 +113,9 @@ class _DashboardScreenState extends State<DashboardScreen> {
         index: _currentIndex,
         children: [
           _buildDashboardContent(role, dark),
-          _buildPlaceholderTab('Garage', Icons.garage, dark),
-          _buildPlaceholderTab('Payment', Icons.payment, dark),
-          _buildPlaceholderTab('Profile', Icons.person, dark),
+          _buildPlaceholderTab('Garage', Icons.garage_rounded, dark),
+          _buildPlaceholderTab('Payment', Icons.payments_rounded, dark),
+          _buildPlaceholderTab('Profile', Icons.person_rounded, dark),
         ],
       ),
       bottomNavigationBar: _buildBottomNav(dark),
@@ -185,7 +185,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
               label: 'Garage',
             ),
             BottomNavigationBarItem(
-              icon: Icon(Icons.receipt_long_rounded),
+              icon: Icon(Icons.payments_rounded),
               label: 'Payment',
             ),
             BottomNavigationBarItem(

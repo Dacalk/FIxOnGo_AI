@@ -344,31 +344,14 @@ class GarageScreen extends StatelessWidget {
         child: Row(
           mainAxisAlignment: MainAxisAlignment.spaceAround,
           children: [
+            _navItem(context, Icons.home_rounded, 'Dashboard', false, dark,
+                '/dashboard'),
             _navItem(
-              context,
-              Icons.home,
-              'Dashboard',
-              false,
-              dark,
-              '/dashboard',
-            ),
-            _navItem(
-              context,
-              Icons.garage,
-              'Garage',
-              true,
-              dark,
-              '/garage',
-            ), // Active state
-            _navItem(
-              context,
-              Icons.payments,
-              'Payment',
-              false,
-              dark,
-              '/payment-successful',
-            ), // Temporarily linking to payment successful since we dont have a dedicated empty payment screen
-            _navItem(context, Icons.person, 'Profile', false, dark, '/profile'),
+                context, Icons.garage_rounded, 'Garage', true, dark, '/garage'),
+            _navItem(context, Icons.payments_rounded, 'Payment', false, dark,
+                '/payment-history'),
+            _navItem(context, Icons.person_rounded, 'Profile', false, dark,
+                '/profile'),
           ],
         ),
       ),
