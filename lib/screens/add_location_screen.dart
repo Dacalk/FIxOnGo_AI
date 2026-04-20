@@ -1,6 +1,8 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import '../theme_provider.dart';
 import '../components/primary_button.dart';
+import '../services/map_service.dart';
 
 /// Data model for a recent location entry.
 class RecentLocation {
@@ -10,7 +12,8 @@ class RecentLocation {
   const RecentLocation({required this.name, required this.subtitle});
 }
 
-/// Add Location screen — search for a location or pick from recent ones.
+/// Add Location screen — search for a location via geocoding or pick from
+/// recent ones.
 class AddLocationScreen extends StatefulWidget {
   const AddLocationScreen({super.key});
 
@@ -20,6 +23,11 @@ class AddLocationScreen extends StatefulWidget {
 
 class _AddLocationScreenState extends State<AddLocationScreen> {
   final TextEditingController _searchController = TextEditingController();
+  Timer? _debounce;
+
+  /// Geocoded results from the search
+  List<GeocodedPlace> _searchResults = [];
+  bool _isSearching = false;
 
   static const List<RecentLocation> _recentLocations = [
     RecentLocation(
@@ -33,9 +41,48 @@ class _AddLocationScreenState extends State<AddLocationScreen> {
   ];
 
   @override
+  void initState() {
+    super.initState();
+    _searchController.addListener(_onSearchChanged);
+  }
+
+  @override
   void dispose() {
+    _debounce?.cancel();
+    _searchController.removeListener(_onSearchChanged);
     _searchController.dispose();
     super.dispose();
+  }
+
+  void _onSearchChanged() {
+    _debounce?.cancel();
+    final query = _searchController.text.trim();
+    if (query.length < 3) {
+      setState(() {
+        _searchResults = [];
+        _isSearching = false;
+      });
+      return;
+    }
+
+    _debounce = Timer(const Duration(milliseconds: 500), () {
+      _performSearch(query);
+    });
+  }
+
+  Future<void> _performSearch(String query) async {
+    setState(() => _isSearching = true);
+    try {
+      final results = await MapService.instance.geocodeAddress(query);
+      if (!mounted) return;
+      setState(() {
+        _searchResults = results;
+        _isSearching = false;
+      });
+    } catch (_) {
+      if (!mounted) return;
+      setState(() => _isSearching = false);
+    }
   }
 
   @override
@@ -43,6 +90,8 @@ class _AddLocationScreenState extends State<AddLocationScreen> {
     final dark = isDarkMode(context);
     final bgColor = dark ? AppColors.darkBackground : Colors.white;
     final titleColor = dark ? Colors.white : Colors.black;
+    final query = _searchController.text.trim();
+    final showSearchResults = query.length >= 3;
 
     return Scaffold(
       backgroundColor: bgColor,
@@ -79,11 +128,11 @@ class _AddLocationScreenState extends State<AddLocationScreen> {
 
           const SizedBox(height: 24),
 
-          // ── Recent Header ──
+          // ── Header ──
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 20),
             child: Text(
-              'Recent',
+              showSearchResults ? 'Search Results' : 'Recent',
               style: TextStyle(
                 fontSize: 16,
                 fontWeight: FontWeight.bold,
@@ -94,15 +143,39 @@ class _AddLocationScreenState extends State<AddLocationScreen> {
 
           const SizedBox(height: 8),
 
-          // ── Recent Locations List ──
+          // ── Results / Recent List ──
           Expanded(
-            child: ListView.builder(
-              itemCount: _recentLocations.length,
-              padding: const EdgeInsets.symmetric(horizontal: 8),
-              itemBuilder: (context, index) {
-                return _buildRecentItem(_recentLocations[index], dark);
-              },
-            ),
+            child: _isSearching
+                ? const Center(child: CircularProgressIndicator())
+                : showSearchResults
+                    ? _searchResults.isEmpty
+                        ? Center(
+                            child: Text(
+                              'No results found',
+                              style: TextStyle(
+                                color:
+                                    dark ? Colors.grey[500] : Colors.grey[600],
+                              ),
+                            ),
+                          )
+                        : ListView.builder(
+                            itemCount: _searchResults.length,
+                            padding: const EdgeInsets.symmetric(horizontal: 8),
+                            itemBuilder: (context, index) {
+                              final place = _searchResults[index];
+                              return _buildSearchResultItem(place, dark);
+                            },
+                          )
+                    : ListView.builder(
+                        itemCount: _recentLocations.length,
+                        padding: const EdgeInsets.symmetric(horizontal: 8),
+                        itemBuilder: (context, index) {
+                          return _buildRecentItem(
+                            _recentLocations[index],
+                            dark,
+                          );
+                        },
+                      ),
           ),
 
           // ── Confirm Location Button ──
@@ -158,10 +231,69 @@ class _AddLocationScreenState extends State<AddLocationScreen> {
               ),
             ),
           ),
-          // Microphone icon (dark mode)
-          if (dark) Icon(Icons.mic, color: Colors.grey[500], size: 22),
+          // Clear button when text present, mic when empty
+          if (_searchController.text.isNotEmpty)
+            GestureDetector(
+              onTap: () {
+                _searchController.clear();
+                setState(() {
+                  _searchResults = [];
+                });
+              },
+              child: Icon(Icons.close, color: Colors.grey[500], size: 20),
+            )
+          else if (dark)
+            Icon(Icons.mic, color: Colors.grey[500], size: 22),
         ],
       ),
+    );
+  }
+
+  /// A geocoded search result list item
+  Widget _buildSearchResultItem(GeocodedPlace place, bool dark) {
+    final titleColor = dark ? Colors.white : Colors.black;
+    final subColor = dark ? Colors.grey[500]! : Colors.grey[600]!;
+    final dividerColor = dark ? Colors.grey[800]! : Colors.grey[200]!;
+
+    return Column(
+      children: [
+        ListTile(
+          leading: Container(
+            width: 40,
+            height: 40,
+            decoration: BoxDecoration(
+              color: AppColors.primaryBlue.withValues(alpha: 0.1),
+              shape: BoxShape.circle,
+            ),
+            child:
+                Icon(Icons.location_on, color: AppColors.primaryBlue, size: 20),
+          ),
+          title: Text(
+            place.displayName,
+            style: TextStyle(
+              fontSize: 14,
+              fontWeight: FontWeight.w600,
+              color: titleColor,
+            ),
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+          ),
+          subtitle: Text(
+            '${place.latLng.latitude.toStringAsFixed(4)}, ${place.latLng.longitude.toStringAsFixed(4)}',
+            style: TextStyle(fontSize: 12, color: subColor),
+          ),
+          trailing: Icon(
+            Icons.north_east,
+            color: dark ? Colors.grey[600] : Colors.grey[400],
+            size: 18,
+          ),
+          onTap: () {
+            // Return the selected place back to the previous screen
+            Navigator.pop(context, place);
+          },
+        ),
+        Divider(height: 1, color: dividerColor, indent: 72),
+      ],
     );
   }
 

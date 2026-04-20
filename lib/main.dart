@@ -128,7 +128,7 @@ class FixOnGoApp extends StatelessWidget {
             '/arrival-confirmation': (context) =>
                 const AuthGuard(child: ArrivalConfirmationScreen()),
             '/dashboard': (context) =>
-                AuthGuard(child: DashboardScreen(role: 'User')),
+                const AuthGuard(child: DashboardScreen()),
             '/payment-successful': (context) =>
                 const AuthGuard(child: PaymentSuccessfulScreen()),
             '/checkout': (context) => const AuthGuard(child: CheckoutScreen()),

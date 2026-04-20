@@ -1,9 +1,14 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_map/flutter_map.dart';
+import 'package:latlong2/latlong.dart';
 import '../theme_provider.dart';
+import '../components/osm_map_widget.dart';
+import '../services/location_service.dart';
 
 /// "Searching for nearby mechanics" screen.
-/// Shown after a user requests a service — displays a map with mechanic pins
-/// and an animated bottom sheet indicating the search is in progress.
+/// Shown after a user requests a service — displays a real OSM map with
+/// mechanic pins and an animated bottom sheet indicating the search is
+/// in progress.
 class SearchingMechanicsScreen extends StatefulWidget {
   const SearchingMechanicsScreen({super.key});
 
@@ -15,6 +20,18 @@ class SearchingMechanicsScreen extends StatefulWidget {
 class _SearchingMechanicsScreenState extends State<SearchingMechanicsScreen>
     with SingleTickerProviderStateMixin {
   late AnimationController _dotController;
+  final MapController _mapController = MapController();
+
+  LatLng? _userLatLng;
+
+  /// Simulated nearby mechanic offsets (relative to user location).
+  static const List<List<double>> _mechanicOffsets = [
+    [0.004, 0.003],
+    [-0.003, 0.005],
+    [0.006, -0.002],
+    [-0.005, -0.004],
+    [0.002, 0.006],
+  ];
 
   @override
   void initState() {
@@ -23,6 +40,67 @@ class _SearchingMechanicsScreenState extends State<SearchingMechanicsScreen>
       vsync: this,
       duration: const Duration(milliseconds: 1500),
     )..repeat();
+    _fetchLocation();
+  }
+
+  Future<void> _fetchLocation() async {
+    try {
+      final latLng = await LocationService.instance.getCurrentLatLng();
+      if (!mounted) return;
+      setState(() => _userLatLng = latLng);
+      _mapController.move(latLng, 14);
+    } catch (_) {
+      // Fallback to Colombo
+      if (!mounted) return;
+      setState(() => _userLatLng = const LatLng(6.9271, 79.8612));
+    }
+  }
+
+  List<Marker> _buildMarkers(bool dark) {
+    final markers = <Marker>[];
+    if (_userLatLng == null) return markers;
+
+    // User marker
+    markers.add(
+      Marker(
+        point: _userLatLng!,
+        width: 40,
+        height: 40,
+        child: Icon(
+          Icons.location_on,
+          size: 30,
+          color: AppColors.primaryBlue,
+        ),
+      ),
+    );
+
+    // Mechanic pins
+    for (final offset in _mechanicOffsets) {
+      final mechLatLng = LatLng(
+        _userLatLng!.latitude + offset[0],
+        _userLatLng!.longitude + offset[1],
+      );
+      markers.add(
+        Marker(
+          point: mechLatLng,
+          width: 36,
+          height: 36,
+          child: Container(
+            decoration: BoxDecoration(
+              color: dark ? const Color(0xFF1E3350) : const Color(0xFF2C3E50),
+              shape: BoxShape.circle,
+              border: Border.all(
+                color: dark ? Colors.grey[700]! : Colors.white,
+                width: 2,
+              ),
+            ),
+            child: const Icon(Icons.person, color: Colors.white, size: 16),
+          ),
+        ),
+      );
+    }
+
+    return markers;
   }
 
   @override
@@ -35,12 +113,21 @@ class _SearchingMechanicsScreenState extends State<SearchingMechanicsScreen>
   Widget build(BuildContext context) {
     final dark = isDarkMode(context);
     final sheetBg = dark ? AppColors.darkBackground : Colors.white;
+    final center = _userLatLng ?? const LatLng(6.9271, 79.8612);
 
     return Scaffold(
       body: Stack(
         children: [
-          // ── Full-screen Map Placeholder ──
-          Positioned.fill(child: _buildMapArea(context, dark)),
+          // ── Full-screen Map ──
+          Positioned.fill(
+            child: OsmMapWidget(
+              center: center,
+              zoom: 14,
+              mapController: _mapController,
+              markers: _buildMarkers(dark),
+              showLocateButton: false,
+            ),
+          ),
 
           // ── Back Button ──
           Positioned(
@@ -95,42 +182,6 @@ class _SearchingMechanicsScreenState extends State<SearchingMechanicsScreen>
                   ),
                 ),
               ),
-            ),
-          ),
-
-          // ── Location Pin Label ──
-          Positioned(
-            right: MediaQuery.of(context).size.width * 0.12,
-            top: MediaQuery.of(context).size.height * 0.28,
-            child: Column(
-              children: [
-                Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 12,
-                    vertical: 6,
-                  ),
-                  decoration: BoxDecoration(
-                    color: dark ? AppColors.darkSurface : Colors.white,
-                    borderRadius: BorderRadius.circular(8),
-                    boxShadow: [
-                      BoxShadow(
-                        color: Colors.black.withValues(alpha: 0.1),
-                        blurRadius: 4,
-                      ),
-                    ],
-                  ),
-                  child: Text(
-                    'Location',
-                    style: TextStyle(
-                      fontSize: 12,
-                      fontWeight: FontWeight.w600,
-                      color: dark ? Colors.white : Colors.black,
-                    ),
-                  ),
-                ),
-                const SizedBox(height: 4),
-                Icon(Icons.location_on, size: 30, color: AppColors.primaryBlue),
-              ],
             ),
           ),
 
@@ -202,8 +253,8 @@ class _SearchingMechanicsScreenState extends State<SearchingMechanicsScreen>
                                 color: isActive
                                     ? AppColors.primaryBlue
                                     : (dark
-                                          ? Colors.grey[700]
-                                          : Colors.grey[300]),
+                                        ? Colors.grey[700]
+                                        : Colors.grey[300]),
                               ),
                             );
                           }),
@@ -240,131 +291,4 @@ class _SearchingMechanicsScreenState extends State<SearchingMechanicsScreen>
       ),
     );
   }
-
-  /// Map area with mechanic pins scattered
-  Widget _buildMapArea(BuildContext context, bool dark) {
-    final sw = MediaQuery.of(context).size.width;
-    final sh = MediaQuery.of(context).size.height;
-
-    return Container(
-      color: dark ? const Color(0xFF1A2640) : const Color(0xFFE5EAD7),
-      child: Stack(
-        children: [
-          // Map grid
-          CustomPaint(
-            size: Size.infinite,
-            painter: _SearchMapPainter(dark: dark),
-          ),
-          // Mechanic pins scattered
-          _mechanicPin(dark, left: sw * 0.05, top: sh * 0.22),
-          _mechanicPin(dark, left: sw * 0.15, top: sh * 0.24),
-          _mechanicPin(dark, left: sw * 0.50, top: sh * 0.18),
-          _mechanicPin(dark, left: sw * 0.55, top: sh * 0.22),
-          _mechanicPin(dark, left: sw * 0.40, top: sh * 0.42),
-        ],
-      ),
-    );
-  }
-
-  Widget _mechanicPin(bool dark, {required double left, required double top}) {
-    return Positioned(
-      left: left,
-      top: top,
-      child: Container(
-        width: 32,
-        height: 32,
-        decoration: BoxDecoration(
-          color: dark ? const Color(0xFF1E3350) : const Color(0xFF2C3E50),
-          shape: BoxShape.circle,
-          border: Border.all(
-            color: dark ? Colors.grey[700]! : Colors.white,
-            width: 2,
-          ),
-        ),
-        child: const Icon(Icons.person, color: Colors.white, size: 16),
-      ),
-    );
-  }
-}
-
-/// Map background painter for the search screen
-class _SearchMapPainter extends CustomPainter {
-  final bool dark;
-
-  _SearchMapPainter({required this.dark});
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    // Terrain
-    final terrainPaint = Paint()
-      ..color = dark
-          ? const Color(0xFF1E3350).withValues(alpha: 0.5)
-          : const Color(0xFFD4DFC7).withValues(alpha: 0.6);
-
-    canvas.drawCircle(
-      Offset(size.width * 0.25, size.height * 0.35),
-      70,
-      terrainPaint,
-    );
-    canvas.drawCircle(
-      Offset(size.width * 0.75, size.height * 0.55),
-      55,
-      terrainPaint,
-    );
-
-    // Roads
-    final roadPaint = Paint()
-      ..color = dark
-          ? Colors.grey[700]!.withValues(alpha: 0.4)
-          : const Color(0xFF8899BB).withValues(alpha: 0.3)
-      ..strokeWidth = 4
-      ..style = PaintingStyle.stroke;
-
-    final path = Path()
-      ..moveTo(size.width * 0.3, 0)
-      ..quadraticBezierTo(
-        size.width * 0.35,
-        size.height * 0.4,
-        size.width * 0.5,
-        size.height * 0.5,
-      )
-      ..quadraticBezierTo(
-        size.width * 0.6,
-        size.height * 0.6,
-        size.width * 0.4,
-        size.height,
-      );
-    canvas.drawPath(path, roadPaint);
-
-    // Dotted search radius circle
-    final radiusPaint = Paint()
-      ..color = dark
-          ? Colors.red.withValues(alpha: 0.2)
-          : Colors.red.withValues(alpha: 0.15)
-      ..strokeWidth = 2
-      ..style = PaintingStyle.stroke;
-
-    canvas.drawCircle(
-      Offset(size.width * 0.5, size.height * 0.35),
-      120,
-      radiusPaint,
-    );
-
-    // Subtle grid
-    final gridPaint = Paint()
-      ..color = dark
-          ? Colors.grey[800]!.withValues(alpha: 0.2)
-          : Colors.grey[400]!.withValues(alpha: 0.12)
-      ..strokeWidth = 0.5;
-
-    for (double y = 0; y < size.height; y += 60) {
-      canvas.drawLine(Offset(0, y), Offset(size.width, y), gridPaint);
-    }
-    for (double x = 0; x < size.width; x += 60) {
-      canvas.drawLine(Offset(x, 0), Offset(x, size.height), gridPaint);
-    }
-  }
-
-  @override
-  bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
 }
