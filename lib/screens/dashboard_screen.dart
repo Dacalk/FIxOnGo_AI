@@ -6,6 +6,10 @@ import '../components/quick_action_card.dart';
 
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:latlong2/latlong.dart';
+import '../components/osm_map_widget.dart';
+import '../services/location_service.dart';
+import 'package:flutter_map/flutter_map.dart';
 
 /// Main dashboard screen with bottom navigation.
 /// Renders role-specific content based on the user's role.
@@ -31,12 +35,25 @@ class _DashboardScreenState extends State<DashboardScreen> {
   // Role-specific data map
   Map<String, dynamic> roleData = {};
   String? currentRole;
+  LatLng? _userLocation;
 
   @override
   void initState() {
     super.initState();
     currentRole = widget.role; // Initial value
     loadUserData();
+    _fetchInitialLocation();
+  }
+
+  Future<void> _fetchInitialLocation() async {
+    try {
+      final loc = await LocationService.instance.getCurrentLatLng();
+      if (mounted) {
+        setState(() => _userLocation = loc);
+      }
+    } catch (e) {
+      print("Error fetching dashboard location: $e");
+    }
   }
 
   Future<void> loadUserData() async {
@@ -266,38 +283,52 @@ class _DashboardScreenState extends State<DashboardScreen> {
           ),
           const SizedBox(height: 20),
 
-          // Map placeholder
+          // Real Map
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 16),
-            child: Container(
-              height: 200,
-              decoration: BoxDecoration(
-                color: dark ? AppColors.darkSurface : Colors.grey[200],
-                borderRadius: BorderRadius.circular(20),
-                border: Border.all(
-                  color: dark ? Colors.grey[800]! : Colors.grey[300]!,
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(20),
+              child: Container(
+                height: 200,
+                decoration: BoxDecoration(
+                  color: dark ? AppColors.darkSurface : Colors.grey[200],
+                  borderRadius: BorderRadius.circular(20),
+                  border: Border.all(
+                    color: dark ? Colors.grey[800]! : Colors.grey[300]!,
+                  ),
                 ),
-              ),
-              child: Center(
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Icon(
-                      Icons.map_rounded,
-                      size: 48,
-                      color: dark ? Colors.grey[600] : Colors.grey[400],
-                    ),
-                    const SizedBox(height: 8),
-                    Text(
-                      'Nearby Services Map',
-                      style: TextStyle(
-                        color: dark ? Colors.grey[500] : Colors.grey[500],
-                        fontSize: 14,
-                        fontWeight: FontWeight.w500,
+                child: _userLocation == null
+                    ? const Center(child: CircularProgressIndicator())
+                    : OsmMapWidget(
+                        center: _userLocation!,
+                        markers: [
+                          Marker(
+                            point: _userLocation!,
+                            width: 30,
+                            height: 30,
+                            child: const Icon(Icons.my_location,
+                                color: AppColors.primaryBlue),
+                          ),
+                          // Simulated nearby mechanic
+                          Marker(
+                            point: LatLng(_userLocation!.latitude + 0.005,
+                                _userLocation!.longitude + 0.005),
+                            width: 40,
+                            height: 40,
+                            child: const Icon(Icons.car_repair,
+                                color: AppColors.brandYellow),
+                          ),
+                          // Simulated nearby tow
+                          Marker(
+                            point: LatLng(_userLocation!.latitude - 0.003,
+                                _userLocation!.longitude - 0.007),
+                            width: 40,
+                            height: 40,
+                            child: const Icon(Icons.local_shipping,
+                                color: Colors.orange),
+                          ),
+                        ],
                       ),
-                    ),
-                  ],
-                ),
               ),
             ),
           ),
