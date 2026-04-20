@@ -202,14 +202,14 @@ class _DashboardScreenState extends State<DashboardScreen> {
   //  ROLE ROUTER
   // ─────────────────────────────────────────────
   Widget _buildDashboardContent(String role, bool dark) {
-    switch (role) {
-      case 'Mechanic':
+    switch (role.toLowerCase()) {
+      case 'mechanic':
         return _mechanicDashboard(dark);
-      case 'Tow':
+      case 'tow':
         return _towDashboard(dark);
-      case 'Seller':
+      case 'seller':
         return _sellerDashboard(dark);
-      case 'Driver':
+      case 'driver':
         return _driverDashboard(dark);
       default:
         return _userDashboard(dark);
@@ -349,7 +349,9 @@ class _DashboardScreenState extends State<DashboardScreen> {
                         subtitle: 'ON-SITE REPAIR',
                         title: 'Mechanic',
                         color: const Color(0xFFE65100),
-                        onTap: () {},
+                        onTap: () {
+                          Navigator.pushNamed(context, '/searching-mechanics');
+                        },
                       ),
                     ),
                   ],
@@ -524,7 +526,12 @@ class _DashboardScreenState extends State<DashboardScreen> {
                     subtitle: 'MANAGE',
                     title: 'Accept Jobs',
                     color: const Color(0xFF2E7D32),
-                    onTap: () {},
+                    onTap: () {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(
+                            content: Text("Accepting jobs coming soon...")),
+                      );
+                    },
                   ),
                 ),
                 const SizedBox(width: 14),
@@ -534,7 +541,9 @@ class _DashboardScreenState extends State<DashboardScreen> {
                     subtitle: 'VIEW',
                     title: 'Job History',
                     color: const Color(0xFF1565C0),
-                    onTap: () {},
+                    onTap: () {
+                      Navigator.pushNamed(context, '/ai-chat-history');
+                    },
                   ),
                 ),
               ],
@@ -662,7 +671,9 @@ class _DashboardScreenState extends State<DashboardScreen> {
                     subtitle: 'NAVIGATE',
                     title: 'Start Tow',
                     color: const Color(0xFFE65100),
-                    onTap: () {},
+                    onTap: () {
+                      Navigator.pushNamed(context, '/location');
+                    },
                   ),
                 ),
                 const SizedBox(width: 14),
@@ -672,7 +683,9 @@ class _DashboardScreenState extends State<DashboardScreen> {
                     subtitle: 'HELP',
                     title: 'Support',
                     color: const Color(0xFF1A2940),
-                    onTap: () {},
+                    onTap: () {
+                      Navigator.pushNamed(context, '/call-support');
+                    },
                   ),
                 ),
               ],
@@ -772,7 +785,12 @@ class _DashboardScreenState extends State<DashboardScreen> {
                         subtitle: 'INVENTORY',
                         title: 'Add Product',
                         color: const Color(0xFF2E7D32),
-                        onTap: () {},
+                        onTap: () {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(
+                                content: Text("Add product coming soon...")),
+                          );
+                        },
                       ),
                     ),
                     const SizedBox(width: 14),
@@ -782,7 +800,9 @@ class _DashboardScreenState extends State<DashboardScreen> {
                         subtitle: 'MANAGE',
                         title: 'View Orders',
                         color: const Color(0xFF1565C0),
-                        onTap: () {},
+                        onTap: () {
+                          Navigator.pushNamed(context, '/order-tracking');
+                        },
                       ),
                     ),
                   ],
@@ -796,7 +816,12 @@ class _DashboardScreenState extends State<DashboardScreen> {
                         subtitle: 'INSIGHTS',
                         title: 'Analytics',
                         color: const Color(0xFF6A1B9A),
-                        onTap: () {},
+                        onTap: () {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(
+                                content: Text("Analytics coming soon...")),
+                          );
+                        },
                       ),
                     ),
                     const SizedBox(width: 14),
@@ -806,7 +831,9 @@ class _DashboardScreenState extends State<DashboardScreen> {
                         subtitle: 'CUSTOMERS',
                         title: 'Messages',
                         color: const Color(0xFFE65100),
-                        onTap: () {},
+                        onTap: () {
+                          Navigator.pushNamed(context, '/mechanic-chat');
+                        },
                       ),
                     ),
                   ],
@@ -992,7 +1019,9 @@ class _DashboardScreenState extends State<DashboardScreen> {
                     subtitle: 'ACCEPT',
                     title: 'New Delivery',
                     color: const Color(0xFF2E7D32),
-                    onTap: () {},
+                    onTap: () {
+                      Navigator.pushNamed(context, '/order-tracking');
+                    },
                   ),
                 ),
                 const SizedBox(width: 14),
@@ -1002,7 +1031,9 @@ class _DashboardScreenState extends State<DashboardScreen> {
                     subtitle: 'NAVIGATE',
                     title: 'View Route',
                     color: const Color(0xFF1565C0),
-                    onTap: () {},
+                    onTap: () {
+                      Navigator.pushNamed(context, '/location');
+                    },
                   ),
                 ),
               ],

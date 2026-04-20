@@ -5,10 +5,12 @@ import '../theme_provider.dart';
 /// Options: User, Mechanic, Tow, Seller, Driver.
 class RoleDropdown extends StatefulWidget {
   final ValueChanged<String?>? onChanged;
+  final String? initialValue;
 
   const RoleDropdown({
     super.key,
     this.onChanged,
+    this.initialValue,
   });
 
   @override
@@ -18,6 +20,12 @@ class RoleDropdown extends StatefulWidget {
 class _RoleDropdownState extends State<RoleDropdown> {
   String? _selectedRole;
   bool _isExpanded = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _selectedRole = widget.initialValue;
+  }
 
   static const List<String> _roles = [
     'User',
@@ -40,8 +48,7 @@ class _RoleDropdownState extends State<RoleDropdown> {
         GestureDetector(
           onTap: () => setState(() => _isExpanded = !_isExpanded),
           child: Container(
-            padding:
-                const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
             decoration: BoxDecoration(
               color: bgColor,
               borderRadius: BorderRadius.circular(15),
@@ -94,8 +101,8 @@ class _RoleDropdownState extends State<RoleDropdown> {
                     width: double.infinity,
                     padding: const EdgeInsets.symmetric(
                         horizontal: 16, vertical: 12),
-                    margin: const EdgeInsets.symmetric(
-                        horizontal: 8, vertical: 4),
+                    margin:
+                        const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                     decoration: BoxDecoration(
                       borderRadius: BorderRadius.circular(12),
                       color: isSelected
@@ -104,8 +111,7 @@ class _RoleDropdownState extends State<RoleDropdown> {
                               : AppColors.primaryBlue.withValues(alpha: 0.08))
                           : Colors.transparent,
                       border: isSelected
-                          ? Border.all(
-                              color: AppColors.primaryBlue, width: 1.5)
+                          ? Border.all(color: AppColors.primaryBlue, width: 1.5)
                           : null,
                     ),
                     child: Text(
