@@ -10,9 +10,9 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 /// Main dashboard screen with bottom navigation.
 /// Renders role-specific content based on the user's role.
 class DashboardScreen extends StatefulWidget {
-  final String role; //  ADD THIS
+  final String? role;
 
-  const DashboardScreen({super.key, required this.role}); // 🔥 UPDATE
+  const DashboardScreen({super.key, this.role});
 
   @override
   State<DashboardScreen> createState() => _DashboardScreenState();
@@ -30,10 +30,12 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
   // Role-specific data map
   Map<String, dynamic> roleData = {};
+  String? currentRole;
 
   @override
   void initState() {
     super.initState();
+    currentRole = widget.role; // Initial value
     loadUserData();
   }
 
@@ -41,7 +43,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
     final user = FirebaseAuth.instance.currentUser;
     if (user == null) return;
 
-    final role = widget.role;
+    String role = widget.role ?? 'User';
 
     try {
       var doc = await FirebaseFirestore.instance
@@ -53,6 +55,15 @@ class _DashboardScreenState extends State<DashboardScreen> {
         final data = doc.data();
         final rolesMap = data?['roles'] as Map<String, dynamic>? ?? {};
 
+        // 🧠 DYNAMIC ROLE RESOLUTION
+        // If we were passed "User" (the default) but the user has other roles,
+        // and "User" isn't actually one of them, pick the first available role.
+        if (role == 'User' &&
+            !rolesMap.containsKey('user') &&
+            rolesMap.isNotEmpty) {
+          role = rolesMap.keys.first;
+        }
+
         // Check both lowercase and original casing
         Map<String, dynamic> rd = {};
         if (rolesMap.containsKey(role.toLowerCase())) {
@@ -62,6 +73,11 @@ class _DashboardScreenState extends State<DashboardScreen> {
         }
 
         setState(() {
+          // Update the localized role if we changed it
+          if (role != widget.role) {
+            // We can't update widget.role directly, but _buildDashboardContent uses local role
+          }
+          currentRole = role; // Store it locally for the build method
           userName = rd['fullName']?.toString().isNotEmpty == true
               ? rd['fullName']
               : user.displayName ?? 'User';
@@ -103,21 +119,23 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final role = widget.role;
+    final role = currentRole ?? widget.role ?? 'User';
     final dark = isDarkMode(context);
     final bgColor = dark ? AppColors.darkBackground : const Color(0xFFF5F8FF);
 
     return Scaffold(
       backgroundColor: bgColor,
-      body: IndexedStack(
-        index: _currentIndex,
-        children: [
-          _buildDashboardContent(role, dark),
-          _buildPlaceholderTab('Garage', Icons.garage_rounded, dark),
-          _buildPlaceholderTab('Payment', Icons.payments_rounded, dark),
-          _buildPlaceholderTab('Profile', Icons.person_rounded, dark),
-        ],
-      ),
+      body: isLoading
+          ? const Center(child: CircularProgressIndicator())
+          : IndexedStack(
+              index: _currentIndex,
+              children: [
+                _buildDashboardContent(role, dark),
+                _buildPlaceholderTab('Garage', Icons.garage_rounded, dark),
+                _buildPlaceholderTab('Payment', Icons.payments_rounded, dark),
+                _buildPlaceholderTab('Profile', Icons.person_rounded, dark),
+              ],
+            ),
       bottomNavigationBar: _buildBottomNav(dark),
     );
   }
@@ -204,22 +222,22 @@ class _DashboardScreenState extends State<DashboardScreen> {
   Widget _buildDashboardContent(String role, bool dark) {
     switch (role.toLowerCase()) {
       case 'mechanic':
-        return _mechanicDashboard(dark);
+        return _mechanicDashboard(role, dark);
       case 'tow':
-        return _towDashboard(dark);
+        return _towDashboard(role, dark);
       case 'seller':
-        return _sellerDashboard(dark);
+        return _sellerDashboard(role, dark);
       case 'driver':
-        return _driverDashboard(dark);
+        return _driverDashboard(role, dark);
       default:
-        return _userDashboard(dark);
+        return _userDashboard(role, dark);
     }
   }
 
   // ═════════════════════════════════════════════
   //  1. USER DASHBOARD (default)
   // ═════════════════════════════════════════════
-  Widget _userDashboard(bool dark) {
+  Widget _userDashboard(String role, bool dark) {
     return SingleChildScrollView(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -227,7 +245,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
           // Header
           DashboardHeader(
             userName: isLoading ? 'Loading...' : userName,
-            role: widget.role,
+            role: role,
             photoUrl: userPhotoUrl,
             vehicleInfo: _rd('vehicleType', 'My Vehicle'),
           ),
@@ -396,14 +414,14 @@ class _DashboardScreenState extends State<DashboardScreen> {
   // ═════════════════════════════════════════════
   //  2. MECHANIC DASHBOARD
   // ═════════════════════════════════════════════
-  Widget _mechanicDashboard(bool dark) {
+  Widget _mechanicDashboard(String role, bool dark) {
     return SingleChildScrollView(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           DashboardHeader(
             userName: isLoading ? 'Loading...' : userName,
-            role: widget.role,
+            role: role,
             photoUrl: userPhotoUrl,
             vehicleInfo: _rd('workshop', 'My Workshop'),
           ),
@@ -558,14 +576,14 @@ class _DashboardScreenState extends State<DashboardScreen> {
   // ═════════════════════════════════════════════
   //  3. TOW DASHBOARD
   // ═════════════════════════════════════════════
-  Widget _towDashboard(bool dark) {
+  Widget _towDashboard(String role, bool dark) {
     return SingleChildScrollView(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           DashboardHeader(
             userName: isLoading ? 'Loading...' : userName,
-            role: widget.role,
+            role: role,
             photoUrl: userPhotoUrl,
             vehicleInfo: _rd('truckModel', 'My Truck'),
           ),
@@ -700,14 +718,14 @@ class _DashboardScreenState extends State<DashboardScreen> {
   // ═════════════════════════════════════════════
   //  4. SELLER DASHBOARD
   // ═════════════════════════════════════════════
-  Widget _sellerDashboard(bool dark) {
+  Widget _sellerDashboard(String role, bool dark) {
     return SingleChildScrollView(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           DashboardHeader(
             userName: isLoading ? 'Loading...' : userName,
-            role: widget.role,
+            role: role,
             photoUrl: userPhotoUrl,
             vehicleInfo: _rd('shopName', 'My Shop'),
           ),
@@ -850,14 +868,14 @@ class _DashboardScreenState extends State<DashboardScreen> {
   // ═════════════════════════════════════════════
   //  5. DRIVER DASHBOARD
   // ═════════════════════════════════════════════
-  Widget _driverDashboard(bool dark) {
+  Widget _driverDashboard(String role, bool dark) {
     return SingleChildScrollView(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           DashboardHeader(
             userName: isLoading ? 'Loading...' : userName,
-            role: widget.role,
+            role: role,
             photoUrl: userPhotoUrl,
             vehicleInfo: _rd('deliveryArea', 'My Area'),
           ),

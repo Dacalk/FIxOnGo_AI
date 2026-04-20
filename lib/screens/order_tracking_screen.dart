@@ -1,10 +1,65 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_map/flutter_map.dart';
+import 'package:latlong2/latlong.dart';
 import '../theme_provider.dart';
+import '../components/osm_map_widget.dart';
+import '../services/location_service.dart';
+import '../services/map_service.dart';
 
-/// Order Tracking screen — shows real-time delivery status with map,
+/// Order Tracking screen — shows real-time delivery status with a real map,
 /// driver info, and order timeline (Confirmed → Picked Up → Delivered).
-class OrderTrackingScreen extends StatelessWidget {
+class OrderTrackingScreen extends StatefulWidget {
   const OrderTrackingScreen({super.key});
+
+  @override
+  State<OrderTrackingScreen> createState() => _OrderTrackingScreenState();
+}
+
+class _OrderTrackingScreenState extends State<OrderTrackingScreen> {
+  final MapController _mapController = MapController();
+  LatLng? _userLatLng;
+  LatLng? _driverLatLng;
+  List<LatLng> _routePoints = [];
+  String _eta = '13 mins';
+
+  @override
+  void initState() {
+    super.initState();
+    _loadMapData();
+  }
+
+  Future<void> _loadMapData() async {
+    try {
+      final userPos = await LocationService.instance.getCurrentLatLng();
+      // Simulated driver position (coming from nearby)
+      final driverPos = LatLng(
+        userPos.latitude + 0.012,
+        userPos.longitude - 0.006,
+      );
+      if (!mounted) return;
+      setState(() {
+        _userLatLng = userPos;
+        _driverLatLng = driverPos;
+      });
+
+      // Fetch route from driver to user
+      try {
+        final route =
+            await MapService.instance.getDirections(driverPos, userPos);
+        if (!mounted) return;
+        setState(() {
+          _routePoints = route.points;
+          _eta = '${(route.durationSeconds / 60).ceil()} mins';
+        });
+      } catch (_) {}
+    } catch (_) {
+      if (!mounted) return;
+      setState(() {
+        _userLatLng = const LatLng(6.9271, 79.8612);
+        _driverLatLng = const LatLng(6.9391, 79.8552);
+      });
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -14,6 +69,7 @@ class OrderTrackingScreen extends StatelessWidget {
     final subColor = dark ? Colors.grey[400]! : Colors.grey[600]!;
     final cardBg = dark ? AppColors.darkSurface : Colors.grey[50]!;
     final borderColor = dark ? Colors.grey[800]! : Colors.grey[200]!;
+    final center = _userLatLng ?? const LatLng(6.9271, 79.8612);
 
     return Scaffold(
       backgroundColor: bgColor,
@@ -24,137 +80,51 @@ class OrderTrackingScreen extends StatelessWidget {
             flex: 4,
             child: Stack(
               children: [
-                // Map placeholder
-                Container(
-                  width: double.infinity,
-                  decoration: BoxDecoration(
-                    gradient: LinearGradient(
-                      begin: Alignment.topLeft,
-                      end: Alignment.bottomRight,
-                      colors: [
-                        const Color(0xFFC8E6C9),
-                        const Color(0xFFE8F5E9),
-                        const Color(0xFFF1F8E9),
-                      ],
-                    ),
-                  ),
-                  child: CustomPaint(
-                    painter: _TrackingMapPainter(),
-                    child: Stack(
-                      children: [
-                        // Location labels
-                        Positioned(
-                          top: 100,
-                          left: 60,
-                          child: Text(
-                            'Little Adam\'s\nPeak Trailhead',
-                            style: TextStyle(
-                              fontSize: 10,
-                              color: Colors.grey[700],
-                              height: 1.3,
-                            ),
-                          ),
-                        ),
-                        Positioned(
-                          bottom: 80,
-                          left: 20,
-                          child: Text(
-                            'Flying Ravana\nAdventure Park',
-                            style: TextStyle(
-                              fontSize: 10,
-                              color: Colors.grey[700],
-                              height: 1.3,
-                            ),
-                          ),
-                        ),
-                        // Destination pin
-                        Positioned(
-                          top: 80,
-                          left: 100,
-                          child: Container(
-                            padding: const EdgeInsets.all(4),
-                            decoration: BoxDecoration(
-                              color: Colors.green,
-                              shape: BoxShape.circle,
-                              border: Border.all(color: Colors.white, width: 2),
-                            ),
-                            child: const Icon(
-                              Icons.flag,
-                              color: Colors.white,
-                              size: 12,
-                            ),
-                          ),
-                        ),
-                        // Blue route dot
-                        Positioned(
-                          top: 60,
-                          right: 80,
-                          child: Container(
-                            width: 14,
-                            height: 14,
-                            decoration: BoxDecoration(
-                              color: AppColors.primaryBlue,
-                              shape: BoxShape.circle,
-                              border: Border.all(color: Colors.white, width: 2),
-                            ),
-                          ),
-                        ),
-                        // Driver icon on route
-                        Positioned(
-                          top: 120,
-                          right: 100,
-                          child: Container(
-                            width: 40,
-                            height: 40,
-                            decoration: BoxDecoration(
-                              color: AppColors.primaryBlue,
-                              shape: BoxShape.circle,
-                              border: Border.all(color: Colors.white, width: 3),
-                              boxShadow: [
-                                BoxShadow(
-                                  color: AppColors.primaryBlue.withValues(
-                                    alpha: 0.3,
-                                  ),
-                                  blurRadius: 8,
-                                  spreadRadius: 2,
-                                ),
-                              ],
-                            ),
-                            child: const Icon(
-                              Icons.local_shipping,
-                              color: Colors.white,
-                              size: 18,
-                            ),
-                          ),
-                        ),
-                        // "SUNIL IS ON THE WAY" badge
-                        Positioned(
-                          top: 108,
-                          right: 140,
-                          child: Container(
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 10,
-                              vertical: 5,
-                            ),
-                            decoration: BoxDecoration(
-                              color: Colors.green[700],
-                              borderRadius: BorderRadius.circular(8),
-                            ),
-                            child: const Text(
-                              'SUNIL IS ON THE WAY',
-                              style: TextStyle(
-                                fontSize: 9,
-                                fontWeight: FontWeight.bold,
-                                color: Colors.white,
-                                letterSpacing: 0.3,
-                              ),
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
+                // Real map
+                OsmMapWidget(
+                  center: center,
+                  zoom: 13,
+                  mapController: _mapController,
+                  showLocateButton: false,
+                  polylinePoints: _routePoints.isNotEmpty ? _routePoints : null,
+                  markers: _buildMarkers(dark),
                 ),
+
+                // "SUNIL IS ON THE WAY" badge
+                if (_driverLatLng != null)
+                  Positioned(
+                    top: MediaQuery.of(context).padding.top + 56,
+                    left: 0,
+                    right: 0,
+                    child: Center(
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 14,
+                          vertical: 8,
+                        ),
+                        decoration: BoxDecoration(
+                          color: Colors.green[700],
+                          borderRadius: BorderRadius.circular(10),
+                          boxShadow: [
+                            BoxShadow(
+                              color: Colors.green.withValues(alpha: 0.3),
+                              blurRadius: 8,
+                              offset: const Offset(0, 2),
+                            ),
+                          ],
+                        ),
+                        child: Text(
+                          'SUNIL IS ON THE WAY  •  $_eta',
+                          style: const TextStyle(
+                            fontSize: 11,
+                            fontWeight: FontWeight.bold,
+                            color: Colors.white,
+                            letterSpacing: 0.3,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
 
                 // Back button
                 Positioned(
@@ -248,7 +218,7 @@ class OrderTrackingScreen extends StatelessWidget {
                             borderRadius: BorderRadius.circular(8),
                           ),
                           child: Text(
-                            '13 mins',
+                            _eta,
                             style: TextStyle(
                               fontSize: 12,
                               fontWeight: FontWeight.bold,
@@ -358,7 +328,7 @@ class OrderTrackingScreen extends StatelessWidget {
                     ),
                     _timelineStep(
                       title: 'Delivered',
-                      subtitle: 'Estimated arrival in 13 mins',
+                      subtitle: 'Estimated arrival in $_eta',
                       isCompleted: false,
                       isLast: true,
                       dark: dark,
@@ -398,6 +368,62 @@ class OrderTrackingScreen extends StatelessWidget {
         ],
       ),
     );
+  }
+
+  List<Marker> _buildMarkers(bool dark) {
+    final markers = <Marker>[];
+
+    // User destination marker
+    if (_userLatLng != null) {
+      markers.add(
+        Marker(
+          point: _userLatLng!,
+          width: 36,
+          height: 36,
+          child: Container(
+            padding: const EdgeInsets.all(4),
+            decoration: BoxDecoration(
+              color: Colors.green,
+              shape: BoxShape.circle,
+              border: Border.all(color: Colors.white, width: 2),
+            ),
+            child: const Icon(Icons.flag, color: Colors.white, size: 14),
+          ),
+        ),
+      );
+    }
+
+    // Driver marker
+    if (_driverLatLng != null) {
+      markers.add(
+        Marker(
+          point: _driverLatLng!,
+          width: 44,
+          height: 44,
+          child: Container(
+            decoration: BoxDecoration(
+              color: AppColors.primaryBlue,
+              shape: BoxShape.circle,
+              border: Border.all(color: Colors.white, width: 3),
+              boxShadow: [
+                BoxShadow(
+                  color: AppColors.primaryBlue.withValues(alpha: 0.3),
+                  blurRadius: 8,
+                  spreadRadius: 2,
+                ),
+              ],
+            ),
+            child: const Icon(
+              Icons.local_shipping,
+              color: Colors.white,
+              size: 18,
+            ),
+          ),
+        ),
+      );
+    }
+
+    return markers;
   }
 
   Widget _actionCircle(IconData icon, bool dark) {
@@ -483,56 +509,4 @@ class OrderTrackingScreen extends StatelessWidget {
       ],
     );
   }
-}
-
-/// Custom painter for the tracking map background.
-class _TrackingMapPainter extends CustomPainter {
-  @override
-  void paint(Canvas canvas, Size size) {
-    final roadPaint = Paint()
-      ..color = Colors.grey[400]!
-      ..strokeWidth = 1.5
-      ..style = PaintingStyle.stroke;
-
-    // Road curve 1
-    final path1 = Path()
-      ..moveTo(0, size.height * 0.6)
-      ..quadraticBezierTo(
-        size.width * 0.4,
-        size.height * 0.4,
-        size.width,
-        size.height * 0.5,
-      );
-    canvas.drawPath(path1, roadPaint);
-
-    // Road curve 2
-    final path2 = Path()
-      ..moveTo(size.width * 0.2, 0)
-      ..quadraticBezierTo(
-        size.width * 0.5,
-        size.height * 0.5,
-        size.width * 0.7,
-        size.height,
-      );
-    canvas.drawPath(path2, roadPaint);
-
-    // Blue dashed route
-    final routePaint = Paint()
-      ..color = Colors.blue
-      ..strokeWidth = 3
-      ..style = PaintingStyle.stroke;
-
-    final routePath = Path()
-      ..moveTo(size.width * 0.35, size.height * 0.3)
-      ..quadraticBezierTo(
-        size.width * 0.55,
-        size.height * 0.45,
-        size.width * 0.6,
-        size.height * 0.55,
-      );
-    canvas.drawPath(routePath, routePaint);
-  }
-
-  @override
-  bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
 }

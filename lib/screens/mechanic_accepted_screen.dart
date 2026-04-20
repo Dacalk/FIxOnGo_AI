@@ -1,6 +1,11 @@
-import 'package:flutter/material.dart';
+﻿import 'package:flutter/material.dart';
+import 'package:flutter_map/flutter_map.dart';
+import 'package:latlong2/latlong.dart';
 import '../theme_provider.dart';
 import '../components/primary_button.dart';
+import '../components/osm_map_widget.dart';
+import '../services/location_service.dart';
+import '../services/map_service.dart';
 
 /// Screen shown when a mechanic has accepted the service request.
 /// Displays mechanic info, pricing breakdown, and payment options.
@@ -13,6 +18,53 @@ class MechanicAcceptedScreen extends StatefulWidget {
 
 class _MechanicAcceptedScreenState extends State<MechanicAcceptedScreen> {
   int _selectedPayment = 0; // 0=Card, 1=Cash, 2=Paypal
+
+  final MapController _mapController = MapController();
+  LatLng? _userLatLng;
+  LatLng? _mechanicLatLng;
+  List<LatLng> _routePoints = [];
+  String _eta = '2 mins';
+
+  @override
+  void initState() {
+    super.initState();
+    _loadMapData();
+  }
+
+  Future<void> _loadMapData() async {
+    try {
+      final userPos = await LocationService.instance.getCurrentLatLng();
+      // Simulated mechanic position (nearby offset)
+      final mechPos = LatLng(
+        userPos.latitude + 0.008,
+        userPos.longitude + 0.005,
+      );
+      if (!mounted) return;
+      setState(() {
+        _userLatLng = userPos;
+        _mechanicLatLng = mechPos;
+      });
+
+      // Fetch route
+      try {
+        final route = await MapService.instance.getDirections(mechPos, userPos);
+        if (!mounted) return;
+        setState(() {
+          _routePoints = route.points;
+          _eta = '${(route.durationSeconds / 60).ceil()} mins';
+        });
+      } catch (_) {
+        // If ORS fails, just show markers without route
+      }
+    } catch (_) {
+      // Fallback
+      if (!mounted) return;
+      setState(() {
+        _userLatLng = const LatLng(6.9271, 79.8612);
+        _mechanicLatLng = const LatLng(6.9351, 79.8662);
+      });
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -27,16 +79,16 @@ class _MechanicAcceptedScreenState extends State<MechanicAcceptedScreen> {
       backgroundColor: bgColor,
       body: Stack(
         children: [
-          // ── Map area (top portion) ──
+          // â”€â”€ Map area (top portion) â”€â”€
           Positioned(
             top: 0,
             left: 0,
             right: 0,
             height: MediaQuery.of(context).size.height * 0.32,
-            child: _buildMapPlaceholder(context, dark),
+            child: _buildMap(dark),
           ),
 
-          // ── Back button ──
+          // â”€â”€ Back button â”€â”€
           Positioned(
             top: MediaQuery.of(context).padding.top + 8,
             left: 16,
@@ -64,7 +116,7 @@ class _MechanicAcceptedScreenState extends State<MechanicAcceptedScreen> {
             ),
           ),
 
-          // ── Bottom scrollable content ──
+          // â”€â”€ Bottom scrollable content â”€â”€
           DraggableScrollableSheet(
             initialChildSize: 0.70,
             minChildSize: 0.55,
@@ -104,7 +156,7 @@ class _MechanicAcceptedScreenState extends State<MechanicAcceptedScreen> {
                     ),
                     const SizedBox(height: 10),
 
-                    // ── Status badge & arrival ──
+                    // â”€â”€ Status badge & arrival â”€â”€
                     Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
@@ -132,7 +184,7 @@ class _MechanicAcceptedScreenState extends State<MechanicAcceptedScreen> {
                             children: [
                               const TextSpan(text: 'Arriving In  '),
                               TextSpan(
-                                text: '2 mins',
+                                text: _eta,
                                 style: TextStyle(
                                   fontWeight: FontWeight.bold,
                                   color: titleColor,
@@ -156,7 +208,7 @@ class _MechanicAcceptedScreenState extends State<MechanicAcceptedScreen> {
                     ),
                     const SizedBox(height: 14),
 
-                    // ── Mechanic info card ──
+                    // â”€â”€ Mechanic info card â”€â”€
                     Container(
                       padding: const EdgeInsets.all(14),
                       decoration: BoxDecoration(
@@ -192,7 +244,7 @@ class _MechanicAcceptedScreenState extends State<MechanicAcceptedScreen> {
                                 ),
                                 const SizedBox(height: 2),
                                 Text(
-                                  'Gray Van · PH 2553',
+                                  'Gray Van Â· PH 2553',
                                   style: TextStyle(
                                     fontSize: 12,
                                     color: subColor,
@@ -228,7 +280,7 @@ class _MechanicAcceptedScreenState extends State<MechanicAcceptedScreen> {
                                           color: dark
                                               ? AppColors.darkBackground
                                               : AppColors.primaryBlue
-                                                    .withValues(alpha: 0.1),
+                                                  .withValues(alpha: 0.1),
                                           shape: BoxShape.circle,
                                         ),
                                         child: Icon(
@@ -253,7 +305,7 @@ class _MechanicAcceptedScreenState extends State<MechanicAcceptedScreen> {
                                           color: dark
                                               ? AppColors.darkBackground
                                               : AppColors.primaryBlue
-                                                    .withValues(alpha: 0.1),
+                                                  .withValues(alpha: 0.1),
                                           shape: BoxShape.circle,
                                         ),
                                         child: Icon(
@@ -278,7 +330,7 @@ class _MechanicAcceptedScreenState extends State<MechanicAcceptedScreen> {
                                           color: dark
                                               ? AppColors.darkBackground
                                               : AppColors.primaryBlue
-                                                    .withValues(alpha: 0.1),
+                                                  .withValues(alpha: 0.1),
                                           shape: BoxShape.circle,
                                         ),
                                         child: Icon(
@@ -319,7 +371,7 @@ class _MechanicAcceptedScreenState extends State<MechanicAcceptedScreen> {
                     ),
                     const SizedBox(height: 14),
 
-                    // ── Current Location ──
+                    // â”€â”€ Current Location â”€â”€
                     Row(
                       children: [
                         Icon(Icons.circle, size: 10, color: Colors.green),
@@ -343,7 +395,7 @@ class _MechanicAcceptedScreenState extends State<MechanicAcceptedScreen> {
                     ),
                     const SizedBox(height: 14),
 
-                    // ── Request Tools ──
+                    // â”€â”€ Request Tools â”€â”€
                     GestureDetector(
                       onTap: () {
                         Navigator.pushNamed(context, '/request-tools');
@@ -387,7 +439,7 @@ class _MechanicAcceptedScreenState extends State<MechanicAcceptedScreen> {
                     ),
                     const SizedBox(height: 16),
 
-                    // ── Total Price breakdown ──
+                    // â”€â”€ Total Price breakdown â”€â”€
                     Container(
                       padding: const EdgeInsets.all(14),
                       decoration: BoxDecoration(
@@ -456,7 +508,7 @@ class _MechanicAcceptedScreenState extends State<MechanicAcceptedScreen> {
                     ),
                     const SizedBox(height: 16),
 
-                    // ── Payment Method ──
+                    // â”€â”€ Payment Method â”€â”€
                     Container(
                       padding: const EdgeInsets.all(14),
                       decoration: BoxDecoration(
@@ -527,7 +579,7 @@ class _MechanicAcceptedScreenState extends State<MechanicAcceptedScreen> {
                     ),
                     const SizedBox(height: 20),
 
-                    // ── Confirm + Cancel buttons ──
+                    // â”€â”€ Confirm + Cancel buttons â”€â”€
                     Row(
                       children: [
                         Expanded(
@@ -737,87 +789,50 @@ class _MechanicAcceptedScreenState extends State<MechanicAcceptedScreen> {
     );
   }
 
-  Widget _buildMapPlaceholder(BuildContext context, bool dark) {
-    return Container(
-      color: dark ? const Color(0xFF1A2640) : const Color(0xFFE5EAD7),
-      child: Stack(
-        children: [
-          CustomPaint(
-            size: Size.infinite,
-            painter: _AcceptedMapPainter(dark: dark),
+  Widget _buildMap(bool dark) {
+    final center = _userLatLng ?? const LatLng(6.9271, 79.8612);
+    final markers = <Marker>[];
+
+    if (_userLatLng != null) {
+      markers.add(
+        Marker(
+          point: _userLatLng!,
+          width: 40,
+          height: 40,
+          child: Icon(
+            Icons.location_on,
+            size: 30,
+            color: AppColors.primaryBlue,
           ),
-          // Location label
-          Positioned(
-            right: MediaQuery.of(context).size.width * 0.12,
-            top: MediaQuery.of(context).size.height * 0.14,
-            child: Column(
-              children: [
-                Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 10,
-                    vertical: 5,
-                  ),
-                  decoration: BoxDecoration(
-                    color: dark ? AppColors.darkSurface : Colors.white,
-                    borderRadius: BorderRadius.circular(6),
-                    boxShadow: [
-                      BoxShadow(
-                        color: Colors.black.withValues(alpha: 0.1),
-                        blurRadius: 4,
-                      ),
-                    ],
-                  ),
-                  child: Text(
-                    'Location',
-                    style: TextStyle(
-                      fontSize: 11,
-                      fontWeight: FontWeight.w600,
-                      color: dark ? Colors.white : Colors.black,
-                    ),
-                  ),
-                ),
-                const SizedBox(height: 3),
-                Icon(Icons.location_on, size: 24, color: AppColors.primaryBlue),
-              ],
+        ),
+      );
+    }
+
+    if (_mechanicLatLng != null) {
+      markers.add(
+        Marker(
+          point: _mechanicLatLng!,
+          width: 40,
+          height: 40,
+          child: Container(
+            decoration: BoxDecoration(
+              color: dark ? const Color(0xFF1E3350) : const Color(0xFF2C3E50),
+              shape: BoxShape.circle,
+              border: Border.all(color: Colors.white, width: 2),
             ),
+            child: const Icon(Icons.build, color: Colors.white, size: 18),
           ),
-        ],
-      ),
+        ),
+      );
+    }
+
+    return OsmMapWidget(
+      center: center,
+      zoom: 13,
+      mapController: _mapController,
+      markers: markers,
+      polylinePoints: _routePoints.isNotEmpty ? _routePoints : null,
+      showLocateButton: false,
     );
   }
-}
-
-class _AcceptedMapPainter extends CustomPainter {
-  final bool dark;
-  _AcceptedMapPainter({required this.dark});
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    final terrain = Paint()
-      ..color = dark
-          ? const Color(0xFF1E3350).withValues(alpha: 0.5)
-          : const Color(0xFFD4DFC7).withValues(alpha: 0.6);
-    canvas.drawCircle(Offset(size.width * 0.3, size.height * 0.4), 60, terrain);
-    canvas.drawCircle(Offset(size.width * 0.7, size.height * 0.3), 50, terrain);
-
-    final road = Paint()
-      ..color = dark
-          ? Colors.grey[700]!.withValues(alpha: 0.4)
-          : const Color(0xFF8899BB).withValues(alpha: 0.3)
-      ..strokeWidth = 4
-      ..style = PaintingStyle.stroke;
-
-    final path = Path()
-      ..moveTo(size.width * 0.3, 0)
-      ..quadraticBezierTo(
-        size.width * 0.4,
-        size.height * 0.5,
-        size.width * 0.5,
-        size.height,
-      );
-    canvas.drawPath(path, road);
-  }
-
-  @override
-  bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
 }
