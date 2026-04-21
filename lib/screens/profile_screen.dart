@@ -81,7 +81,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
               ? data!['phone']
               : user.phoneNumber ?? '';
           userPhotoUrl = data?['photoUrl']?.toString() ?? user.photoURL ?? '';
-          userRole = firstRole;
+          userRole = effectiveRole;
           availableRoles = roles.keys.toList();
           isLoading = false;
         });
