@@ -6,6 +6,8 @@ import '../components/primary_button.dart';
 import '../components/osm_map_widget.dart';
 import '../services/location_service.dart';
 import '../services/map_service.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'dart:async';
 
 /// Screen shown when a mechanic has accepted the service request.
 /// Displays mechanic info, pricing breakdown, and payment options.
@@ -23,7 +25,12 @@ class _MechanicAcceptedScreenState extends State<MechanicAcceptedScreen> {
   LatLng? _userLatLng;
   LatLng? _mechanicLatLng;
   List<LatLng> _routePoints = [];
-  String _eta = '2 mins';
+  String? _eta; // Nullable to track loading state
+
+  Map<String, dynamic>? _mechanicData;
+  StreamSubscription? _requestSub;
+  String? _requestId;
+  bool _isProcessingPayment = false;
 
   @override
   void initState() {
@@ -32,38 +39,141 @@ class _MechanicAcceptedScreenState extends State<MechanicAcceptedScreen> {
   }
 
   Future<void> _loadMapData() async {
-    try {
-      final userPos = await LocationService.instance.getCurrentLatLng();
-      // Simulated mechanic position (nearby offset)
-      final mechPos = LatLng(
-        userPos.latitude + 0.008,
-        userPos.longitude + 0.005,
-      );
-      if (!mounted) return;
-      setState(() {
-        _userLatLng = userPos;
-        _mechanicLatLng = mechPos;
-      });
+    // Arguments handling
+    Future.microtask(() {
+      final args = ModalRoute.of(context)?.settings.arguments;
+      if (args is String) {
+        setState(() => _requestId = args);
+        _startListeningToRequest();
+      } else {
+        // Fallback or error
+        _loadSimulatedData();
+      }
+    });
+  }
 
-      // Fetch route
+  Future<void> _handlePayment() async {
+    if (_isProcessingPayment) return;
+
+    setState(() => _isProcessingPayment = true);
+
+    // Simulate banking delay
+    await Future.delayed(const Duration(milliseconds: 1500));
+
+    if (_requestId != null) {
       try {
-        final route = await MapService.instance.getDirections(mechPos, userPos);
-        if (!mounted) return;
+        final reqDoc = await FirebaseFirestore.instance
+            .collection('requests')
+            .doc(_requestId)
+            .get();
+        final reqData = reqDoc.data();
+
+        if (reqData != null) {
+          // 1. Create Formal Payment Record
+          await FirebaseFirestore.instance.collection('payments').add({
+            'requestId': _requestId,
+            'userId': reqData['userId'],
+            'mechanicId': reqData['mechanicId'],
+            'mechanicName': reqData['mechanicName'] ?? 'Mechanic',
+            'userName': reqData['userName'] ?? 'User',
+            'amount': 2000, // Fixed dummy price for now
+            'currency': 'LKR',
+            'status': 'success',
+            'createdAt': FieldValue.serverTimestamp(),
+          });
+
+          // 2. Mark Request status (Optional: if we want to track payment)
+          // await FirebaseFirestore.instance
+          //     .collection('requests')
+          //     .doc(_requestId)
+          //     .update({'paymentStatus': 'paid'});
+        }
+      } catch (e) {
+        print("Error saving payment: $e");
+      }
+    }
+
+    if (mounted) {
+      setState(() => _isProcessingPayment = false);
+      Navigator.pushReplacementNamed(context, '/order-tracking',
+          arguments: _requestId);
+    }
+  }
+
+  void _startListeningToRequest() {
+    if (_requestId == null) return;
+    _requestSub = FirebaseFirestore.instance
+        .collection('requests')
+        .doc(_requestId)
+        .snapshots()
+        .listen((snap) async {
+      if (snap.exists) {
+        final data = snap.data()!;
+
+        final uLoc = data['userLocation'] as Map<String, dynamic>;
+        final mId = data['mechanicId'];
+
+        // Fetch User location (should be fixed usually, but could move)
+        final userLatLng = LatLng(uLoc['lat'], uLoc['lng']);
+
+        // Fetch Mechanic current location from users collection
+        final mechSnap =
+            await FirebaseFirestore.instance.collection('users').doc(mId).get();
+        if (mechSnap.exists) {
+          final mData = mechSnap.data()!;
+          _mechanicData = mData['roles']['mechanic'];
+          final mLoc = _mechanicData!['location'] as Map<String, dynamic>?;
+
+          if (mLoc != null) {
+            final mechLatLng = LatLng(mLoc['lat'], mLoc['lng']);
+
+            if (mounted) {
+              setState(() {
+                _userLatLng = userLatLng;
+                _mechanicLatLng = mechLatLng;
+              });
+              _updateRoute();
+            }
+          }
+        }
+      }
+    });
+  }
+
+  Future<void> _updateRoute() async {
+    if (_userLatLng == null || _mechanicLatLng == null) return;
+    try {
+      final route = await MapService.instance
+          .getDirections(_mechanicLatLng!, _userLatLng!);
+      if (mounted) {
         setState(() {
           _routePoints = route.points;
           _eta = '${(route.durationSeconds / 60).ceil()} mins';
         });
-      } catch (_) {
-        // If ORS fails, just show markers without route
       }
-    } catch (_) {
-      // Fallback
-      if (!mounted) return;
-      setState(() {
-        _userLatLng = const LatLng(6.9271, 79.8612);
-        _mechanicLatLng = const LatLng(6.9351, 79.8662);
-      });
-    }
+    } catch (_) {}
+  }
+
+  Future<void> _loadSimulatedData() async {
+    try {
+      final userPos = await LocationService.instance.getCurrentLatLng();
+      final mechPos =
+          LatLng(userPos.latitude + 0.008, userPos.longitude + 0.005);
+      if (mounted) {
+        setState(() {
+          _userLatLng = userPos;
+          _mechanicLatLng = mechPos;
+        });
+        _updateRoute();
+      }
+    } catch (_) {}
+  }
+
+  @override
+  void dispose() {
+    _requestSub?.cancel();
+    _mapController.dispose();
+    super.dispose();
   }
 
   @override
@@ -156,57 +266,75 @@ class _MechanicAcceptedScreenState extends State<MechanicAcceptedScreen> {
                     ),
                     const SizedBox(height: 10),
 
-                    // â”€â”€ Status badge & arrival â”€â”€
+                    // ── Status Header ──
                     Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
+                        Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              'STATUS',
+                              style: TextStyle(
+                                fontSize: 10,
+                                fontWeight: FontWeight.bold,
+                                color: subColor,
+                                letterSpacing: 1.2,
+                              ),
+                            ),
+                            const SizedBox(height: 4),
+                            Row(
+                              children: [
+                                Text(
+                                  _eta != null
+                                      ? 'Arriving in $_eta'
+                                      : 'Calculating ETA...',
+                                  style: TextStyle(
+                                    fontSize: 20,
+                                    fontWeight: FontWeight.bold,
+                                    color: titleColor,
+                                  ),
+                                ),
+                                const SizedBox(width: 8),
+                                Container(
+                                  width: 10,
+                                  height: 10,
+                                  decoration: const BoxDecoration(
+                                    color: Colors.green,
+                                    shape: BoxShape.circle,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ],
+                        ),
                         Container(
                           padding: const EdgeInsets.symmetric(
-                            horizontal: 10,
-                            vertical: 4,
-                          ),
+                              horizontal: 10, vertical: 4),
                           decoration: BoxDecoration(
-                            color: Colors.green,
-                            borderRadius: BorderRadius.circular(6),
+                            color: dark
+                                ? const Color(0xFF1E3350)
+                                : Colors.grey[100],
+                            borderRadius: BorderRadius.circular(16),
+                            border: Border.all(color: borderColor),
                           ),
-                          child: const Text(
-                            'REQUEST ACCEPTED',
-                            style: TextStyle(
-                              color: Colors.white,
-                              fontSize: 10,
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
-                        ),
-                        RichText(
-                          text: TextSpan(
-                            style: TextStyle(fontSize: 13, color: subColor),
+                          child: Row(
                             children: [
-                              const TextSpan(text: 'Arriving In  '),
-                              TextSpan(
-                                text: _eta,
-                                style: TextStyle(
-                                  fontWeight: FontWeight.bold,
-                                  color: titleColor,
-                                ),
+                              Text(
+                                'Live',
+                                style:
+                                    TextStyle(fontSize: 12, color: titleColor),
                               ),
+                              const SizedBox(width: 4),
+                              const Icon(Icons.circle,
+                                  color: Colors.red, size: 8),
                             ],
                           ),
                         ),
                       ],
                     ),
+                    const SizedBox(height: 24),
                     const SizedBox(height: 4),
-
-                    // Title
-                    Text(
-                      'Mechanic is on the way!',
-                      style: TextStyle(
-                        fontSize: 18,
-                        fontWeight: FontWeight.bold,
-                        color: titleColor,
-                      ),
-                    ),
-                    const SizedBox(height: 14),
 
                     // â”€â”€ Mechanic info card â”€â”€
                     Container(
@@ -235,7 +363,7 @@ class _MechanicAcceptedScreenState extends State<MechanicAcceptedScreen> {
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
                                 Text(
-                                  'Dulan Thabrew',
+                                  _mechanicData?['fullName'] ?? 'Mechanic',
                                   style: TextStyle(
                                     fontSize: 15,
                                     fontWeight: FontWeight.bold,
@@ -244,7 +372,8 @@ class _MechanicAcceptedScreenState extends State<MechanicAcceptedScreen> {
                                 ),
                                 const SizedBox(height: 2),
                                 Text(
-                                  'Gray Van Â· PH 2553',
+                                  _mechanicData?['vehicleType'] ??
+                                      'Professional Mechanic',
                                   style: TextStyle(
                                     fontSize: 12,
                                     color: subColor,
@@ -584,8 +713,14 @@ class _MechanicAcceptedScreenState extends State<MechanicAcceptedScreen> {
                       children: [
                         Expanded(
                           child: PrimaryButton(
-                            label: 'Confirm',
-                            onPressed: () {},
+                            label: _isProcessingPayment
+                                ? 'Processing...'
+                                : 'Confirm',
+                            onPressed: _isProcessingPayment
+                                ? null
+                                : () {
+                                    _handlePayment();
+                                  },
                             borderRadius: 12,
                           ),
                         ),

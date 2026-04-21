@@ -9,6 +9,11 @@ class PaymentSuccessfulScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final args =
+        ModalRoute.of(context)?.settings.arguments as Map<String, dynamic>?;
+    final role = args?['role'] ?? 'user';
+    final isMechanic = role == 'mechanic';
+
     final dark = isDarkMode(context);
     final bgColor = dark ? AppColors.darkBackground : Colors.white;
     final titleColor = dark ? Colors.white : Colors.black;
@@ -27,7 +32,7 @@ class PaymentSuccessfulScreen extends StatelessWidget {
         elevation: 0,
         centerTitle: true,
         title: Text(
-          'My Profile',
+          isMechanic ? 'Job Summary' : 'Receipt',
           style: TextStyle(
             fontSize: 17,
             fontWeight: FontWeight.bold,
@@ -100,9 +105,9 @@ class PaymentSuccessfulScreen extends StatelessWidget {
 
                   const SizedBox(height: 24),
 
-                  // ── Payment Successful Title ──
+                  // ── Title ──
                   Text(
-                    'Payment Successful',
+                    isMechanic ? 'Job Completed!' : 'Payment Successful',
                     style: TextStyle(
                       fontSize: 26,
                       fontWeight: FontWeight.bold,
@@ -111,22 +116,21 @@ class PaymentSuccessfulScreen extends StatelessWidget {
                   ),
                   const SizedBox(height: 8),
                   Text(
-                    'Your payment has been processed.',
+                    isMechanic
+                        ? 'The payout has been added to your wallet.'
+                        : 'Your payment has been processed successfully.',
                     textAlign: TextAlign.center,
                     style: TextStyle(fontSize: 14, color: subColor),
                   ),
-                  Text(
-                    'Help is arriving at your location in',
-                    textAlign: TextAlign.center,
-                    style: TextStyle(fontSize: 14, color: subColor),
-                  ),
+                  const SizedBox(height: 12),
                   Row(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
-                      Icon(Icons.circle, size: 8, color: AppColors.primaryBlue),
+                      Icon(Icons.location_on,
+                          size: 16, color: AppColors.primaryBlue),
                       const SizedBox(width: 8),
                       Text(
-                        'Ella',
+                        'Ella, Badulla',
                         style: TextStyle(
                           fontSize: 14,
                           fontWeight: FontWeight.w600,
@@ -136,146 +140,43 @@ class PaymentSuccessfulScreen extends StatelessWidget {
                     ],
                   ),
 
-                  const SizedBox(height: 20),
+                  const SizedBox(height: 30),
 
-                  // ── Map Placeholder ──
-                  Container(
-                    width: double.infinity,
-                    height: 140,
-                    decoration: BoxDecoration(
-                      borderRadius: BorderRadius.circular(16),
-                      color: dark ? const Color(0xFF1E3350) : Colors.grey[200],
-                    ),
-                    child: ClipRRect(
-                      borderRadius: BorderRadius.circular(16),
-                      child: Stack(
-                        fit: StackFit.expand,
-                        children: [
-                          // Simulated map background
-                          Container(
-                            decoration: BoxDecoration(
-                              gradient: LinearGradient(
-                                begin: Alignment.topLeft,
-                                end: Alignment.bottomRight,
-                                colors: [
-                                  const Color(0xFFC8E6C9),
-                                  const Color(0xFFE8F5E9),
-                                  const Color(0xFFF1F8E9),
-                                ],
-                              ),
-                            ),
-                          ),
-                          // Road lines
-                          CustomPaint(painter: _MapPainter()),
-                          // Location labels
-                          Positioned(
-                            top: 30,
-                            left: 80,
-                            child: Text(
-                              'Ella',
-                              style: TextStyle(
-                                fontSize: 13,
-                                fontWeight: FontWeight.bold,
-                                color: Colors.grey[800],
-                              ),
-                            ),
-                          ),
-                          Positioned(
-                            top: 16,
-                            left: 130,
-                            child: Container(
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 6,
-                                vertical: 2,
-                              ),
-                              decoration: BoxDecoration(
-                                color: Colors.green[700],
-                                borderRadius: BorderRadius.circular(4),
-                              ),
-                              child: const Text(
-                                'B113',
-                                style: TextStyle(
-                                  fontSize: 9,
-                                  color: Colors.white,
-                                  fontWeight: FontWeight.bold,
-                                ),
-                              ),
-                            ),
-                          ),
-                          Positioned(
-                            top: 20,
-                            right: 40,
-                            child: Text(
-                              'Cafe Chill',
-                              style: TextStyle(
-                                fontSize: 10,
-                                color: Colors.grey[700],
-                              ),
-                            ),
-                          ),
-                          Positioned(
-                            left: 16,
-                            bottom: 30,
-                            child: Text(
-                              'Ravana Range',
-                              style: TextStyle(
-                                fontSize: 10,
-                                color: Colors.grey[700],
-                              ),
-                            ),
-                          ),
-                          // Pin marker
-                          Positioned(
-                            top: 40,
-                            left: 70,
-                            child: Icon(
-                              Icons.location_on,
-                              color: Colors.red[600],
-                              size: 24,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
-
-                  const SizedBox(height: 20),
-
-                  // ── Payment Details Card ──
+                  // ── Details Card ──
                   Container(
                     width: double.infinity,
                     padding: const EdgeInsets.all(20),
                     decoration: BoxDecoration(
                       color: cardBg,
-                      borderRadius: BorderRadius.circular(16),
+                      borderRadius: BorderRadius.circular(24),
                       border: Border.all(color: borderColor),
                     ),
                     child: Column(
                       children: [
                         _detailRow(
                           'Service Type',
-                          'Machanical',
+                          'Mechanical Repair',
                           labelColor,
                           valueColor,
                         ),
                         const SizedBox(height: 16),
                         _detailRow(
                           'Reference ID',
-                          '#LK-99231-COL',
+                          '#RQ-99231-EB',
                           labelColor,
                           valueColor,
                         ),
                         const SizedBox(height: 16),
                         _detailRow(
                           'Date & Time',
-                          'May 15, 2024 • 02:15 PM',
+                          'May 20, 2024 • 10:45 PM',
                           labelColor,
                           valueColor,
                         ),
                         const SizedBox(height: 16),
                         _detailRow(
-                          'Payment Method',
-                          '•••• 8182',
+                          isMechanic ? 'Commission Fee' : 'Payment Method',
+                          isMechanic ? 'Rs. 250.00' : '•••• 8182',
                           labelColor,
                           valueColor,
                         ),
@@ -287,7 +188,7 @@ class PaymentSuccessfulScreen extends StatelessWidget {
                           mainAxisAlignment: MainAxisAlignment.spaceBetween,
                           children: [
                             Text(
-                              'Total Amount Paid',
+                              isMechanic ? 'Total Payout' : 'Total Amount Paid',
                               style: TextStyle(
                                 fontSize: 14,
                                 fontWeight: FontWeight.w600,
@@ -295,7 +196,7 @@ class PaymentSuccessfulScreen extends StatelessWidget {
                               ),
                             ),
                             Text(
-                              'Rs. 2,000.00',
+                              isMechanic ? 'Rs. 2,250.00' : 'Rs. 2,500.00',
                               style: TextStyle(
                                 fontSize: 22,
                                 fontWeight: FontWeight.bold,
@@ -308,7 +209,7 @@ class PaymentSuccessfulScreen extends StatelessWidget {
                     ),
                   ),
 
-                  const SizedBox(height: 24),
+                  const SizedBox(height: 40),
                 ],
               ),
             ),
@@ -321,50 +222,58 @@ class PaymentSuccessfulScreen extends StatelessWidget {
               width: double.infinity,
               child: ElevatedButton(
                 onPressed: () {
-                  // Call to mechanic action
+                  // Primary action
+                  if (isMechanic) {
+                    Navigator.pushNamedAndRemoveUntil(
+                        context, '/', (route) => false);
+                  } else {
+                    // User might want to rate
+                  }
                 },
                 style: ElevatedButton.styleFrom(
                   backgroundColor: btnColor,
                   foregroundColor: btnTextColor,
-                  padding: const EdgeInsets.symmetric(vertical: 16),
+                  padding: const EdgeInsets.symmetric(vertical: 18),
                   shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(14),
+                    borderRadius: BorderRadius.circular(16),
                   ),
+                  elevation: 0,
                 ),
-                child: const Text(
-                  'Call To Machanic',
-                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
+                child: Text(
+                  isMechanic ? 'BACK TO DASHBOARD' : 'DOWNLOAD RECEIPT',
+                  style: const TextStyle(
+                      fontWeight: FontWeight.bold, fontSize: 16),
                 ),
               ),
             ),
           ),
-          Padding(
-            padding: const EdgeInsets.fromLTRB(24, 0, 24, 24),
-            child: SizedBox(
-              width: double.infinity,
-              child: ElevatedButton(
-                onPressed: () {
-                  Navigator.pushNamedAndRemoveUntil(
-                    context,
-                    '/',
-                    (route) => false,
-                  );
-                },
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: AppColors.brandYellow,
-                  foregroundColor: Colors.black,
-                  padding: const EdgeInsets.symmetric(vertical: 16),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(14),
+          if (!isMechanic)
+            Padding(
+              padding: const EdgeInsets.fromLTRB(24, 0, 24, 30),
+              child: SizedBox(
+                width: double.infinity,
+                child: OutlinedButton(
+                  onPressed: () {
+                    Navigator.pushNamedAndRemoveUntil(
+                        context, '/', (route) => false);
+                  },
+                  style: OutlinedButton.styleFrom(
+                    side: BorderSide(color: borderColor),
+                    padding: const EdgeInsets.symmetric(vertical: 18),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(16),
+                    ),
                   ),
-                ),
-                child: const Text(
-                  'Back to Home',
-                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
+                  child: Text(
+                    'BACK TO HOME',
+                    style: TextStyle(
+                        fontWeight: FontWeight.bold,
+                        fontSize: 16,
+                        color: titleColor),
+                  ),
                 ),
               ),
             ),
-          ),
         ],
       ),
     );
@@ -392,40 +301,4 @@ class PaymentSuccessfulScreen extends StatelessWidget {
       ],
     );
   }
-}
-
-/// Custom painter that draws simplified road lines for the map placeholder.
-class _MapPainter extends CustomPainter {
-  @override
-  void paint(Canvas canvas, Size size) {
-    final paint = Paint()
-      ..color = Colors.grey[400]!
-      ..strokeWidth = 1.5
-      ..style = PaintingStyle.stroke;
-
-    // Horizontal road
-    final path1 = Path()
-      ..moveTo(0, size.height * 0.5)
-      ..quadraticBezierTo(
-        size.width * 0.3,
-        size.height * 0.35,
-        size.width,
-        size.height * 0.45,
-      );
-    canvas.drawPath(path1, paint);
-
-    // Diagonal road
-    final path2 = Path()
-      ..moveTo(size.width * 0.3, 0)
-      ..quadraticBezierTo(
-        size.width * 0.45,
-        size.height * 0.5,
-        size.width * 0.6,
-        size.height,
-      );
-    canvas.drawPath(path2, paint);
-  }
-
-  @override
-  bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
 }

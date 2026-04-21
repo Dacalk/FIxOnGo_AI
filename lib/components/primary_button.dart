@@ -6,7 +6,7 @@ import '../theme_provider.dart';
 /// and Verification ("Verify & Continue").
 class PrimaryButton extends StatelessWidget {
   final String label;
-  final VoidCallback onPressed;
+  final VoidCallback? onPressed;
   final IconData? icon;
   final double height;
   final double borderRadius;
@@ -15,7 +15,7 @@ class PrimaryButton extends StatelessWidget {
   const PrimaryButton({
     super.key,
     required this.label,
-    required this.onPressed,
+    this.onPressed,
     this.icon,
     this.height = 55,
     this.borderRadius = 18,
