@@ -8,6 +8,8 @@ class DashboardHeader extends StatelessWidget {
   final String? vehicleInfo;
   final String? statusText;
   final String? photoUrl;
+  final List<String>? availableRoles;
+  final Function(String)? onSwitchRole;
 
   const DashboardHeader({
     super.key,
@@ -16,6 +18,8 @@ class DashboardHeader extends StatelessWidget {
     this.vehicleInfo,
     this.statusText,
     this.photoUrl,
+    this.availableRoles,
+    this.onSwitchRole,
   });
 
   @override
@@ -147,6 +151,24 @@ class DashboardHeader extends StatelessWidget {
                   ],
                 ),
               ),
+              if (availableRoles != null && availableRoles!.length > 1) ...[
+                const SizedBox(width: 8),
+                IconButton(
+                  onPressed: () {
+                    final nextIndex =
+                        (availableRoles!.indexOf(role.toLowerCase()) + 1) %
+                            availableRoles!.length;
+                    final nextRole = availableRoles![nextIndex];
+                    onSwitchRole?.call(nextRole);
+                  },
+                  icon: Icon(
+                    Icons.swap_horiz,
+                    color: dark ? Colors.white70 : AppColors.primaryBlue,
+                    size: 20,
+                  ),
+                  tooltip: 'Switch Role',
+                ),
+              ],
             ],
           ),
           const SizedBox(height: 14),

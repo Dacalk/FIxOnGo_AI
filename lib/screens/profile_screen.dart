@@ -19,6 +19,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
   String userPhone = '';
   String userPhotoUrl = '';
   String userRole = '';
+  List<String> availableRoles = [];
   bool isLoading = true;
   bool hasPassword = false;
 
@@ -62,6 +63,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
               : user.phoneNumber ?? '';
           userPhotoUrl = data?['photoUrl']?.toString() ?? user.photoURL ?? '';
           userRole = firstRole;
+          availableRoles = roles.keys.toList();
           isLoading = false;
         });
       } else {
@@ -390,6 +392,25 @@ class _ProfileScreenState extends State<ProfileScreen> {
                                   Navigator.pushNamed(context, '/help-support');
                                 },
                               ),
+                              if (availableRoles.length > 1)
+                                _buildMenuItem(
+                                  icon: Icons.swap_horiz,
+                                  title: 'Switch Mode',
+                                  trailingText: userRole.toUpperCase(),
+                                  dark: dark,
+                                  titleColor: titleColor,
+                                  subColor: subColor,
+                                  onTap: () {
+                                    final nextIndex =
+                                        (availableRoles.indexOf(userRole) + 1) %
+                                            availableRoles.length;
+                                    final nextRole = availableRoles[nextIndex];
+                                    Navigator.pushReplacementNamed(
+                                        context, '/dashboard',
+                                        arguments: nextRole);
+                                  },
+                                  showDivider: false,
+                                ),
                             ],
                           ),
                         ),
