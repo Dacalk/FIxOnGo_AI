@@ -3,11 +3,20 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import '../theme_provider.dart';
 import '../components/form_input.dart';
+import 'dashboard_screen.dart';
+import 'payment_screen.dart';
 
 /// Profile screen — user settings, payment methods, vehicles, and sign out.
 /// Features a bottom navigation bar.
 class ProfileScreen extends StatefulWidget {
-  const ProfileScreen({super.key});
+  final Map<String, dynamic>? userData;
+  final String? role;
+
+  const ProfileScreen({
+    super.key,
+    this.userData,
+    this.role,
+  });
 
   @override
   State<ProfileScreen> createState() => _ProfileScreenState();
@@ -26,6 +35,13 @@ class _ProfileScreenState extends State<ProfileScreen> {
   @override
   void initState() {
     super.initState();
+    // Pre-fill if data is available
+    if (widget.userData != null) {
+      userName = widget.userData!['fullName'] ?? '';
+      userEmail = widget.userData!['email'] ?? '';
+    }
+    userRole = widget.role ?? 'User';
+    
     _loadProfile();
   }
 
@@ -33,7 +49,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
     final user = FirebaseAuth.instance.currentUser;
     if (user == null) return;
 
-    // Check providers
+    // Check providers for password status
     final providers = user.providerData.map((p) => p.providerId).toList();
     hasPassword = providers.contains('password');
 
@@ -46,10 +62,13 @@ class _ProfileScreenState extends State<ProfileScreen> {
       if (doc.exists) {
         final data = doc.data();
         final roles = data?['roles'] as Map<String, dynamic>? ?? {};
-        final firstRole = roles.isNotEmpty ? roles.keys.first : '';
-        final rd = roles.isNotEmpty
-            ? roles[firstRole] as Map<String, dynamic>? ?? {}
-            : <String, dynamic>{};
+        
+        // Use the passed role or resolve dynamically
+        String effectiveRole = widget.role ?? (roles.isNotEmpty ? roles.keys.first : 'User');
+        
+        final rd = roles[effectiveRole.toLowerCase()] as Map<String, dynamic>? ?? 
+                   roles[effectiveRole] as Map<String, dynamic>? ?? 
+                   (roles.isNotEmpty ? roles.values.first : {});
 
         setState(() {
           userName = rd['fullName']?.toString().isNotEmpty == true
@@ -67,21 +86,25 @@ class _ProfileScreenState extends State<ProfileScreen> {
           isLoading = false;
         });
       } else {
+        if (mounted) {
+          setState(() {
+            userName = user.displayName ?? 'User';
+            userEmail = user.email ?? '';
+            userPhone = user.phoneNumber ?? '';
+            userPhotoUrl = user.photoURL ?? '';
+            isLoading = false;
+          });
+        }
+      }
+    } catch (e) {
+      if (mounted) {
         setState(() {
           userName = user.displayName ?? 'User';
           userEmail = user.email ?? '';
-          userPhone = user.phoneNumber ?? '';
           userPhotoUrl = user.photoURL ?? '';
           isLoading = false;
         });
       }
-    } catch (e) {
-      setState(() {
-        userName = user.displayName ?? 'User';
-        userEmail = user.email ?? '';
-        userPhotoUrl = user.photoURL ?? '';
-        isLoading = false;
-      });
     }
   }
 
@@ -179,15 +202,14 @@ class _ProfileScreenState extends State<ProfileScreen> {
     final subColor = dark ? Colors.grey[400]! : Colors.grey[600]!;
     final cardBg = dark ? const Color(0xFF1E2836) : const Color(0xFFF4F8FA);
     final signOutBgDark = AppColors.brandYellow;
-    final signOutBgLight = const Color(
-      0xFFFFF2F2,
-    ); // Light red tint for sign out
+    final signOutBgLight = const Color(0xFFFFF2F2);
 
     return Scaffold(
       backgroundColor: bgColor,
       appBar: AppBar(
         backgroundColor: topBgColor,
         elevation: 0,
+        automaticallyImplyLeading: false, 
         centerTitle: true,
         title: Text(
           'My Profile',
@@ -207,7 +229,14 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 size: 18,
                 color: dark ? Colors.white : Colors.black,
               ),
-              onPressed: () => Navigator.pop(context),
+              onPressed: () {
+                Navigator.pushReplacement(
+                  context,
+                  MaterialPageRoute(
+                    builder: (_) => DashboardScreen(role: userRole),
+                  ),
+                );
+              },
             ),
           ),
         ),
@@ -228,39 +257,52 @@ class _ProfileScreenState extends State<ProfileScreen> {
       ),
       body: isLoading
           ? const Center(child: CircularProgressIndicator())
-          : Column(
-              children: [
-                Container(
-                  width: double.infinity,
-                  color: topBgColor,
-                  padding: const EdgeInsets.only(bottom: 24),
-                  child: Column(
-                    children: [
-                      // ── Avatar ──
-                      Stack(
-                        alignment: Alignment.bottomRight,
-                        children: [
-                          Container(
-                            width: 100,
-                            height: 100,
-                            decoration: BoxDecoration(
-                              color: const Color(0xFFE8F0FE),
-                              shape: BoxShape.circle,
-                              border: Border.all(
-                                color: dark
-                                    ? const Color(0xFF2A3A50)
-                                    : const Color(0xFFD4E3FB),
-                                width: 4,
+          : SingleChildScrollView(
+              child: Column(
+                children: [
+                  // ── Profile Header ──
+                  Container(
+                    width: double.infinity,
+                    color: topBgColor,
+                    padding: const EdgeInsets.only(bottom: 24),
+                    child: Column(
+                      children: [
+                        const SizedBox(height: 10),
+                        Stack(
+                          alignment: Alignment.bottomRight,
+                          children: [
+                            Container(
+                              width: 100,
+                              height: 100,
+                              decoration: BoxDecoration(
+                                color: const Color(0xFFE8F0FE),
+                                shape: BoxShape.circle,
+                                border: Border.all(
+                                  color: dark
+                                      ? const Color(0xFF2A3A50)
+                                      : const Color(0xFFD4E3FB),
+                                  width: 4,
+                                ),
                               ),
-                            ),
-                            child: ClipOval(
-                              child: userPhotoUrl.isNotEmpty
-                                  ? Image.network(
-                                      userPhotoUrl,
-                                      fit: BoxFit.cover,
-                                      width: 100,
-                                      height: 100,
-                                      errorBuilder: (_, __, ___) => Center(
+                              child: ClipOval(
+                                child: userPhotoUrl.isNotEmpty
+                                    ? Image.network(
+                                        userPhotoUrl,
+                                        fit: BoxFit.cover,
+                                        width: 100,
+                                        height: 100,
+                                        errorBuilder: (_, __, ___) => Center(
+                                          child: Text(
+                                            _getInitials(userName),
+                                            style: const TextStyle(
+                                              fontSize: 32,
+                                              fontWeight: FontWeight.bold,
+                                              color: AppColors.primaryBlue,
+                                            ),
+                                          ),
+                                        ),
+                                      )
+                                    : Center(
                                         child: Text(
                                           _getInitials(userName),
                                           style: const TextStyle(
@@ -270,68 +312,57 @@ class _ProfileScreenState extends State<ProfileScreen> {
                                           ),
                                         ),
                                       ),
-                                    )
-                                  : Center(
-                                      child: Text(
-                                        _getInitials(userName),
-                                        style: const TextStyle(
-                                          fontSize: 32,
-                                          fontWeight: FontWeight.bold,
-                                          color: AppColors.primaryBlue,
-                                        ),
-                                      ),
-                                    ),
+                              ),
                             ),
+                            Positioned(
+                              bottom: 4,
+                              right: 4,
+                              child: Container(
+                                padding: const EdgeInsets.all(6),
+                                decoration: BoxDecoration(
+                                  color: Colors.orange,
+                                  shape: BoxShape.circle,
+                                  border: Border.all(color: topBgColor, width: 3),
+                                ),
+                                child: const Icon(
+                                  Icons.camera_alt,
+                                  size: 14,
+                                  color: Colors.white,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 16),
+                        Text(
+                          userName,
+                          style: TextStyle(
+                            fontSize: 20,
+                            fontWeight: FontWeight.bold,
+                            color: titleColor,
                           ),
-                          Positioned(
-                            bottom: 4,
-                            right: 4,
-                            child: Container(
-                              padding: const EdgeInsets.all(6),
-                              decoration: BoxDecoration(
-                                color: Colors.orange,
-                                shape: BoxShape.circle,
-                                border: Border.all(color: topBgColor, width: 3),
-                              ),
-                              child: const Icon(
-                                Icons.camera_alt,
-                                size: 14,
-                                color: Colors.white,
-                              ),
-                            ),
+                        ),
+                        const SizedBox(height: 4),
+                        Text(
+                          userEmail,
+                          style: TextStyle(fontSize: 13, color: subColor),
+                        ),
+                        if (userPhone.isNotEmpty) ...[
+                          const SizedBox(height: 2),
+                          Text(
+                            userPhone,
+                            style: TextStyle(fontSize: 12, color: subColor),
                           ),
                         ],
-                      ),
-                      const SizedBox(height: 16),
-                      Text(
-                        userName,
-                        style: TextStyle(
-                          fontSize: 20,
-                          fontWeight: FontWeight.bold,
-                          color: titleColor,
-                        ),
-                      ),
-                      const SizedBox(height: 4),
-                      Text(
-                        userEmail,
-                        style: TextStyle(fontSize: 13, color: subColor),
-                      ),
-                      if (userPhone.isNotEmpty) ...[
-                        const SizedBox(height: 2),
-                        Text(
-                          userPhone,
-                          style: TextStyle(fontSize: 12, color: subColor),
-                        ),
                       ],
-                    ],
+                    ),
                   ),
-                ),
-                Expanded(
-                  child: SingleChildScrollView(
+
+                  // ── Menu List ──
+                  Padding(
                     padding: const EdgeInsets.all(24),
                     child: Column(
                       children: [
-                        // ── Menu List ──
                         Container(
                           decoration: BoxDecoration(
                             color: cardBg,
@@ -346,6 +377,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                                 dark: dark,
                                 titleColor: titleColor,
                                 subColor: subColor,
+                                onTap: () => Navigator.pushNamed(context, '/garage'),
                               ),
                               _buildMenuItem(
                                 icon: Icons.credit_card_outlined,
@@ -353,6 +385,14 @@ class _ProfileScreenState extends State<ProfileScreen> {
                                 dark: dark,
                                 titleColor: titleColor,
                                 subColor: subColor,
+                                onTap: () {
+                                  Navigator.push(
+                                    context,
+                                    MaterialPageRoute(
+                                      builder: (_) => PaymentScreen(role: userRole),
+                                    ),
+                                  );
+                                },
                               ),
                               _buildMenuItem(
                                 icon: Icons.history,
@@ -360,6 +400,16 @@ class _ProfileScreenState extends State<ProfileScreen> {
                                 dark: dark,
                                 titleColor: titleColor,
                                 subColor: subColor,
+                                onTap: () => Navigator.pushNamed(context, '/payment-history'),
+                              ),
+                              _buildMenuItem(
+                                icon: Icons.security,
+                                title: 'Account Security',
+                                trailingText: hasPassword ? 'Protected' : 'Incomplete',
+                                dark: dark,
+                                titleColor: titleColor,
+                                subColor: subColor,
+                                onTap: _showPasswordDialog,
                               ),
                               _buildMenuItem(
                                 icon: Icons.people_outline,
@@ -367,19 +417,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                                 dark: dark,
                                 titleColor: titleColor,
                                 subColor: subColor,
-                                onTap: () {
-                                  Navigator.pushNamed(context, '/call-support');
-                                },
-                              ),
-                              _buildMenuItem(
-                                icon: Icons.security,
-                                title: 'Account Security',
-                                trailingText:
-                                    hasPassword ? 'Protected' : 'Incomplete',
-                                dark: dark,
-                                titleColor: titleColor,
-                                subColor: subColor,
-                                onTap: _showPasswordDialog,
+                                onTap: () => Navigator.pushNamed(context, '/call-support'),
                               ),
                               _buildMenuItem(
                                 icon: Icons.help_outline,
@@ -388,9 +426,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                                 titleColor: titleColor,
                                 subColor: subColor,
                                 showDivider: false,
-                                onTap: () {
-                                  Navigator.pushNamed(context, '/help-support');
-                                },
+                                onTap: () => Navigator.pushNamed(context, '/help-support'),
                               ),
                               if (availableRoles.length > 1)
                                 _buildMenuItem(
@@ -432,8 +468,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                               }
                             },
                             style: ElevatedButton.styleFrom(
-                              backgroundColor:
-                                  dark ? signOutBgDark : signOutBgLight,
+                              backgroundColor: dark ? signOutBgDark : signOutBgLight,
                               foregroundColor: dark ? Colors.black : Colors.red,
                               elevation: 0,
                               padding: const EdgeInsets.symmetric(vertical: 16),
@@ -466,8 +501,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
                       ],
                     ),
                   ),
-                ),
-              ],
+                ],
+              ),
             ),
       bottomNavigationBar: _buildBottomNav(context, dark),
     );
@@ -494,7 +529,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
             width: 40,
             height: 40,
             decoration: BoxDecoration(
-              color: dark ? Colors.white : Colors.white,
+              color: Colors.white,
               borderRadius: BorderRadius.circular(10),
               boxShadow: dark
                   ? []
@@ -509,7 +544,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
             child: Icon(
               icon,
               size: 20,
-              color: AppColors.primaryBlue, // Dark blue for icon
+              color: AppColors.primaryBlue,
             ),
           ),
           title: Text(
@@ -533,12 +568,19 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   ),
                 ),
               if (trailingText != null) const SizedBox(width: 8),
-              if (showDivider) // re-purposing showDivider as a generic check
-                Icon(Icons.chevron_right, size: 20, color: subColor),
+              Icon(Icons.chevron_right, size: 20, color: subColor),
             ],
           ),
           onTap: onTap ?? () {},
         ),
+        if (showDivider)
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 20),
+            child: Divider(
+              height: 1,
+              color: dark ? Colors.white10 : Colors.black.withValues(alpha: 0.05),
+            ),
+          ),
       ],
     );
   }
@@ -547,7 +589,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
     return Container(
       padding: const EdgeInsets.symmetric(vertical: 12),
       decoration: BoxDecoration(
-        color: dark ? const Color(0xFF1A2432) : Colors.white,
+        color: dark ? const Color(0xFF111D35) : Colors.white,
         boxShadow: [
           BoxShadow(
             color: Colors.black.withValues(alpha: 0.05),
@@ -561,14 +603,10 @@ class _ProfileScreenState extends State<ProfileScreen> {
         child: Row(
           mainAxisAlignment: MainAxisAlignment.spaceAround,
           children: [
-            _navItem(context, Icons.home_rounded, 'Dashboard', false, dark,
-                '/dashboard'),
-            _navItem(context, Icons.garage_rounded, 'Garage', false, dark,
-                '/garage'),
-            _navItem(context, Icons.payments_rounded, 'Payment', false, dark,
-                '/payment-history'),
-            _navItem(context, Icons.person_rounded, 'Profile', true, dark,
-                '/profile'),
+            _navItem(context, Icons.home_rounded, 'Dashboard', false, dark, '/dashboard'),
+            _navItem(context, Icons.garage_rounded, 'Garage', false, dark, '/garage'),
+            _navItem(context, Icons.payments_rounded, 'Payment', false, dark, '/payment-history'),
+            _navItem(context, Icons.person_rounded, 'Profile', true, dark, '/profile'),
           ],
         ),
       ),
@@ -581,16 +619,25 @@ class _ProfileScreenState extends State<ProfileScreen> {
     String label,
     bool isActive,
     bool dark,
-    String routeName,
+    String? routeName,
   ) {
     final color = isActive
-        ? AppColors.primaryBlue
-        : (dark ? Colors.grey[500]! : Colors.grey[400]!);
+        ? (dark ? AppColors.brandYellow : AppColors.primaryBlue)
+        : (dark ? Colors.grey[600]! : Colors.grey[400]!);
 
     return GestureDetector(
       onTap: () {
         if (!isActive) {
-          Navigator.pushReplacementNamed(context, routeName);
+          if (label == 'Dashboard') {
+            Navigator.pushReplacement(
+              context,
+              MaterialPageRoute(
+                builder: (_) => DashboardScreen(role: userRole),
+              ),
+            );
+          } else if (routeName != null) {
+            Navigator.pushReplacementNamed(context, routeName);
+          }
         }
       },
       behavior: HitTestBehavior.opaque,
