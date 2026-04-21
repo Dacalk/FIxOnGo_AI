@@ -1,16 +1,47 @@
-# project_1
+# FIxOnGo AI
 
-A new Flutter project.
+FIxOnGo is a modern on-demand automotive service platform that connects vehicle owners with specialized service providers. Built with Flutter and Firebase, it offers a seamless, role-aware experience for all users.
 
-## Getting Started
+## 🚀 Key Features
 
-This project is a starting point for a Flutter application.
+- **Multi-Role Support**: Tailored experiences for Users, Mechanics, Towing Services, Spare Part Sellers, and Drivers.
+- **Universal Authentication**:
+  - **Traditional Email/Password** login and signup.
+  - **Mobile OTP (One-Time Password)** for fast and secure access.
+  - **Google Sign-In** integration for one-tap authentication.
+- **Step-Based Signup**: A refined two-step registration flow that prioritizes security and user experience.
+- **Unified Dashboards**: Dynamic dashboards that automatically adapt to the user's role (Mechanic, Seller, etc.) upon login.
+- **Modern UI/UX**: Feature-rich interface with support for both Light and Dark modes, elegant animations, and responsive layouts.
 
-A few resources to get you started if this is your first Flutter project:
+## 🛠️ Tech Stack
 
-- [Lab: Write your first Flutter app](https://docs.flutter.dev/get-started/codelab)
-- [Cookbook: Useful Flutter samples](https://docs.flutter.dev/cookbook)
+- **Frontend**: Flutter
+- **Backend/Auth**: Firebase Authentication, Cloud Firestore
+- **Theme**: Custom ThemeProvider with Dark Mode support
+- **State Management**: Provider / SetState (Context-aware)
 
-For help getting started with Flutter development, view the
-[online documentation](https://docs.flutter.dev/), which offers tutorials,
-samples, guidance on mobile development, and a full API reference.
+## 🏁 Getting Started
+
+1. **Clone the repository**:
+   ```bash
+   git clone https://github.com/Dacalk/FIxOnGo_AI.git
+   ```
+2. **Install dependencies**:
+   ```bash
+   flutter pub get
+   ```
+3. **Run the app**:
+   ```bash
+   flutter run
+   ```
+
+## 📂 Project Structure
+
+- `lib/screens/`: Main application screens (Login, Signup, Dashboards, etc.)
+- `lib/components/`: Reusable UI components (Buttons, Inputs, Dropdowns)
+- `lib/services/`: Core logic and third-party integrations (Google Auth, Firestore)
+- `lib/assets/`: Image assets and icons
+
+---
+
+_Developed with ❤️ for the automotive community._

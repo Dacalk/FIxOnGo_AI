@@ -20,12 +20,10 @@ class PaymentHistoryScreen extends StatelessWidget {
     // Header banner colors
     final bannerBg = dark ? const Color(0xFFBAD5F0) : const Color(0xFFD4E6F8);
     final bannerText = dark ? const Color(0xFF2466A8) : const Color(0xFF3B7BC2);
-    final bannerCircle1 = dark
-        ? const Color(0xFF98C1EA)
-        : const Color(0xFFB3D4F3);
-    final bannerCircle2 = dark
-        ? const Color(0xFFDDEBFA)
-        : const Color(0xFFEAF2FB);
+    final bannerCircle1 =
+        dark ? const Color(0xFF98C1EA) : const Color(0xFFB3D4F3);
+    final bannerCircle2 =
+        dark ? const Color(0xFFDDEBFA) : const Color(0xFFEAF2FB);
 
     return Scaffold(
       backgroundColor: bgColor,
@@ -151,9 +149,8 @@ class PaymentHistoryScreen extends StatelessWidget {
                           vertical: 6,
                         ),
                         decoration: BoxDecoration(
-                          color: dark
-                              ? AppColors.brandYellow
-                              : Colors.grey[300],
+                          color:
+                              dark ? AppColors.brandYellow : Colors.grey[300],
                           borderRadius: BorderRadius.circular(20),
                         ),
                         child: Row(
@@ -279,9 +276,8 @@ class PaymentHistoryScreen extends StatelessWidget {
   }) {
     final statusBg = dark ? const Color(0xFF163E2B) : const Color(0xFFD1F2DD);
     final statusText = dark ? const Color(0xFF4DB07B) : const Color(0xFF23A05B);
-    final amountColor = dark
-        ? const Color(0xFF4B89D7)
-        : const Color(0xFF1E61D8);
+    final amountColor =
+        dark ? const Color(0xFF4B89D7) : const Color(0xFF1E61D8);
     final iconColor = dark ? Colors.grey[400] : Colors.black;
     final cardInfoBg = dark ? Colors.grey[800] : Colors.grey[200];
 
@@ -466,24 +462,14 @@ class PaymentHistoryScreen extends StatelessWidget {
         child: Row(
           mainAxisAlignment: MainAxisAlignment.spaceAround,
           children: [
-            _navItem(
-              context,
-              Icons.home,
-              'Dashboard',
-              false,
-              dark,
-              '/dashboard',
-            ),
-            _navItem(context, Icons.garage, 'Garage', false, dark, '/garage'),
-            _navItem(
-              context,
-              Icons.payments,
-              'Payment',
-              true,
-              dark,
-              '/payment-history',
-            ), // Active state
-            _navItem(context, Icons.person, 'Profile', false, dark, '/profile'),
+            _navItem(context, Icons.home_rounded, 'Dashboard', false, dark,
+                '/dashboard'),
+            _navItem(context, Icons.garage_rounded, 'Garage', false, dark,
+                '/garage'),
+            _navItem(context, Icons.payments_rounded, 'Payment', true, dark,
+                '/payment-history'),
+            _navItem(context, Icons.person_rounded, 'Profile', false, dark,
+                '/profile'),
           ],
         ),
       ),

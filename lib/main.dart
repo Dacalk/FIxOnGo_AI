@@ -32,14 +32,22 @@ import 'theme_provider.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'firebase_options.dart';
-import 'screens/dashboard_screen.dart';
+
+import 'components/auth_guard.dart'; // Import AuthGuard
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
   await dotenv.load(fileName: ".env");
 
-  await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
+  if (Firebase.apps.isEmpty) {
+    await Firebase.initializeApp(
+      options: DefaultFirebaseOptions.currentPlatform,
+    );
+  }
+
+  // Optional: Initialize Firestore with specific settings if needed
+  // FirebaseFirestore.instance.settings = const Settings(persistenceEnabled: true);
 
   runApp(const FixOnGoApp());
 }
@@ -88,37 +96,55 @@ class FixOnGoApp extends StatelessWidget {
           // Route Map
           initialRoute: '/',
           routes: {
+            // Public Routes
             '/': (context) => const FixOnGoSplashScreen(),
             '/onboarding': (context) => const OnboardingScreen(),
             '/login': (context) => const LoginScreen(),
             '/verification': (context) => const VerificationScreen(),
             '/signup': (context) => SignupScreen(),
-            '/ai-chat': (context) => const AiChatScreen(),
-            '/ai-chat-history': (context) => const AiChatHistoryScreen(),
-            '/service-request': (context) => const ServiceRequestScreen(),
-            '/location': (context) => const LocationScreen(),
-            '/add-location': (context) => const AddLocationScreen(),
+
+            // Protected Routes
+            '/ai-chat': (context) => const AuthGuard(child: AiChatScreen()),
+            '/ai-chat-history': (context) =>
+                const AuthGuard(child: AiChatHistoryScreen()),
+            '/service-request': (context) =>
+                const AuthGuard(child: ServiceRequestScreen()),
+            '/location': (context) => const AuthGuard(child: LocationScreen()),
+            '/add-location': (context) =>
+                const AuthGuard(child: AddLocationScreen()),
             '/searching-mechanics': (context) =>
-                const SearchingMechanicsScreen(),
-            '/add-card': (context) => const AddCardScreen(),
-            '/mechanic-accepted': (context) => const MechanicAcceptedScreen(),
-            '/request-tools': (context) => const RequestToolsScreen(),
-            '/video-call': (context) => const VideoCallScreen(),
-            '/voice-call': (context) => const VoiceCallScreen(),
-            '/mechanic-chat': (context) => const MechanicChatScreen(),
+                const AuthGuard(child: SearchingMechanicsScreen()),
+            '/add-card': (context) => const AuthGuard(child: AddCardScreen()),
+            '/mechanic-accepted': (context) =>
+                const AuthGuard(child: MechanicAcceptedScreen()),
+            '/request-tools': (context) =>
+                const AuthGuard(child: RequestToolsScreen()),
+            '/video-call': (context) =>
+                const AuthGuard(child: VideoCallScreen()),
+            '/voice-call': (context) =>
+                const AuthGuard(child: VoiceCallScreen()),
+            '/mechanic-chat': (context) =>
+                const AuthGuard(child: MechanicChatScreen()),
             '/arrival-confirmation': (context) =>
-                const ArrivalConfirmationScreen(),
-            '/dashboard': (context) => DashboardScreen(role: 'User'),
-            '/payment-successful': (context) => const PaymentSuccessfulScreen(),
-            '/checkout': (context) => const CheckoutScreen(),
-            '/order-tracking': (context) => const OrderTrackingScreen(),
-            '/order-delivered': (context) => const OrderDeliveredScreen(),
-            '/profile': (context) => const ProfileScreen(),
-            '/call-support': (context) => const CallSupportScreen(),
-            '/garage': (context) => const GarageScreen(),
-            '/payment-history': (context) => const PaymentHistoryScreen(),
-            '/help-support': (context) => const HelpSupportScreen(),
-            '/home': (context) => HomeScreen(),
+                const AuthGuard(child: ArrivalConfirmationScreen()),
+            '/dashboard': (context) =>
+                const AuthGuard(child: DashboardScreen()),
+            '/payment-successful': (context) =>
+                const AuthGuard(child: PaymentSuccessfulScreen()),
+            '/checkout': (context) => const AuthGuard(child: CheckoutScreen()),
+            '/order-tracking': (context) =>
+                const AuthGuard(child: OrderTrackingScreen()),
+            '/order-delivered': (context) =>
+                const AuthGuard(child: OrderDeliveredScreen()),
+            '/profile': (context) => const AuthGuard(child: ProfileScreen()),
+            '/call-support': (context) =>
+                const AuthGuard(child: CallSupportScreen()),
+            '/garage': (context) => const AuthGuard(child: GarageScreen()),
+            '/payment-history': (context) =>
+                const AuthGuard(child: PaymentHistoryScreen()),
+            '/help-support': (context) =>
+                const AuthGuard(child: HelpSupportScreen()),
+            '/home': (context) => const AuthGuard(child: HomeScreen()),
           },
         );
       },

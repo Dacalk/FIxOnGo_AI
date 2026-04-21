@@ -72,7 +72,7 @@ class _AiChatScreenState extends State<AiChatScreen> {
       _sessionTitle = widget.existingSession!.title;
       _messages = List.from(widget.existingSession!.messages);
     } else {
-      final _sessionId = Uuid().v4();
+      _sessionId = const Uuid().v4();
       _sessionTitle = 'New Chat';
       _messages = [
         ChatMessage(
@@ -92,16 +92,15 @@ class _AiChatScreenState extends State<AiChatScreen> {
       // Let's do it manually to be safe
       final List<genai.Content> history = _messages
           .where(
-            (m) =>
-                m.text !=
-                "Hi there. I'm your FixOnGo AI Assistant. How can I help you today?",
-          )
+        (m) =>
+            m.text !=
+            "Hi there. I'm your FixOnGo AI Assistant. How can I help you today?",
+      )
           .map((m) {
-            return genai.Content(m.isUser ? 'user' : 'model', [
-              genai.TextPart(m.text),
-            ]);
-          })
-          .toList();
+        return genai.Content(m.isUser ? 'user' : 'model', [
+          genai.TextPart(m.text),
+        ]);
+      }).toList();
       _geminiService.startChat(history: history);
     } else {
       _geminiService.startChat();
@@ -433,13 +432,13 @@ class _AiChatScreenState extends State<AiChatScreen> {
     final bubbleBg = isUser
         ? AppColors.primaryBlue
         : dark
-        ? AppColors.darkSurface
-        : Colors.grey[100]!;
+            ? AppColors.darkSurface
+            : Colors.grey[100]!;
     final textColor = isUser
         ? Colors.white
         : dark
-        ? Colors.white
-        : Colors.black87;
+            ? Colors.white
+            : Colors.black87;
     final timeColor = isUser
         ? (dark ? Colors.blue[200] : Colors.blue[300])
         : (dark ? Colors.grey[600] : Colors.grey[500]);
@@ -452,9 +451,8 @@ class _AiChatScreenState extends State<AiChatScreen> {
         ),
         margin: const EdgeInsets.only(bottom: 4),
         child: Column(
-          crossAxisAlignment: isUser
-              ? CrossAxisAlignment.end
-              : CrossAxisAlignment.start,
+          crossAxisAlignment:
+              isUser ? CrossAxisAlignment.end : CrossAxisAlignment.start,
           children: [
             // Text bubble
             Container(

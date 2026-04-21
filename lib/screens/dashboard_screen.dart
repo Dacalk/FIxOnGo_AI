@@ -6,13 +6,17 @@ import '../components/quick_action_card.dart';
 
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:latlong2/latlong.dart';
+import '../components/osm_map_widget.dart';
+import '../services/location_service.dart';
+import 'package:flutter_map/flutter_map.dart';
 
 /// Main dashboard screen with bottom navigation.
 /// Renders role-specific content based on the user's role.
 class DashboardScreen extends StatefulWidget {
-  final String role; //  ADD THIS
+  final String? role;
 
-  const DashboardScreen({super.key, required this.role}); // 🔥 UPDATE
+  const DashboardScreen({super.key, this.role});
 
   @override
   State<DashboardScreen> createState() => _DashboardScreenState();
@@ -21,56 +25,134 @@ class DashboardScreen extends StatefulWidget {
 class _DashboardScreenState extends State<DashboardScreen> {
   int _currentIndex = 0;
 
+  // Common
   String userName = '';
+  String userEmail = '';
+  String userPhone = '';
+  String userPhotoUrl = '';
   bool isLoading = true;
+
+  // Role-specific data map
+  Map<String, dynamic> roleData = {};
+  String? currentRole;
+  LatLng? _userLocation;
 
   @override
   void initState() {
     super.initState();
+    currentRole = widget.role; // Initial value
     loadUserData();
+    _fetchInitialLocation();
+  }
+
+  Future<void> _fetchInitialLocation() async {
+    try {
+      final loc = await LocationService.instance.getCurrentLatLng();
+      if (mounted) {
+        setState(() => _userLocation = loc);
+      }
+    } catch (e) {
+      print("Error fetching dashboard location: $e");
+    }
   }
 
   Future<void> loadUserData() async {
     final user = FirebaseAuth.instance.currentUser;
     if (user == null) return;
 
-    final role = widget.role;
+    String role = widget.role ?? 'User';
 
-    var doc = await FirebaseFirestore.instance
-        .collection('users')
-        .doc(user.uid)
-        .get();
+    try {
+      var doc = await FirebaseFirestore.instance
+          .collection('users')
+          .doc(user.uid)
+          .get();
 
-    if (doc.exists) {
-      final data = doc.data();
-      final roleData = data?['roles']?[role];
+      if (doc.exists) {
+        final data = doc.data();
+        final rolesMap = data?['roles'] as Map<String, dynamic>? ?? {};
 
-      print("NAME FROM FIREBASE: ${roleData?['fullName']}");
+        // 🧠 DYNAMIC ROLE RESOLUTION
+        // If we were passed "User" (the default) but the user has other roles,
+        // and "User" isn't actually one of them, pick the first available role.
+        if (role == 'User' &&
+            !rolesMap.containsKey('user') &&
+            rolesMap.isNotEmpty) {
+          role = rolesMap.keys.first;
+        }
 
+        // Check both lowercase and original casing
+        Map<String, dynamic> rd = {};
+        if (rolesMap.containsKey(role.toLowerCase())) {
+          rd = rolesMap[role.toLowerCase()] as Map<String, dynamic>? ?? {};
+        } else if (rolesMap.containsKey(role)) {
+          rd = rolesMap[role] as Map<String, dynamic>? ?? {};
+        }
+
+        setState(() {
+          // Update the localized role if we changed it
+          if (role != widget.role) {
+            // We can't update widget.role directly, but _buildDashboardContent uses local role
+          }
+          currentRole = role; // Store it locally for the build method
+          userName = rd['fullName']?.toString().isNotEmpty == true
+              ? rd['fullName']
+              : user.displayName ?? 'User';
+          userEmail = data?['email']?.toString().isNotEmpty == true
+              ? data!['email']
+              : user.email ?? '';
+          userPhone = data?['phone']?.toString().isNotEmpty == true
+              ? data!['phone']
+              : user.phoneNumber ?? '';
+          roleData = rd;
+          userPhotoUrl = data?['photoUrl']?.toString() ?? user.photoURL ?? '';
+          isLoading = false;
+        });
+      } else {
+        // No Firestore doc — use Google profile data
+        setState(() {
+          userName = user.displayName ?? 'User';
+          userEmail = user.email ?? '';
+          userPhone = user.phoneNumber ?? '';
+          userPhotoUrl = user.photoURL ?? '';
+          isLoading = false;
+        });
+      }
+    } catch (e) {
+      print("Dashboard load error: $e");
+      // Fallback to Google profile on any error
       setState(() {
-        userName = roleData?['fullName'] ?? 'User';
+        userName = user.displayName ?? 'User';
+        userEmail = user.email ?? '';
+        userPhotoUrl = user.photoURL ?? '';
         isLoading = false;
       });
     }
   }
 
+  // Helper to get a role field with a fallback
+  String _rd(String key, [String fallback = '']) =>
+      roleData[key]?.toString() ?? fallback;
+
   @override
   Widget build(BuildContext context) {
-    final role = widget.role;
+    final role = currentRole ?? widget.role ?? 'User';
     final dark = isDarkMode(context);
     final bgColor = dark ? AppColors.darkBackground : const Color(0xFFF5F8FF);
 
     return Scaffold(
       backgroundColor: bgColor,
-      body: IndexedStack(
-        index: _currentIndex,
-        children: [
-          _buildDashboardContent(role, dark),
-          _buildPlaceholderTab('Garage', Icons.garage, dark),
-          _buildPlaceholderTab('Payment', Icons.payment, dark),
-          _buildPlaceholderTab('Profile', Icons.person, dark),
-        ],
-      ),
+      body: isLoading
+          ? const Center(child: CircularProgressIndicator())
+          : IndexedStack(
+              index: _currentIndex,
+              children: [
+                _buildDashboardContent(role, dark),
+                _buildPlaceholderTab('Garage', Icons.garage_rounded, dark),
+                _buildPlaceholderTab('Payment', Icons.payments_rounded, dark),
+                _buildPlaceholderTab('Profile', Icons.person_rounded, dark),
+              ],
+            ),
       bottomNavigationBar: _buildBottomNav(dark),
     );
   }
@@ -138,7 +220,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
               label: 'Garage',
             ),
             BottomNavigationBarItem(
-              icon: Icon(Icons.receipt_long_rounded),
+              icon: Icon(Icons.payments_rounded),
               label: 'Payment',
             ),
             BottomNavigationBarItem(
@@ -155,24 +237,24 @@ class _DashboardScreenState extends State<DashboardScreen> {
   //  ROLE ROUTER
   // ─────────────────────────────────────────────
   Widget _buildDashboardContent(String role, bool dark) {
-    switch (role) {
-      case 'Mechanic':
-        return _mechanicDashboard(dark);
-      case 'Tow':
-        return _towDashboard(dark);
-      case 'Seller':
-        return _sellerDashboard(dark);
-      case 'Driver':
-        return _driverDashboard(dark);
+    switch (role.toLowerCase()) {
+      case 'mechanic':
+        return _mechanicDashboard(role, dark);
+      case 'tow':
+        return _towDashboard(role, dark);
+      case 'seller':
+        return _sellerDashboard(role, dark);
+      case 'driver':
+        return _driverDashboard(role, dark);
       default:
-        return _userDashboard(dark);
+        return _userDashboard(role, dark);
     }
   }
 
   // ═════════════════════════════════════════════
   //  1. USER DASHBOARD (default)
   // ═════════════════════════════════════════════
-  Widget _userDashboard(bool dark) {
+  Widget _userDashboard(String role, bool dark) {
     return SingleChildScrollView(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -180,8 +262,9 @@ class _DashboardScreenState extends State<DashboardScreen> {
           // Header
           DashboardHeader(
             userName: isLoading ? 'Loading...' : userName,
-            role: widget.role,
-            vehicleInfo: 'Ford F-150',
+            role: role,
+            photoUrl: userPhotoUrl,
+            vehicleInfo: _rd('vehicleType', 'My Vehicle'),
           ),
           const SizedBox(height: 16),
 
@@ -200,38 +283,52 @@ class _DashboardScreenState extends State<DashboardScreen> {
           ),
           const SizedBox(height: 20),
 
-          // Map placeholder
+          // Real Map
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 16),
-            child: Container(
-              height: 200,
-              decoration: BoxDecoration(
-                color: dark ? AppColors.darkSurface : Colors.grey[200],
-                borderRadius: BorderRadius.circular(20),
-                border: Border.all(
-                  color: dark ? Colors.grey[800]! : Colors.grey[300]!,
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(20),
+              child: Container(
+                height: 200,
+                decoration: BoxDecoration(
+                  color: dark ? AppColors.darkSurface : Colors.grey[200],
+                  borderRadius: BorderRadius.circular(20),
+                  border: Border.all(
+                    color: dark ? Colors.grey[800]! : Colors.grey[300]!,
+                  ),
                 ),
-              ),
-              child: Center(
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Icon(
-                      Icons.map_rounded,
-                      size: 48,
-                      color: dark ? Colors.grey[600] : Colors.grey[400],
-                    ),
-                    const SizedBox(height: 8),
-                    Text(
-                      'Nearby Services Map',
-                      style: TextStyle(
-                        color: dark ? Colors.grey[500] : Colors.grey[500],
-                        fontSize: 14,
-                        fontWeight: FontWeight.w500,
+                child: _userLocation == null
+                    ? const Center(child: CircularProgressIndicator())
+                    : OsmMapWidget(
+                        center: _userLocation!,
+                        markers: [
+                          Marker(
+                            point: _userLocation!,
+                            width: 30,
+                            height: 30,
+                            child: const Icon(Icons.my_location,
+                                color: AppColors.primaryBlue),
+                          ),
+                          // Simulated nearby mechanic
+                          Marker(
+                            point: LatLng(_userLocation!.latitude + 0.005,
+                                _userLocation!.longitude + 0.005),
+                            width: 40,
+                            height: 40,
+                            child: const Icon(Icons.car_repair,
+                                color: AppColors.brandYellow),
+                          ),
+                          // Simulated nearby tow
+                          Marker(
+                            point: LatLng(_userLocation!.latitude - 0.003,
+                                _userLocation!.longitude - 0.007),
+                            width: 40,
+                            height: 40,
+                            child: const Icon(Icons.local_shipping,
+                                color: Colors.orange),
+                          ),
+                        ],
                       ),
-                    ),
-                  ],
-                ),
               ),
             ),
           ),
@@ -301,7 +398,9 @@ class _DashboardScreenState extends State<DashboardScreen> {
                         subtitle: 'ON-SITE REPAIR',
                         title: 'Mechanic',
                         color: const Color(0xFFE65100),
-                        onTap: () {},
+                        onTap: () {
+                          Navigator.pushNamed(context, '/searching-mechanics');
+                        },
                       ),
                     ),
                   ],
@@ -346,15 +445,16 @@ class _DashboardScreenState extends State<DashboardScreen> {
   // ═════════════════════════════════════════════
   //  2. MECHANIC DASHBOARD
   // ═════════════════════════════════════════════
-  Widget _mechanicDashboard(bool dark) {
+  Widget _mechanicDashboard(String role, bool dark) {
     return SingleChildScrollView(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           DashboardHeader(
             userName: isLoading ? 'Loading...' : userName,
-            role: widget.role,
-            vehicleInfo: 'AutoFix Pro',
+            role: role,
+            photoUrl: userPhotoUrl,
+            vehicleInfo: _rd('workshop', 'My Workshop'),
           ),
           const SizedBox(height: 20),
 
@@ -475,7 +575,12 @@ class _DashboardScreenState extends State<DashboardScreen> {
                     subtitle: 'MANAGE',
                     title: 'Accept Jobs',
                     color: const Color(0xFF2E7D32),
-                    onTap: () {},
+                    onTap: () {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(
+                            content: Text("Accepting jobs coming soon...")),
+                      );
+                    },
                   ),
                 ),
                 const SizedBox(width: 14),
@@ -485,7 +590,9 @@ class _DashboardScreenState extends State<DashboardScreen> {
                     subtitle: 'VIEW',
                     title: 'Job History',
                     color: const Color(0xFF1565C0),
-                    onTap: () {},
+                    onTap: () {
+                      Navigator.pushNamed(context, '/ai-chat-history');
+                    },
                   ),
                 ),
               ],
@@ -500,15 +607,16 @@ class _DashboardScreenState extends State<DashboardScreen> {
   // ═════════════════════════════════════════════
   //  3. TOW DASHBOARD
   // ═════════════════════════════════════════════
-  Widget _towDashboard(bool dark) {
+  Widget _towDashboard(String role, bool dark) {
     return SingleChildScrollView(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           DashboardHeader(
             userName: isLoading ? 'Loading...' : userName,
-            role: widget.role,
-            vehicleInfo: 'Hino 300',
+            role: role,
+            photoUrl: userPhotoUrl,
+            vehicleInfo: _rd('truckModel', 'My Truck'),
           ),
           const SizedBox(height: 20),
 
@@ -612,7 +720,9 @@ class _DashboardScreenState extends State<DashboardScreen> {
                     subtitle: 'NAVIGATE',
                     title: 'Start Tow',
                     color: const Color(0xFFE65100),
-                    onTap: () {},
+                    onTap: () {
+                      Navigator.pushNamed(context, '/location');
+                    },
                   ),
                 ),
                 const SizedBox(width: 14),
@@ -622,7 +732,9 @@ class _DashboardScreenState extends State<DashboardScreen> {
                     subtitle: 'HELP',
                     title: 'Support',
                     color: const Color(0xFF1A2940),
-                    onTap: () {},
+                    onTap: () {
+                      Navigator.pushNamed(context, '/call-support');
+                    },
                   ),
                 ),
               ],
@@ -637,15 +749,16 @@ class _DashboardScreenState extends State<DashboardScreen> {
   // ═════════════════════════════════════════════
   //  4. SELLER DASHBOARD
   // ═════════════════════════════════════════════
-  Widget _sellerDashboard(bool dark) {
+  Widget _sellerDashboard(String role, bool dark) {
     return SingleChildScrollView(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           DashboardHeader(
             userName: isLoading ? 'Loading...' : userName,
-            role: widget.role,
-            vehicleInfo: 'Auto Parts LK',
+            role: role,
+            photoUrl: userPhotoUrl,
+            vehicleInfo: _rd('shopName', 'My Shop'),
           ),
           const SizedBox(height: 20),
 
@@ -721,7 +834,12 @@ class _DashboardScreenState extends State<DashboardScreen> {
                         subtitle: 'INVENTORY',
                         title: 'Add Product',
                         color: const Color(0xFF2E7D32),
-                        onTap: () {},
+                        onTap: () {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(
+                                content: Text("Add product coming soon...")),
+                          );
+                        },
                       ),
                     ),
                     const SizedBox(width: 14),
@@ -731,7 +849,9 @@ class _DashboardScreenState extends State<DashboardScreen> {
                         subtitle: 'MANAGE',
                         title: 'View Orders',
                         color: const Color(0xFF1565C0),
-                        onTap: () {},
+                        onTap: () {
+                          Navigator.pushNamed(context, '/order-tracking');
+                        },
                       ),
                     ),
                   ],
@@ -745,7 +865,12 @@ class _DashboardScreenState extends State<DashboardScreen> {
                         subtitle: 'INSIGHTS',
                         title: 'Analytics',
                         color: const Color(0xFF6A1B9A),
-                        onTap: () {},
+                        onTap: () {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(
+                                content: Text("Analytics coming soon...")),
+                          );
+                        },
                       ),
                     ),
                     const SizedBox(width: 14),
@@ -755,7 +880,9 @@ class _DashboardScreenState extends State<DashboardScreen> {
                         subtitle: 'CUSTOMERS',
                         title: 'Messages',
                         color: const Color(0xFFE65100),
-                        onTap: () {},
+                        onTap: () {
+                          Navigator.pushNamed(context, '/mechanic-chat');
+                        },
                       ),
                     ),
                   ],
@@ -772,15 +899,16 @@ class _DashboardScreenState extends State<DashboardScreen> {
   // ═════════════════════════════════════════════
   //  5. DRIVER DASHBOARD
   // ═════════════════════════════════════════════
-  Widget _driverDashboard(bool dark) {
+  Widget _driverDashboard(String role, bool dark) {
     return SingleChildScrollView(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           DashboardHeader(
             userName: isLoading ? 'Loading...' : userName,
-            role: widget.role,
-            vehicleInfo: 'Colombo Zone',
+            role: role,
+            photoUrl: userPhotoUrl,
+            vehicleInfo: _rd('deliveryArea', 'My Area'),
           ),
           const SizedBox(height: 20),
 
@@ -940,7 +1068,9 @@ class _DashboardScreenState extends State<DashboardScreen> {
                     subtitle: 'ACCEPT',
                     title: 'New Delivery',
                     color: const Color(0xFF2E7D32),
-                    onTap: () {},
+                    onTap: () {
+                      Navigator.pushNamed(context, '/order-tracking');
+                    },
                   ),
                 ),
                 const SizedBox(width: 14),
@@ -950,7 +1080,9 @@ class _DashboardScreenState extends State<DashboardScreen> {
                     subtitle: 'NAVIGATE',
                     title: 'View Route',
                     color: const Color(0xFF1565C0),
-                    onTap: () {},
+                    onTap: () {
+                      Navigator.pushNamed(context, '/location');
+                    },
                   ),
                 ),
               ],

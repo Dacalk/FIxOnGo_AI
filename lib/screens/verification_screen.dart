@@ -68,7 +68,7 @@ class _VerificationScreenState extends State<VerificationScreen> {
         ModalRoute.of(context)?.settings.arguments as Map<String, String>? ??
             {};
 
-    final role = args['role'] ?? 'User';
+    final role = args['role']; // Nullable
     final phone = args['phone'] ?? '7X XXX XXXX';
 
     final dark = isDarkMode(context);
@@ -199,31 +199,59 @@ class _VerificationScreenState extends State<VerificationScreen> {
                     final user = FirebaseAuth.instance.currentUser;
                     if (user == null) return;
 
-                    final selectedRole = role;
-
                     //  CHECK FIRESTORE
                     var doc = await FirebaseFirestore.instance
                         .collection('users')
                         .doc(user.uid)
                         .get();
 
-                    Map roles = doc.data()?['roles'] ?? {};
+                    if (doc.exists) {
+                      final data = doc.data();
+                      Map roles = data?['roles'] ?? {};
 
-                    if (roles.containsKey(selectedRole)) {
-                      Navigator.pushReplacement(
-                        context,
-                        MaterialPageRoute(
-                          builder: (_) => DashboardScreen(role: selectedRole),
-                        ),
-                      );
+                      if (roles.isNotEmpty) {
+                        // Use pre-selected role if provided and exists, else pick first
+                        String matchedRole = (role != null &&
+                                roles.containsKey(role.toLowerCase()))
+                            ? role.toLowerCase()
+                            : roles.keys.first.toString();
+
+                        if (mounted) {
+                          Navigator.pushReplacement(
+                            context,
+                            MaterialPageRoute(
+                              builder: (_) =>
+                                  DashboardScreen(role: matchedRole),
+                            ),
+                          );
+                        }
+                      } else {
+                        // No roles found -> Signup
+                        if (mounted) {
+                          Navigator.pushReplacement(
+                            context,
+                            MaterialPageRoute(
+                              builder: (_) => const SignupScreen(),
+                              settings: role != null
+                                  ? RouteSettings(arguments: role)
+                                  : null,
+                            ),
+                          );
+                        }
+                      }
                     } else {
-                      Navigator.pushReplacement(
-                        context,
-                        MaterialPageRoute(
-                          builder: (_) => SignupScreen(),
-                          settings: RouteSettings(arguments: selectedRole),
-                        ),
-                      );
+                      // Doc doesn't exist -> Signup
+                      if (mounted) {
+                        Navigator.pushReplacement(
+                          context,
+                          MaterialPageRoute(
+                            builder: (_) => const SignupScreen(),
+                            settings: role != null
+                                ? RouteSettings(arguments: role)
+                                : null,
+                          ),
+                        );
+                      }
                     }
                   } catch (e) {
                     ScaffoldMessenger.of(context).showSnackBar(

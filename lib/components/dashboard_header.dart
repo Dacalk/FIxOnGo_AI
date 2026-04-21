@@ -7,6 +7,7 @@ class DashboardHeader extends StatelessWidget {
   final String role;
   final String? vehicleInfo;
   final String? statusText;
+  final String? photoUrl;
 
   const DashboardHeader({
     super.key,
@@ -14,6 +15,7 @@ class DashboardHeader extends StatelessWidget {
     required this.role,
     this.vehicleInfo,
     this.statusText,
+    this.photoUrl,
   });
 
   @override
@@ -47,11 +49,18 @@ class DashboardHeader extends StatelessWidget {
                 radius: 26,
                 backgroundColor:
                     dark ? AppColors.darkSurface : Colors.blue[100],
-                child: Icon(
-                  _roleIcon(),
-                  color: dark ? AppColors.brandYellow : AppColors.primaryBlue,
-                  size: 28,
-                ),
+                backgroundImage: photoUrl != null && photoUrl!.isNotEmpty
+                    ? NetworkImage(photoUrl!)
+                    : null,
+                child: photoUrl == null || photoUrl!.isEmpty
+                    ? Icon(
+                        _roleIcon(),
+                        color: dark
+                            ? AppColors.brandYellow
+                            : AppColors.primaryBlue,
+                        size: 28,
+                      )
+                    : null,
               ),
               const SizedBox(width: 14),
               // Greeting
@@ -84,8 +93,7 @@ class DashboardHeader extends StatelessWidget {
               ),
               // Theme toggle buttons
               Container(
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
+                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
                 decoration: BoxDecoration(
                   color: dark
                       ? Colors.white.withValues(alpha: 0.08)
@@ -178,14 +186,10 @@ class DashboardHeader extends StatelessWidget {
                   padding:
                       const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                   decoration: BoxDecoration(
-                    color: dark
-                        ? AppColors.darkSurface
-                        : Colors.white,
+                    color: dark ? AppColors.darkSurface : Colors.white,
                     borderRadius: BorderRadius.circular(20),
                     border: Border.all(
-                      color: dark
-                          ? Colors.grey[700]!
-                          : Colors.grey[300]!,
+                      color: dark ? Colors.grey[700]! : Colors.grey[300]!,
                     ),
                   ),
                   child: Row(

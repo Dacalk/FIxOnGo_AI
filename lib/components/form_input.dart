@@ -9,6 +9,7 @@ class FormInput extends StatelessWidget {
   final String? helperText;
   final TextEditingController? controller;
   final TextInputType keyboardType;
+  final bool obscureText;
   final Function(String)? onChanged; //  ADD THIS
 
   const FormInput({
@@ -18,6 +19,7 @@ class FormInput extends StatelessWidget {
     this.helperText,
     this.controller,
     this.keyboardType = TextInputType.text,
+    this.obscureText = false,
     this.onChanged, //  ADD THIS
   });
 
@@ -46,6 +48,7 @@ class FormInput extends StatelessWidget {
         TextField(
           controller: controller,
           keyboardType: keyboardType,
+          obscureText: obscureText,
           style: TextStyle(color: textColor),
           decoration: InputDecoration(
             hintText: hintText,

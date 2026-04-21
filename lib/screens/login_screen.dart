@@ -6,7 +6,7 @@ import '../theme_provider.dart';
 import '../components/primary_button.dart';
 import '../components/social_button.dart';
 import '../components/phone_input.dart';
-import '../components/role_dropdown.dart';
+import '../components/form_input.dart';
 
 import '../services/google_auth_service.dart';
 import 'dashboard_screen.dart';
@@ -21,46 +21,95 @@ class LoginScreen extends StatefulWidget {
 
 class _LoginScreenState extends State<LoginScreen> {
   final TextEditingController _phoneController = TextEditingController();
+  final TextEditingController _emailController = TextEditingController();
+  final TextEditingController _passwordController = TextEditingController();
   String? _phoneError;
-
-  String _selectedRole = '';
 
   final GoogleAuthService _googleAuth = GoogleAuthService();
 
   bool _isGoogleLoading = false;
+  bool _isEmailLoading = false;
+  bool _showEmailLogin = false;
 
   @override
   void dispose() {
     _phoneController.dispose();
+    _emailController.dispose();
+    _passwordController.dispose();
     super.dispose();
   }
 
-  //  FINAL COMMON FUNCTION (WITH ROLE)
-  Future<void> checkUserAndNavigate(User user, String role) async {
-    final doc = await FirebaseFirestore.instance
-        .collection('users')
-        .doc(user.uid)
-        .get();
+  //  FINAL COMMON FUNCTION (AUTOMATED ROLE)
+  Future<void> checkUserAndNavigate(User user,
+      [String? preSelectedRole]) async {
+    try {
+      final doc = await FirebaseFirestore.instance
+          .collection('users')
+          .doc(user.uid)
+          .get();
 
-    Map roles = doc.data()?['roles'] ?? {};
+      if (doc.exists) {
+        final data = doc.data();
+        Map roles = data?['roles'] ?? {};
 
-    if (roles.containsKey(role)) {
-      //  role already exists
-      Navigator.pushReplacement(
-        context,
-        MaterialPageRoute(
-          builder: (_) => DashboardScreen(role: role),
-        ),
-      );
-    } else {
-      // ❗ role not exists → signup
-      Navigator.pushReplacement(
-        context,
-        MaterialPageRoute(
-          builder: (_) => SignupScreen(),
-          settings: RouteSettings(arguments: role),
-        ),
-      );
+        if (roles.isNotEmpty) {
+          // If a role was pre-selected (e.g. from Signup flow), use it if it exists
+          // Otherwise, just pick the first one found
+          String matchedRole = (preSelectedRole != null &&
+                  roles.containsKey(preSelectedRole.toLowerCase()))
+              ? preSelectedRole.toLowerCase()
+              : roles.keys.first.toString();
+
+          //  update profile data in Firestore
+          await FirebaseFirestore.instance
+              .collection('users')
+              .doc(user.uid)
+              .set({
+            'photoUrl': user.photoURL ?? data?['photoUrl'] ?? '',
+            'displayName': user.displayName ?? data?['displayName'] ?? '',
+            'email': user.email ?? data?['email'] ?? '',
+          }, SetOptions(merge: true));
+
+          if (mounted) {
+            Navigator.pushReplacement(
+              context,
+              MaterialPageRoute(
+                builder: (_) => DashboardScreen(role: matchedRole),
+              ),
+            );
+          }
+        } else {
+          // No roles in document -> go to signup to pick one
+          if (mounted) {
+            Navigator.pushReplacement(
+              context,
+              MaterialPageRoute(
+                builder: (_) => const SignupScreen(),
+              ),
+            );
+          }
+        }
+      } else {
+        // doc does not exist → new user → signup
+        if (mounted) {
+          Navigator.pushReplacement(
+            context,
+            MaterialPageRoute(
+              builder: (_) => const SignupScreen(),
+              settings: preSelectedRole != null
+                  ? RouteSettings(arguments: preSelectedRole)
+                  : null,
+            ),
+          );
+        }
+      }
+    } catch (e) {
+      print("Firestore Error: $e");
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text("Firestore Error: ${e.toString()}")),
+        );
+      }
     }
   }
 
@@ -70,18 +119,10 @@ class _LoginScreenState extends State<LoginScreen> {
     setState(() => _phoneError = error);
 
     if (error == null) {
-      if (_selectedRole.isEmpty) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text("Please select a role")),
-        );
-        return;
-      }
-
       Navigator.pushNamed(
         context,
         '/verification',
         arguments: {
-          'role': _selectedRole,
           'phone': _phoneController.text,
         },
       );
@@ -90,22 +131,70 @@ class _LoginScreenState extends State<LoginScreen> {
 
   //  GOOGLE LOGIN (FINAL)
   Future<void> _handleGoogleLogin() async {
-    if (_selectedRole.isEmpty) {
+    setState(() => _isGoogleLoading = true);
+    try {
+      final user = await _googleAuth.signInWithGoogle();
+
+      if (user != null) {
+        await checkUserAndNavigate(user);
+      } else {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text("Google Sign-In cancelled or failed")),
+          );
+        }
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text("Error: ${e.toString()}")),
+        );
+      }
+    } finally {
+      if (mounted) {
+        setState(() => _isGoogleLoading = false);
+      }
+    }
+  }
+
+  // 📧 EMAIL LOGIN FLOW
+  Future<void> _handleEmailLogin() async {
+    if (_emailController.text.isEmpty || _passwordController.text.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text("Please select a role")),
+        const SnackBar(content: Text("Please enter email and password")),
       );
       return;
     }
 
-    setState(() => _isGoogleLoading = true);
+    setState(() => _isEmailLoading = true);
+    try {
+      final userCredential =
+          await FirebaseAuth.instance.signInWithEmailAndPassword(
+        email: _emailController.text.trim(),
+        password: _passwordController.text.trim(),
+      );
 
-    final user = await _googleAuth.signInWithGoogle();
-
-    if (user != null) {
-      await checkUserAndNavigate(user, _selectedRole); //  FIXED
+      if (userCredential.user != null) {
+        await checkUserAndNavigate(userCredential.user!);
+      }
+    } on FirebaseAuthException catch (e) {
+      if (mounted) {
+        String msg = "Login failed: ${e.message}";
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(msg)),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text("Error: ${e.toString()}")),
+        );
+      }
+    } finally {
+      if (mounted) {
+        setState(() => _isEmailLoading = false);
+      }
     }
-
-    setState(() => _isGoogleLoading = false);
   }
 
   @override
@@ -120,7 +209,7 @@ class _LoginScreenState extends State<LoginScreen> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // ✅ HEADER (UNCHANGED)
+            // ✅ HEADER
             Stack(
               children: [
                 Container(
@@ -192,45 +281,64 @@ class _LoginScreenState extends State<LoginScreen> {
               ],
             ),
 
-            //  BODY (UNCHANGED)
+            //  BODY
             Padding(
               padding: const EdgeInsets.all(24.0),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(
-                    "Sign up with Mobile",
-                    style: TextStyle(
-                      fontSize: 22,
-                      fontWeight: FontWeight.bold,
-                      color: titleColor,
-                    ),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Text(
+                        _showEmailLogin
+                            ? "Sign in with Email"
+                            : "Sign in with Mobile",
+                        style: TextStyle(
+                          fontSize: 22,
+                          fontWeight: FontWeight.bold,
+                          color: titleColor,
+                        ),
+                      ),
+                      TextButton(
+                        onPressed: () =>
+                            setState(() => _showEmailLogin = !_showEmailLogin),
+                        child: Text(
+                          _showEmailLogin ? "Use Phone" : "Use Email",
+                          style: const TextStyle(color: AppColors.primaryBlue),
+                        ),
+                      ),
+                    ],
                   ),
                   const SizedBox(height: 20),
-
-                  //  ROLE REQUIRED
-                  RoleDropdown(
-                    onChanged: (role) =>
-                        setState(() => _selectedRole = role ?? ''),
-                  ),
-
-                  const SizedBox(height: 15),
-
-                  PhoneInput(
-                    controller: _phoneController,
-                    errorText: _phoneError,
-                  ),
-
+                  if (!_showEmailLogin)
+                    PhoneInput(
+                      controller: _phoneController,
+                      errorText: _phoneError,
+                    )
+                  else ...[
+                    FormInput(
+                      label: "Email Address",
+                      hintText: "example@mail.com",
+                      controller: _emailController,
+                      keyboardType: TextInputType.emailAddress,
+                    ),
+                    const SizedBox(height: 15),
+                    FormInput(
+                      label: "Password",
+                      hintText: "••••••••",
+                      controller: _passwordController,
+                      obscureText: true,
+                    ),
+                  ],
                   const SizedBox(height: 25),
-
                   PrimaryButton(
-                    label: "Get OTP",
-                    onPressed: _onGetOtp,
+                    label: _showEmailLogin ? "Login" : "Get OTP",
+                    onPressed: _showEmailLogin ? _handleEmailLogin : _onGetOtp,
                     icon: Icons.arrow_forward,
+                    isLoading: _isEmailLoading,
                   ),
-
                   const SizedBox(height: 30),
-
                   Row(
                     children: const [
                       Expanded(child: Divider()),
@@ -241,9 +349,7 @@ class _LoginScreenState extends State<LoginScreen> {
                       Expanded(child: Divider()),
                     ],
                   ),
-
                   const SizedBox(height: 20),
-
                   Row(
                     children: [
                       Expanded(
@@ -266,15 +372,12 @@ class _LoginScreenState extends State<LoginScreen> {
                       ),
                     ],
                   ),
-
                   if (_isGoogleLoading)
                     const Padding(
                       padding: EdgeInsets.only(top: 20),
                       child: Center(child: CircularProgressIndicator()),
                     ),
-
                   const SizedBox(height: 40),
-
                   const Center(
                     child: Text(
                       "By logging in, you agree to our Terms & Privacy Policy",
@@ -282,6 +385,30 @@ class _LoginScreenState extends State<LoginScreen> {
                       textAlign: TextAlign.center,
                     ),
                   ),
+                  const SizedBox(height: 30),
+                  Center(
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Text(
+                          "Don't have an account? ",
+                          style: TextStyle(
+                              color: dark ? Colors.white70 : Colors.black54),
+                        ),
+                        GestureDetector(
+                          onTap: () => Navigator.pushNamed(context, '/signup'),
+                          child: const Text(
+                            "Sign Up",
+                            style: TextStyle(
+                              color: AppColors.primaryBlue,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 40),
                 ],
               ),
             ),

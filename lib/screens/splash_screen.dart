@@ -1,4 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'dashboard_screen.dart';
 
 class FixOnGoSplashScreen extends StatefulWidget {
   const FixOnGoSplashScreen({super.key});
@@ -26,13 +29,58 @@ class _FixOnGoSplashScreenState extends State<FixOnGoSplashScreen>
     _animation = Tween<double>(begin: 0.0, end: 1.0).animate(_controller)
       ..addStatusListener((status) {
         if (status == AnimationStatus.completed) {
-          // SUCCESS: This directs the app to the Onboarding screens after the bar fills
-          Navigator.pushReplacementNamed(context, '/onboarding');
+          _checkAuthAndNavigate();
         }
       });
 
     // Start the animation
     _controller.forward();
+  }
+
+  Future<void> _checkAuthAndNavigate() async {
+    final user = FirebaseAuth.instance.currentUser;
+
+    if (user != null) {
+      // User is logged in — find their role and go to dashboard
+      try {
+        final doc = await FirebaseFirestore.instance
+            .collection('users')
+            .doc(user.uid)
+            .get();
+
+        String role = 'User'; // default
+        if (doc.exists) {
+          final roles = doc.data()?['roles'] as Map<String, dynamic>? ?? {};
+          if (roles.isNotEmpty) {
+            role = roles.keys.first; // Use first available role
+          }
+        }
+
+        if (mounted) {
+          Navigator.pushReplacement(
+            context,
+            MaterialPageRoute(
+              builder: (_) => DashboardScreen(role: role),
+            ),
+          );
+        }
+      } catch (e) {
+        // On error, still go to dashboard with default role
+        if (mounted) {
+          Navigator.pushReplacement(
+            context,
+            MaterialPageRoute(
+              builder: (_) => const DashboardScreen(role: 'User'),
+            ),
+          );
+        }
+      }
+    } else {
+      // Not logged in — go to onboarding
+      if (mounted) {
+        Navigator.pushReplacementNamed(context, '/onboarding');
+      }
+    }
   }
 
   @override
@@ -54,99 +102,95 @@ class _FixOnGoSplashScreenState extends State<FixOnGoSplashScreen>
             colors: [Color(0xFF1A4DBE), Color(0xFF0D286F)],
           ),
         ),
-        child: Stack(
-          alignment: Alignment.center,
-          children: [
-            Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                // Logo Container
-                Container(
-                  width: 140,
-                  height: 140,
-                  decoration: BoxDecoration(
-                    color: const Color(0xFF2259D8),
-                    borderRadius: BorderRadius.circular(32),
-                    boxShadow: [
-                      BoxShadow(
-                        color: Colors.black.withValues(alpha: 0.15),
-                        blurRadius: 20,
-                        offset: const Offset(0, 10),
+        child: SafeArea(
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              const Spacer(flex: 2),
+              // Logo Container
+              Container(
+                width: 140,
+                height: 140,
+                decoration: BoxDecoration(
+                  color: const Color(0xFF2259D8),
+                  borderRadius: BorderRadius.circular(32),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withValues(alpha: 0.15),
+                      blurRadius: 20,
+                      offset: const Offset(0, 10),
+                    ),
+                  ],
+                ),
+                child: Center(
+                  child: Stack(
+                    clipBehavior: Clip.none,
+                    children: [
+                      const Icon(Icons.shield, size: 70, color: Colors.white),
+                      const Positioned.fill(
+                        child: Icon(
+                          Icons.add,
+                          size: 28,
+                          color: Color(0xFF2259D8),
+                          weight: 900,
+                        ),
+                      ),
+                      Positioned(
+                        top: 2,
+                        right: -2,
+                        child: Container(
+                          width: 12,
+                          height: 12,
+                          decoration: const BoxDecoration(
+                            color: Color(0xFFFFE162),
+                            shape: BoxShape.circle,
+                          ),
+                        ),
                       ),
                     ],
                   ),
-                  child: Center(
-                    child: Stack(
-                      clipBehavior: Clip.none,
-                      children: [
-                        const Icon(Icons.shield, size: 70, color: Colors.white),
-                        const Positioned.fill(
-                          child: Icon(
-                            Icons.add,
-                            size: 28,
-                            color: Color(0xFF2259D8),
-                            weight: 900,
-                          ),
-                        ),
-                        Positioned(
-                          top: 2,
-                          right: -2,
-                          child: Container(
-                            width: 12,
-                            height: 12,
-                            decoration: const BoxDecoration(
-                              color: Color(0xFFFFE162),
-                              shape: BoxShape.circle,
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
                 ),
-                const SizedBox(height: 30),
-                const Text(
-                  'FixOnGo',
-                  style: TextStyle(
-                    color: Colors.white,
-                    fontSize: 48,
-                    fontWeight: FontWeight.w800,
-                    letterSpacing: -1,
-                  ),
+              ),
+              const SizedBox(height: 30),
+              const Text(
+                'FixOnGo',
+                style: TextStyle(
+                  color: Colors.white,
+                  fontSize: 48,
+                  fontWeight: FontWeight.w800,
+                  letterSpacing: -1,
                 ),
-                const SizedBox(height: 8),
-                Text(
-                  'Help when you need it most',
-                  style: TextStyle(
-                    color: Colors.white.withValues(alpha: 0.7),
-                    fontSize: 16,
-                  ),
+              ),
+              const SizedBox(height: 8),
+              Text(
+                'Help when you need it most',
+                style: TextStyle(
+                  color: Colors.white.withValues(alpha: 0.7),
+                  fontSize: 16,
                 ),
-              ],
-            ),
-            // DYNAMIC Progress Bar
-            Positioned(
-              bottom: 80,
-              left: 50,
-              right: 50,
-              child: Column(
-                children: [
-                  ClipRRect(
+              ),
+              const Spacer(flex: 1),
+              // DYNAMIC Progress Bar
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 50),
+                child: AnimatedBuilder(
+                  animation: _animation,
+                  builder: (context, _) => ClipRRect(
                     borderRadius: BorderRadius.circular(10),
                     child: LinearProgressIndicator(
                       minHeight: 6,
-                      value: _animation.value, // This makes it dynamic!
+                      value: _animation.value,
                       backgroundColor: const Color(0xFF3B5FB5),
                       valueColor: const AlwaysStoppedAnimation<Color>(
                         Colors.white,
                       ),
                     ),
                   ),
-                  const SizedBox(height: 10),
-                ],
+                ),
               ),
-            ),
-          ],
+              const SizedBox(height: 80),
+            ],
+          ),
         ),
       ),
     );

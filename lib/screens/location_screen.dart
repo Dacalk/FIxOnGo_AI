@@ -1,6 +1,11 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_map/flutter_map.dart';
+import 'package:latlong2/latlong.dart';
 import '../theme_provider.dart';
 import '../components/primary_button.dart';
+import '../components/osm_map_widget.dart';
+import '../services/location_service.dart';
+import '../services/map_service.dart';
 
 /// A nearby place suggestion chip data model.
 class NearbyPlace {
@@ -10,10 +15,26 @@ class NearbyPlace {
   const NearbyPlace({required this.name, required this.subtitle});
 }
 
-/// Location screen showing the user's current location on a map placeholder,
+/// Location screen showing the user's current location on a real OSM map,
 /// with a location info card, nearby place chips, and a Request Service button.
-class LocationScreen extends StatelessWidget {
+class LocationScreen extends StatefulWidget {
   const LocationScreen({super.key});
+
+  @override
+  State<LocationScreen> createState() => _LocationScreenState();
+}
+
+class _LocationScreenState extends State<LocationScreen> {
+  final MapController _mapController = MapController();
+
+  /// User's current position (null until GPS fires).
+  LatLng? _currentLatLng;
+
+  /// Reverse-geocoded address string.
+  String _addressTitle = 'Fetching location…';
+  String _addressSubtitle = 'Waiting for GPS signal';
+
+  bool _loading = true;
 
   static const List<NearbyPlace> _nearbyPlaces = [
     NearbyPlace(
@@ -25,15 +46,132 @@ class LocationScreen extends StatelessWidget {
   ];
 
   @override
+  void initState() {
+    super.initState();
+    _fetchLocation();
+  }
+
+  Future<void> _fetchLocation() async {
+    try {
+      final latLng = await LocationService.instance.getCurrentLatLng();
+      if (!mounted) return;
+
+      // Reverse-geocode for a nice address
+      String address;
+      try {
+        address = await MapService.instance.reverseGeocode(latLng);
+      } catch (_) {
+        address = '${latLng.latitude.toStringAsFixed(4)}, '
+            '${latLng.longitude.toStringAsFixed(4)}';
+      }
+
+      setState(() {
+        _currentLatLng = latLng;
+        _addressTitle = address;
+        _addressSubtitle = 'GPS location accurately fetched';
+        _loading = false;
+      });
+
+      _mapController.move(latLng, 15);
+    } catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _addressTitle = 'Location unavailable';
+        _addressSubtitle = e.toString();
+        _loading = false;
+      });
+    }
+  }
+
+  void _onLocateMe() {
+    if (_currentLatLng != null) {
+      _mapController.move(_currentLatLng!, 15);
+    }
+  }
+
+  @override
   Widget build(BuildContext context) {
     final dark = isDarkMode(context);
     final cardBg = dark ? const Color(0xFF12233D) : Colors.white;
 
+    // Default centre (Colombo, Sri Lanka) while GPS loads.
+    final center = _currentLatLng ?? const LatLng(6.9271, 79.8612);
+
     return Scaffold(
       body: Stack(
         children: [
-          // ── Full-screen Map Placeholder ──
-          Positioned.fill(child: _buildMapPlaceholder(context, dark)),
+          // ── Full-screen Map ──
+          Positioned.fill(
+            child: OsmMapWidget(
+              center: center,
+              zoom: 15,
+              mapController: _mapController,
+              showLocateButton: false, // custom buttons used instead
+              markers: _currentLatLng != null
+                  ? [
+                      Marker(
+                        point: _currentLatLng!,
+                        width: 50,
+                        height: 50,
+                        child: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(
+                              Icons.person_pin_circle,
+                              size: 40,
+                              color: dark ? Colors.white : Colors.black87,
+                            ),
+                            Container(
+                              width: 8,
+                              height: 8,
+                              decoration: BoxDecoration(
+                                color: AppColors.primaryBlue,
+                                shape: BoxShape.circle,
+                                boxShadow: [
+                                  BoxShadow(
+                                    color: AppColors.primaryBlue
+                                        .withValues(alpha: 0.4),
+                                    blurRadius: 12,
+                                    spreadRadius: 4,
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ]
+                  : [],
+            ),
+          ),
+
+          // ── Loading Indicator ──
+          if (_loading)
+            Center(
+              child: Container(
+                padding: const EdgeInsets.all(20),
+                decoration: BoxDecoration(
+                  color: dark ? AppColors.darkSurface : Colors.white,
+                  borderRadius: BorderRadius.circular(16),
+                ),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    CircularProgressIndicator(
+                      color:
+                          dark ? AppColors.brandYellow : AppColors.primaryBlue,
+                    ),
+                    const SizedBox(height: 12),
+                    Text(
+                      'Finding your location…',
+                      style: TextStyle(
+                        color: dark ? Colors.white70 : Colors.black54,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
 
           // ── Back Button ──
           Positioned(
@@ -53,36 +191,7 @@ class LocationScreen extends StatelessWidget {
             child: _circleButton(
               icon: Icons.my_location,
               dark: dark,
-              onTap: () {},
-            ),
-          ),
-
-          // ── User Pin (center of map) ──
-          Center(
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Icon(
-                  Icons.person_pin_circle,
-                  size: 48,
-                  color: dark ? Colors.white : Colors.black87,
-                ),
-                Container(
-                  width: 8,
-                  height: 8,
-                  decoration: BoxDecoration(
-                    color: AppColors.primaryBlue,
-                    shape: BoxShape.circle,
-                    boxShadow: [
-                      BoxShadow(
-                        color: AppColors.primaryBlue.withValues(alpha: 0.4),
-                        blurRadius: 12,
-                        spreadRadius: 4,
-                      ),
-                    ],
-                  ),
-                ),
-              ],
+              onTap: _onLocateMe,
             ),
           ),
 
@@ -90,24 +199,27 @@ class LocationScreen extends StatelessWidget {
           Positioned(
             bottom: 24,
             right: 16,
-            child: Container(
-              width: 48,
-              height: 48,
-              decoration: BoxDecoration(
-                color: Colors.green,
-                shape: BoxShape.circle,
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.green.withValues(alpha: 0.3),
-                    blurRadius: 8,
-                    offset: const Offset(0, 2),
-                  ),
-                ],
-              ),
-              child: const Icon(
-                Icons.navigation_rounded,
-                color: Colors.white,
-                size: 26,
+            child: GestureDetector(
+              onTap: _onLocateMe,
+              child: Container(
+                width: 48,
+                height: 48,
+                decoration: BoxDecoration(
+                  color: Colors.green,
+                  shape: BoxShape.circle,
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.green.withValues(alpha: 0.3),
+                      blurRadius: 8,
+                      offset: const Offset(0, 2),
+                    ),
+                  ],
+                ),
+                child: const Icon(
+                  Icons.navigation_rounded,
+                  color: Colors.white,
+                  size: 26,
+                ),
               ),
             ),
           ),
@@ -221,16 +333,18 @@ class LocationScreen extends StatelessWidget {
               ),
               const SizedBox(height: 2),
               Text(
-                'Ella Rock Trailhead, Ella',
+                _addressTitle,
                 style: TextStyle(
                   fontSize: 17,
                   fontWeight: FontWeight.bold,
                   color: titleColor,
                 ),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
               ),
               const SizedBox(height: 2),
               Text(
-                'GPS location accurately fetched',
+                _addressSubtitle,
                 style: TextStyle(fontSize: 12, color: subtitleColor),
               ),
             ],
@@ -240,7 +354,9 @@ class LocationScreen extends StatelessWidget {
         // Action buttons
         IconButton(
           icon: Icon(Icons.add, color: dark ? Colors.white70 : Colors.black54),
-          onPressed: () {},
+          onPressed: () {
+            Navigator.pushNamed(context, '/add-location');
+          },
         ),
         IconButton(
           icon: Icon(
@@ -293,17 +409,6 @@ class LocationScreen extends StatelessWidget {
     );
   }
 
-  /// Map placeholder background
-  Widget _buildMapPlaceholder(BuildContext context, bool dark) {
-    return Container(
-      color: dark ? const Color(0xFF1A2640) : const Color(0xFFE5EAD7),
-      child: CustomPaint(
-        size: Size.infinite,
-        painter: _LocationMapPainter(dark: dark),
-      ),
-    );
-  }
-
   /// Circular icon button overlay
   Widget _circleButton({
     required IconData icon,
@@ -330,93 +435,4 @@ class LocationScreen extends StatelessWidget {
       ),
     );
   }
-}
-
-/// Painter that draws a stylized map background with roads and terrain
-class _LocationMapPainter extends CustomPainter {
-  final bool dark;
-
-  _LocationMapPainter({required this.dark});
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    // Terrain patches
-    final terrainPaint = Paint()
-      ..color = dark
-          ? const Color(0xFF1E3350).withValues(alpha: 0.5)
-          : const Color(0xFFD4DFC7).withValues(alpha: 0.6);
-
-    canvas.drawCircle(
-      Offset(size.width * 0.2, size.height * 0.3),
-      80,
-      terrainPaint,
-    );
-    canvas.drawCircle(
-      Offset(size.width * 0.7, size.height * 0.6),
-      60,
-      terrainPaint,
-    );
-    canvas.drawCircle(
-      Offset(size.width * 0.5, size.height * 0.15),
-      50,
-      terrainPaint,
-    );
-
-    // Road lines
-    final roadPaint = Paint()
-      ..color = dark
-          ? Colors.cyan.withValues(alpha: 0.12)
-          : const Color(0xFF8899BB).withValues(alpha: 0.25)
-      ..strokeWidth = 4
-      ..style = PaintingStyle.stroke;
-
-    final path = Path()
-      ..moveTo(0, size.height * 0.4)
-      ..quadraticBezierTo(
-        size.width * 0.3,
-        size.height * 0.35,
-        size.width * 0.5,
-        size.height * 0.5,
-      )
-      ..quadraticBezierTo(
-        size.width * 0.7,
-        size.height * 0.65,
-        size.width,
-        size.height * 0.55,
-      );
-    canvas.drawPath(path, roadPaint);
-
-    final path2 = Path()
-      ..moveTo(size.width * 0.4, 0)
-      ..quadraticBezierTo(
-        size.width * 0.35,
-        size.height * 0.3,
-        size.width * 0.5,
-        size.height * 0.5,
-      )
-      ..quadraticBezierTo(
-        size.width * 0.6,
-        size.height * 0.7,
-        size.width * 0.45,
-        size.height,
-      );
-    canvas.drawPath(path2, roadPaint);
-
-    // Grid-like subtle streets
-    final streetPaint = Paint()
-      ..color = dark
-          ? Colors.grey[800]!.withValues(alpha: 0.2)
-          : Colors.grey[400]!.withValues(alpha: 0.15)
-      ..strokeWidth = 0.5;
-
-    for (double y = 0; y < size.height; y += 60) {
-      canvas.drawLine(Offset(0, y), Offset(size.width, y), streetPaint);
-    }
-    for (double x = 0; x < size.width; x += 60) {
-      canvas.drawLine(Offset(x, 0), Offset(x, size.height), streetPaint);
-    }
-  }
-
-  @override
-  bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
 }

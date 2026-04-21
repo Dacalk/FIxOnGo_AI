@@ -41,47 +41,46 @@ class DefaultFirebaseOptions {
   }
 
   static const FirebaseOptions web = FirebaseOptions(
-    apiKey: 'AIzaSyCah5Y3aaW4ROSsGd5aseWOPNOGYO_aiGs',
-    appId: '1:1027971540802:web:100ad136fbbbd9946fcadb',
-    messagingSenderId: '1027971540802',
-    projectId: 'fixongo-b8337',
-    authDomain: 'fixongo-b8337.firebaseapp.com',
-    storageBucket: 'fixongo-b8337.firebasestorage.app',
+    apiKey: 'AIzaSyBOMovVoXQbjxBQgODiB6RZNIEsS6JxQB8',
+    appId: '1:932295588051:web:a4cddd4f294785e1037c26',
+    messagingSenderId: '932295588051',
+    projectId: 'fixongo-dad40',
+    authDomain: 'fixongo-dad40.firebaseapp.com',
+    storageBucket: 'fixongo-dad40.firebasestorage.app',
   );
 
   static const FirebaseOptions android = FirebaseOptions(
-    apiKey: 'AIzaSyCky40HbTpUdHzopKC8cP6ncw7fyZ-uiZo',
-    appId: '1:1027971540802:android:9ca87e6a0d568f596fcadb',
-    messagingSenderId: '1027971540802',
-    projectId: 'fixongo-b8337',
-    storageBucket: 'fixongo-b8337.firebasestorage.app',
+    apiKey: 'AIzaSyBOMovVoXQbjxBQgODiB6RZNIEsS6JxQB8',
+    appId: '1:932295588051:android:c8327b7a388b94a8037c26',
+    messagingSenderId: '932295588051',
+    projectId: 'fixongo-dad40',
+    storageBucket: 'fixongo-dad40.firebasestorage.app',
   );
 
   static const FirebaseOptions ios = FirebaseOptions(
-    apiKey: 'AIzaSyAn8cjIwdpQGWIXDSdI9gD39gljTZ9VXmE',
-    appId: '1:1027971540802:ios:5589c8697f7c2e626fcadb',
-    messagingSenderId: '1027971540802',
-    projectId: 'fixongo-b8337',
-    storageBucket: 'fixongo-b8337.firebasestorage.app',
+    apiKey: 'AIzaSyBOMovVoXQbjxBQgODiB6RZNIEsS6JxQB8',
+    appId: '1:932295588051:ios:c8327b7a388b94a8037c26', // Placeholder
+    messagingSenderId: '932295588051',
+    projectId: 'fixongo-dad40',
+    storageBucket: 'fixongo-dad40.firebasestorage.app',
     iosBundleId: 'com.example.project1',
   );
 
   static const FirebaseOptions macos = FirebaseOptions(
-    apiKey: 'AIzaSyAn8cjIwdpQGWIXDSdI9gD39gljTZ9VXmE',
-    appId: '1:1027971540802:ios:5589c8697f7c2e626fcadb',
-    messagingSenderId: '1027971540802',
-    projectId: 'fixongo-b8337',
-    storageBucket: 'fixongo-b8337.firebasestorage.app',
+    apiKey: 'AIzaSyBOMovVoXQbjxBQgODiB6RZNIEsS6JxQB8',
+    appId: '1:932295588051:ios:c8327b7a388b94a8037c26', // Placeholder
+    messagingSenderId: '932295588051',
+    projectId: 'fixongo-dad40',
+    storageBucket: 'fixongo-dad40.firebasestorage.app',
     iosBundleId: 'com.example.project1',
   );
 
   static const FirebaseOptions windows = FirebaseOptions(
-    apiKey: 'AIzaSyCah5Y3aaW4ROSsGd5aseWOPNOGYO_aiGs',
-    appId: '1:1027971540802:web:bc7711c4658465346fcadb',
-    messagingSenderId: '1027971540802',
-    projectId: 'fixongo-b8337',
-    authDomain: 'fixongo-b8337.firebaseapp.com',
-    storageBucket: 'fixongo-b8337.firebasestorage.app',
+    apiKey: 'AIzaSyBOMovVoXQbjxBQgODiB6RZNIEsS6JxQB8',
+    appId: '1:932295588051:web:c8327b7a388b94a8037c26', // Placeholder
+    messagingSenderId: '932295588051',
+    projectId: 'fixongo-dad40',
+    authDomain: 'fixongo-dad40.firebaseapp.com',
+    storageBucket: 'fixongo-dad40.firebasestorage.app',
   );
-
 } // Closed the class
