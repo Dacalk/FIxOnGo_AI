@@ -1,10 +1,20 @@
 import 'package:flutter/material.dart';
 import '../theme_provider.dart';
 
+import 'dashboard_screen.dart';
+import 'payment_screen.dart';
+
 /// Profile screen — user settings, payment methods, vehicles, and sign out.
 /// Features a bottom navigation bar.
 class ProfileScreen extends StatelessWidget {
-  const ProfileScreen({super.key});
+  final Map<String, dynamic> userData;
+  final String role;
+
+  const ProfileScreen({
+    super.key,
+    required this.userData,
+    required this.role,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -24,6 +34,7 @@ class ProfileScreen extends StatelessWidget {
       appBar: AppBar(
         backgroundColor: topBgColor,
         elevation: 0,
+        automaticallyImplyLeading: false, // 🔥 මෙක add කරන්න
         centerTitle: true,
         title: Text(
           'My Profile',
@@ -43,7 +54,14 @@ class ProfileScreen extends StatelessWidget {
                 size: 18,
                 color: dark ? Colors.white : Colors.black,
               ),
-              onPressed: () => Navigator.pop(context),
+              onPressed: () {
+                Navigator.pushReplacement(
+                  context,
+                  MaterialPageRoute(
+                    builder: (_) => DashboardScreen(role: role),
+                  ),
+                );
+              },
             ),
           ),
         ),
@@ -119,7 +137,7 @@ class ProfileScreen extends StatelessWidget {
                 ),
                 const SizedBox(height: 16),
                 Text(
-                  'Anna De Parie',
+                  userData['fullName'] ?? 'No Name',
                   style: TextStyle(
                     fontSize: 20,
                     fontWeight: FontWeight.bold,
@@ -128,13 +146,12 @@ class ProfileScreen extends StatelessWidget {
                 ),
                 const SizedBox(height: 4),
                 Text(
-                  'anne@example.com',
+                  userData['email'] ?? 'No Email',
                   style: TextStyle(fontSize: 13, color: subColor),
                 ),
               ],
             ),
           ),
-
           Expanded(
             child: SingleChildScrollView(
               padding: const EdgeInsets.all(24),
@@ -163,6 +180,14 @@ class ProfileScreen extends StatelessWidget {
                           dark: dark,
                           titleColor: titleColor,
                           subColor: subColor,
+                          onTap: () {
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (_) => PaymentScreen(role: role),
+                              ),
+                            );
+                          },
                         ),
                         _buildMenuItem(
                           icon: Icons.history,
@@ -344,7 +369,7 @@ class ProfileScreen extends StatelessWidget {
               'Dashboard',
               false,
               dark,
-              '/dashboard',
+              null, // 🔥 IMPORTANT
             ),
             _navItem(context, Icons.garage, 'Garage', false, dark, '/garage'),
             _navItem(
@@ -375,7 +400,7 @@ class ProfileScreen extends StatelessWidget {
     String label,
     bool isActive,
     bool dark,
-    String routeName,
+    String? routeName,
   ) {
     final color = isActive
         ? AppColors.primaryBlue
@@ -384,7 +409,16 @@ class ProfileScreen extends StatelessWidget {
     return GestureDetector(
       onTap: () {
         if (!isActive) {
-          Navigator.pushReplacementNamed(context, routeName);
+          if (label == 'Dashboard') {
+            Navigator.pushReplacement(
+              context,
+              MaterialPageRoute(
+                builder: (_) => DashboardScreen(role: role),
+              ),
+            );
+          } else if (routeName != null) {
+            Navigator.pushReplacementNamed(context, routeName);
+          }
         }
       },
       behavior: HitTestBehavior.opaque,

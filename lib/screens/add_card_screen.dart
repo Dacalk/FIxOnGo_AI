@@ -3,9 +3,14 @@ import 'package:flutter/services.dart';
 import '../theme_provider.dart';
 import '../components/primary_button.dart';
 
+import 'package:firebase_auth/firebase_auth.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
+
 /// Add Card screen — form to enter credit/debit card details.
 class AddCardScreen extends StatefulWidget {
-  const AddCardScreen({super.key});
+  final String role; // 🔥 add this
+
+  const AddCardScreen({super.key, required this.role});
 
   @override
   State<AddCardScreen> createState() => _AddCardScreenState();
@@ -17,6 +22,41 @@ class _AddCardScreenState extends State<AddCardScreen> {
   final _expiryController = TextEditingController();
   final _cvcController = TextEditingController();
   bool _agreedToTerms = true;
+
+  Future<void> saveCard() async {
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null) return;
+
+    print("USER UID: ${user.uid}");
+
+    final cardNumber = _cardNumberController.text;
+    final name = _nameController.text;
+    final expiry = _expiryController.text;
+    final cvv = _cvcController.text;
+
+    if (cardNumber.isEmpty || name.isEmpty || expiry.isEmpty || cvv.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Please fill all fields')),
+      );
+      return;
+    }
+
+    await FirebaseFirestore.instance
+        .collection('users')
+        .doc(user.uid)
+        .collection('role') //  changed
+        .doc(widget.role) //  role doc
+        .collection('cards')
+        .add({
+      'cardNumber': cardNumber,
+      'cardHolder': name,
+      'expiry': expiry,
+      'cvv': cvv,
+      'createdAt': FieldValue.serverTimestamp(),
+    });
+
+    Navigator.pop(context);
+  }
 
   @override
   void dispose() {
@@ -339,8 +379,8 @@ class _AddCardScreenState extends State<AddCardScreen> {
                               color: _agreedToTerms
                                   ? AppColors.primaryBlue
                                   : (dark
-                                        ? Colors.grey[600]!
-                                        : Colors.grey[400]!),
+                                      ? Colors.grey[600]!
+                                      : Colors.grey[400]!),
                               width: 2,
                             ),
                           ),
@@ -391,9 +431,7 @@ class _AddCardScreenState extends State<AddCardScreen> {
                 padding: const EdgeInsets.only(bottom: 24),
                 child: PrimaryButton(
                   label: 'Add Card',
-                  onPressed: () {
-                    Navigator.pop(context);
-                  },
+                  onPressed: saveCard,
                   borderRadius: 15,
                 ),
               ),
