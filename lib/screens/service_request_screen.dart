@@ -218,7 +218,15 @@ class _ServiceRequestScreenState extends State<ServiceRequestScreen> {
                           ? 'Request Tow'
                           : 'Request Mechanic',
                       onPressed: () {
-                        // TODO: Handle service request
+                        final selectedService = _services[_selectedIndex];
+                        Navigator.pushNamed(
+                          context,
+                          '/searching-mechanics',
+                          arguments: {
+                            'serviceType': selectedService.title,
+                            'price': selectedService.price,
+                          },
+                        );
                       },
                       borderRadius: 15,
                     ),

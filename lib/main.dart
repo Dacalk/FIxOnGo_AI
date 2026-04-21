@@ -18,6 +18,7 @@ import 'screens/mechanic_chat_screen.dart';
 import 'screens/ai_chat_history_screen.dart';
 import 'screens/arrival_confirmation_screen.dart';
 import 'screens/dashboard_screen.dart';
+import 'screens/mechanic_nav_to_user_screen.dart';
 import 'screens/payment_successful_screen.dart';
 import 'screens/checkout_screen.dart';
 import 'screens/order_tracking_screen.dart';
@@ -129,6 +130,8 @@ class FixOnGoApp extends StatelessWidget {
                 const AuthGuard(child: ArrivalConfirmationScreen()),
             '/dashboard': (context) =>
                 const AuthGuard(child: DashboardScreen()),
+            '/mechanic-nav-to-user': (context) =>
+                const AuthGuard(child: MechanicNavToUserScreen()),
             '/payment-successful': (context) =>
                 const AuthGuard(child: PaymentSuccessfulScreen()),
             '/checkout': (context) => const AuthGuard(child: CheckoutScreen()),

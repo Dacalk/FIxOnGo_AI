@@ -8,8 +8,11 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:latlong2/latlong.dart';
 import '../components/osm_map_widget.dart';
+import '../components/incoming_job_overlay.dart';
 import '../services/location_service.dart';
+import '../services/test_service.dart';
 import 'package:flutter_map/flutter_map.dart';
+import 'dart:async';
 
 /// Main dashboard screen with bottom navigation.
 /// Renders role-specific content based on the user's role.
@@ -37,6 +40,18 @@ class _DashboardScreenState extends State<DashboardScreen> {
   String? currentRole;
   LatLng? _userLocation;
 
+  StreamSubscription? _requestSubscription;
+  Timer? _posTimer;
+  String? _lastDialogRequestId;
+  bool _isNavigating = false;
+  bool _isOverlayShown = false;
+  bool _isInitialized = false;
+
+  // Real-time data streams
+  Stream<List<Map<String, dynamic>>>? _ongoingRequestsStream;
+  Stream<List<Map<String, dynamic>>>? _paymentHistoryStream;
+  Stream<List<Map<String, dynamic>>>? _mechanicIncomingRequestsStream;
+
   @override
   void initState() {
     super.initState();
@@ -57,6 +72,9 @@ class _DashboardScreenState extends State<DashboardScreen> {
   }
 
   Future<void> loadUserData() async {
+    if (_isInitialized) return;
+    _isInitialized = true;
+
     final user = FirebaseAuth.instance.currentUser;
     if (user == null) return;
 
@@ -108,6 +126,36 @@ class _DashboardScreenState extends State<DashboardScreen> {
           userPhotoUrl = data?['photoUrl']?.toString() ?? user.photoURL ?? '';
           isLoading = false;
         });
+
+        // 🟢 INIT DATA STREAMS FOR USER
+        if (currentRole?.toLowerCase() == 'user') {
+          _initUserDataStreams(user.uid);
+        }
+
+        // 🧠 MOCK MECHANIC AUTO-INIT
+        if (userEmail == 'mock@fixongo.test') {
+          // If we are the mock email, ensure we have the mechanic role and start services
+          if (_userLocation != null) {
+            // ENSURE WE ARE THE ONLY MOCK: Cleanup hardcoded IDs and duplicates
+            await TestService.instance.cleanupMocks();
+            await TestService.instance.removeDuplicateMocks(user.uid);
+
+            await TestService.instance
+                .makeMeMockMechanic(user.uid, _userLocation!);
+
+            if (mounted) {
+              setState(() => currentRole = 'Mechanic');
+              _initMechanicServices(user.uid);
+              _initMechanicDataStreams(user.uid);
+            }
+          }
+        } else {
+          // Normal role logic
+          if (role.toLowerCase() == 'mechanic') {
+            _initMechanicServices(user.uid);
+            _initMechanicDataStreams(user.uid);
+          }
+        }
       } else {
         // No Firestore doc — use Google profile data
         setState(() {
@@ -117,9 +165,21 @@ class _DashboardScreenState extends State<DashboardScreen> {
           userPhotoUrl = user.photoURL ?? '';
           isLoading = false;
         });
+
+        // 🔧 START MECHANIC SERVICES (Auto-init for mock email even without doc)
+        if (role.toLowerCase() == 'mechanic' ||
+            user.email == 'mock@fixongo.test') {
+          // Initialize mock data if it's the test account
+          if (user.email == 'mock@fixongo.test') {
+            final loc = await LocationService.instance.getCurrentLatLng();
+            await TestService.instance.makeMeMockMechanic(user.uid, loc);
+          }
+          _initMechanicServices(user.uid);
+          _initMechanicDataStreams(user.uid);
+        }
       }
     } catch (e) {
-      print("Dashboard load error: $e");
+      print("Dashboard load error: ${e.toString()}");
       // Fallback to Google profile on any error
       setState(() {
         userName = user.displayName ?? 'User';
@@ -149,12 +209,151 @@ class _DashboardScreenState extends State<DashboardScreen> {
               children: [
                 _buildDashboardContent(role, dark),
                 _buildPlaceholderTab('Garage', Icons.garage_rounded, dark),
-                _buildPlaceholderTab('Payment', Icons.payments_rounded, dark),
+                _buildPaymentTab(dark),
                 _buildPlaceholderTab('Profile', Icons.person_rounded, dark),
               ],
             ),
       bottomNavigationBar: _buildBottomNav(dark),
     );
+  }
+
+  // ─── MECHANIC LOGIC ───────────────────────────────────────────
+
+  void _initMechanicServices(String uid) {
+    // 1. Update location periodically
+    _posTimer?.cancel();
+    _posTimer = Timer.periodic(const Duration(seconds: 30), (timer) async {
+      final loc = await LocationService.instance.getCurrentLatLng();
+      await FirebaseFirestore.instance.collection('users').doc(uid).set({
+        'roles': {
+          'mechanic': {
+            'location': {'lat': loc.latitude, 'lng': loc.longitude},
+            'lastSeen': FieldValue.serverTimestamp(),
+          }
+        }
+      }, SetOptions(merge: true));
+    });
+
+    // 2. Listen for requests
+    _requestSubscription?.cancel();
+    _requestSubscription = FirebaseFirestore.instance
+        .collection('requests')
+        .where('mechanicId', isEqualTo: uid)
+        .where('status', isEqualTo: 'pending')
+        .snapshots()
+        .listen((snap) {
+      if (snap.docs.isNotEmpty) {
+        final req = snap.docs.first.data();
+        final reqId = snap.docs.first.id;
+
+        if (_lastDialogRequestId != reqId && !_isOverlayShown) {
+          _lastDialogRequestId = reqId;
+          req['id'] = reqId;
+          _showNewRequestDialog(req);
+        }
+      }
+    });
+  }
+
+  void _initUserDataStreams(String uid) {
+    // Ongoing Requests: pending, accepted, arriving
+    _ongoingRequestsStream = FirebaseFirestore.instance
+        .collection('requests')
+        .where('userId', isEqualTo: uid)
+        .where('status', whereIn: ['pending', 'accepted', 'arriving'])
+        .snapshots()
+        .map((snap) =>
+            snap.docs.map((doc) => {'id': doc.id, ...doc.data()}).toList());
+
+    // Payment History: from formal payments collection
+    _paymentHistoryStream = FirebaseFirestore.instance
+        .collection('payments')
+        .where('userId', isEqualTo: uid)
+        .orderBy('createdAt', descending: true)
+        .snapshots()
+        .map((snap) =>
+            snap.docs.map((doc) => {'id': doc.id, ...doc.data()}).toList());
+
+    setState(() {});
+  }
+
+  void _initMechanicDataStreams(String uid) {
+    // For mechanic earnings/history
+    _paymentHistoryStream = FirebaseFirestore.instance
+        .collection('payments')
+        .where('mechanicId', isEqualTo: uid)
+        .orderBy('createdAt', descending: true)
+        .snapshots()
+        .map((snap) =>
+            snap.docs.map((doc) => {'id': doc.id, ...doc.data()}).toList());
+
+    // Incoming Requests for mechanic: status == pending
+    _mechanicIncomingRequestsStream = FirebaseFirestore.instance
+        .collection('requests')
+        .where('mechanicId', isEqualTo: uid)
+        .where('status', isEqualTo: 'pending')
+        .snapshots()
+        .map((snap) =>
+            snap.docs.map((doc) => {'id': doc.id, ...doc.data()}).toList());
+
+    setState(() {});
+  }
+
+  void _showNewRequestDialog(Map<String, dynamic> req) {
+    if (_isOverlayShown) return;
+    setState(() => _isOverlayShown = true);
+
+    showModalBottomSheet(
+      context: context,
+      isDismissible: false,
+      enableDrag: true,
+      backgroundColor: Colors.transparent,
+      builder: (context) => IncomingJobOverlay(
+        requestData: req,
+        onReject: () async {
+          await FirebaseFirestore.instance
+              .collection('requests')
+              .doc(req['id'])
+              .update({'status': 'rejected'});
+          if (mounted) {
+            setState(() => _isOverlayShown = false);
+            Navigator.pop(context);
+          }
+        },
+        onAccept: () async {
+          await FirebaseFirestore.instance
+              .collection('requests')
+              .doc(req['id'])
+              .update({
+            'status': 'accepted',
+            'acceptedAt': FieldValue.serverTimestamp(),
+          });
+          _requestSubscription?.cancel();
+          _lastDialogRequestId = null;
+
+          if (mounted) {
+            setState(() => _isOverlayShown = false);
+            Navigator.pop(context);
+          }
+          // Navigate to mechanic tracking screen
+          if (mounted) {
+            if (_isNavigating) return;
+            _isNavigating = true;
+            Navigator.pushNamed(context, '/mechanic-nav-to-user',
+                arguments: req['id']);
+          }
+        },
+      ),
+    ).then((_) {
+      if (mounted) setState(() => _isOverlayShown = false);
+    });
+  }
+
+  @override
+  void dispose() {
+    _requestSubscription?.cancel();
+    _posTimer?.cancel();
+    super.dispose();
   }
 
   // ─────────────────────────────────────────────
@@ -299,33 +498,38 @@ class _DashboardScreenState extends State<DashboardScreen> {
                 ),
                 child: _userLocation == null
                     ? const Center(child: CircularProgressIndicator())
-                    : OsmMapWidget(
-                        center: _userLocation!,
-                        markers: [
-                          Marker(
-                            point: _userLocation!,
-                            width: 30,
-                            height: 30,
-                            child: const Icon(Icons.my_location,
-                                color: AppColors.primaryBlue),
+                    : Stack(
+                        children: [
+                          OsmMapWidget(
+                            center: _userLocation!,
+                            markers: [
+                              Marker(
+                                point: _userLocation!,
+                                width: 30,
+                                height: 30,
+                                child: const Icon(Icons.my_location,
+                                    color: AppColors.primaryBlue),
+                              ),
+                            ],
                           ),
-                          // Simulated nearby mechanic
-                          Marker(
-                            point: LatLng(_userLocation!.latitude + 0.005,
-                                _userLocation!.longitude + 0.005),
-                            width: 40,
-                            height: 40,
-                            child: const Icon(Icons.car_repair,
-                                color: AppColors.brandYellow),
-                          ),
-                          // Simulated nearby tow
-                          Marker(
-                            point: LatLng(_userLocation!.latitude - 0.003,
-                                _userLocation!.longitude - 0.007),
-                            width: 40,
-                            height: 40,
-                            child: const Icon(Icons.local_shipping,
-                                color: Colors.orange),
+                          // 🧪 Debug: Spawn Mock Mechanic
+                          Positioned(
+                            top: 8,
+                            right: 8,
+                            child: GestureDetector(
+                              onTap: () =>
+                                  TestService.instance.spawnMockMechanic(),
+                              child: Container(
+                                padding: const EdgeInsets.all(6),
+                                decoration: BoxDecoration(
+                                  color:
+                                      Colors.redAccent.withValues(alpha: 0.8),
+                                  shape: BoxShape.circle,
+                                ),
+                                child: const Icon(Icons.bug_report,
+                                    color: Colors.white, size: 16),
+                              ),
+                            ),
                           ),
                         ],
                       ),
@@ -436,6 +640,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
               ],
             ),
           ),
+          const SizedBox(height: 16),
+          _buildOngoingRequestsSection(dark),
           const SizedBox(height: 24),
         ],
       ),
@@ -461,30 +667,39 @@ class _DashboardScreenState extends State<DashboardScreen> {
           // Stats row
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 16),
-            child: Row(
-              children: [
-                StatCard(
-                  icon: Icons.work_history,
-                  value: '5',
-                  label: "Today's Jobs",
-                  accentColor: Colors.orange,
-                ),
-                const SizedBox(width: 12),
-                StatCard(
-                  icon: Icons.star,
-                  value: '4.8',
-                  label: 'Rating',
-                  accentColor: AppColors.brandYellow,
-                ),
-                const SizedBox(width: 12),
-                StatCard(
-                  icon: Icons.account_balance_wallet,
-                  value: 'LKR 12K',
-                  label: 'Earnings',
-                  accentColor: Colors.green,
-                ),
-              ],
-            ),
+            child: StreamBuilder<List<Map<String, dynamic>>>(
+                stream: _paymentHistoryStream,
+                builder: (context, snapshot) {
+                  final payments = snapshot.data ?? [];
+                  final totalEarnings = payments.fold<num>(
+                      0, (sum, p) => sum + (p['amount'] ?? 0));
+                  final jobCount = payments.length;
+
+                  return Row(
+                    children: [
+                      StatCard(
+                        icon: Icons.work_history,
+                        value: jobCount.toString(),
+                        label: "Total Jobs",
+                        accentColor: Colors.orange,
+                      ),
+                      const SizedBox(width: 12),
+                      StatCard(
+                        icon: Icons.star,
+                        value: '4.8', // Mock for now
+                        label: 'Rating',
+                        accentColor: AppColors.brandYellow,
+                      ),
+                      const SizedBox(width: 12),
+                      StatCard(
+                        icon: Icons.account_balance_wallet,
+                        value: 'Rs. ${totalEarnings ~/ 1000}K',
+                        label: 'Earnings',
+                        accentColor: Colors.green,
+                      ),
+                    ],
+                  );
+                }),
           ),
           const SizedBox(height: 24),
 
@@ -538,28 +753,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
           _sectionTitle('Incoming Requests', dark),
           const SizedBox(height: 12),
 
-          // Job request cards
-          _jobRequestCard(
-            'Engine Won\'t Start',
-            'Toyota Corolla • 2.3 km away',
-            Icons.car_repair,
-            Colors.orange,
-            dark,
-          ),
-          _jobRequestCard(
-            'Flat Tire Replacement',
-            'Honda Civic • 1.1 km away',
-            Icons.tire_repair,
-            Colors.blue,
-            dark,
-          ),
-          _jobRequestCard(
-            'Battery Jump Start',
-            'Suzuki Alto • 3.5 km away',
-            Icons.battery_alert,
-            Colors.red,
-            dark,
-          ),
+          // Real-time Incoming Requests List
+          _mechanicRequestsSection(dark),
           const SizedBox(height: 20),
 
           // Quick actions
@@ -1286,6 +1481,113 @@ class _DashboardScreenState extends State<DashboardScreen> {
     );
   }
 
+  Widget _buildPaymentTab(bool dark) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        DashboardHeader(
+          userName: isLoading ? 'Loading...' : userName,
+          role: currentRole ?? 'User',
+          photoUrl: userPhotoUrl,
+          vehicleInfo: 'Payment History',
+        ),
+        const SizedBox(height: 20),
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 20),
+          child: Text(
+            'Transactions',
+            style: TextStyle(
+              fontSize: 22,
+              fontWeight: FontWeight.bold,
+              color: dark ? Colors.white : Colors.black87,
+            ),
+          ),
+        ),
+        const SizedBox(height: 16),
+        Expanded(
+          child: StreamBuilder<List<Map<String, dynamic>>>(
+            stream: _paymentHistoryStream,
+            builder: (context, snapshot) {
+              if (snapshot.connectionState == ConnectionState.waiting) {
+                return const Center(child: CircularProgressIndicator());
+              }
+              if (!snapshot.hasData || snapshot.data!.isEmpty) {
+                return _buildPlaceholderTab(
+                    'No payments yet', Icons.payments_rounded, dark);
+              }
+
+              final payments = snapshot.data!;
+              return ListView.builder(
+                padding: const EdgeInsets.symmetric(horizontal: 16),
+                itemCount: payments.length,
+                itemBuilder: (context, index) {
+                  final p = payments[index];
+                  return _paymentHistoryCard(p, dark);
+                },
+              );
+            },
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _paymentHistoryCard(Map<String, dynamic> p, bool dark) {
+    final amount = p['price'] ?? 2000;
+    final mechanic = p['mechanicName'] ?? 'Service Pro';
+    final date = p['createdAt'] != null
+        ? (p['createdAt'] as Timestamp).toDate().toString().split(' ')[0]
+        : 'Recently';
+
+    return Container(
+      margin: const EdgeInsets.only(bottom: 12),
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: dark ? AppColors.darkSurface : Colors.white,
+        borderRadius: BorderRadius.circular(16),
+      ),
+      child: Row(
+        children: [
+          Container(
+            padding: const EdgeInsets.all(10),
+            decoration: BoxDecoration(
+              color: Colors.green.withValues(alpha: 0.1),
+              shape: BoxShape.circle,
+            ),
+            child: const Icon(Icons.check, color: Colors.green, size: 20),
+          ),
+          const SizedBox(width: 16),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  mechanic,
+                  style: TextStyle(
+                    fontWeight: FontWeight.bold,
+                    color: dark ? Colors.white : Colors.black87,
+                  ),
+                ),
+                Text(
+                  date,
+                  style: TextStyle(fontSize: 12, color: Colors.grey[600]),
+                ),
+              ],
+            ),
+          ),
+          Text(
+            'Rs. ${amount.toString()}',
+            style: const TextStyle(
+              fontWeight: FontWeight.bold,
+              fontSize: 16,
+              color: AppColors.primaryBlue,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   /// Placeholder tab for non-dashboard tabs
   Widget _buildPlaceholderTab(String label, IconData icon, bool dark) {
     return Center(
@@ -1315,6 +1617,217 @@ class _DashboardScreenState extends State<DashboardScreen> {
             ),
           ),
         ],
+      ),
+    );
+  }
+
+  Widget _buildOngoingRequestsSection(bool dark) {
+    return StreamBuilder<List<Map<String, dynamic>>>(
+      stream: _ongoingRequestsStream,
+      builder: (context, snapshot) {
+        if (!snapshot.hasData || snapshot.data!.isEmpty) {
+          return const SizedBox.shrink();
+        }
+
+        final requests = snapshot.data!;
+        return Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 20),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  const Icon(Icons.sync,
+                      color: AppColors.primaryBlue, size: 20),
+                  const SizedBox(width: 8),
+                  Text(
+                    'Ongoing Requests',
+                    style: TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.bold,
+                      color: dark ? Colors.white : Colors.black87,
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 12),
+              ...requests.map((req) => _ongoingRequestCard(req, dark)),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _ongoingRequestCard(Map<String, dynamic> req, bool dark) {
+    final status = req['status'] ?? 'pending';
+    final name = req['mechanicName'] ?? 'Searching...';
+
+    return Container(
+      margin: const EdgeInsets.only(bottom: 12),
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: dark ? AppColors.darkSurface : Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.05),
+            blurRadius: 10,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: Row(
+        children: [
+          CircleAvatar(
+            backgroundColor: AppColors.primaryBlue.withValues(alpha: 0.1),
+            child: const Icon(Icons.engineering, color: AppColors.primaryBlue),
+          ),
+          const SizedBox(width: 16),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  name,
+                  style: TextStyle(
+                    fontWeight: FontWeight.bold,
+                    fontSize: 15,
+                    color: dark ? Colors.white : Colors.black87,
+                  ),
+                ),
+                Text(
+                  status.toUpperCase(),
+                  style: TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.bold,
+                    color: status == 'pending'
+                        ? Colors.orange
+                        : status == 'accepted'
+                            ? Colors.blue
+                            : Colors.green,
+                  ),
+                ),
+                if (status == 'accepted' || status == 'arriving')
+                  Text(
+                    'Live tracking available',
+                    style: TextStyle(
+                      fontSize: 10,
+                      color: Colors.grey[500],
+                    ),
+                  ),
+              ],
+            ),
+          ),
+          ElevatedButton(
+            onPressed: () {
+              if (status == 'pending') {
+                Navigator.pushNamed(context, '/searching-mechanics',
+                    arguments: {'serviceType': req['serviceType']});
+              } else if (status == 'accepted' ||
+                  status == 'arriving' ||
+                  status == 'arrived') {
+                final route = (status == 'accepted')
+                    ? '/mechanic-accepted'
+                    : '/order-tracking';
+                Navigator.pushNamed(context, route, arguments: req['id']);
+              }
+            },
+            style: ElevatedButton.styleFrom(
+              backgroundColor: AppColors.primaryBlue,
+              foregroundColor: Colors.white,
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+              shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12)),
+            ),
+            child: const Text('View', style: TextStyle(fontSize: 12)),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _mechanicRequestsSection(bool dark) {
+    return StreamBuilder<List<Map<String, dynamic>>>(
+      stream: _mechanicIncomingRequestsStream,
+      builder: (context, snapshot) {
+        if (snapshot.connectionState == ConnectionState.waiting) {
+          return const Center(child: CircularProgressIndicator());
+        }
+
+        final requests = snapshot.data ?? [];
+        if (requests.isEmpty) {
+          return Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 20),
+            child: Text(
+              'No new requests.',
+              style: TextStyle(color: Colors.grey[600], fontSize: 14),
+            ),
+          );
+        }
+
+        return Column(
+          children:
+              requests.map((req) => _realJobRequestCard(req, dark)).toList(),
+        );
+      },
+    );
+  }
+
+  Widget _realJobRequestCard(Map<String, dynamic> req, bool dark) {
+    final title = req['serviceType'] ?? 'Engine Repair';
+    final user = req['userName'] ?? 'Client';
+
+    return Container(
+      margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+      decoration: BoxDecoration(
+        color: dark ? AppColors.darkSurface : Colors.white,
+        borderRadius: BorderRadius.circular(18),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.04),
+            blurRadius: 10,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: ListTile(
+        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+        leading: Container(
+          padding: const EdgeInsets.all(10),
+          decoration: BoxDecoration(
+            color: Colors.orange.withValues(alpha: 0.1),
+            borderRadius: BorderRadius.circular(12),
+          ),
+          child: const Icon(Icons.build_circle, color: Colors.orange, size: 24),
+        ),
+        title: Text(
+          title,
+          style: TextStyle(
+            fontWeight: FontWeight.bold,
+            fontSize: 15,
+            color: dark ? Colors.white : Colors.black87,
+          ),
+        ),
+        subtitle: Text(
+          '$user • Nearby Now',
+          style: TextStyle(
+            fontSize: 13,
+            color: dark ? Colors.grey[400] : Colors.grey[600],
+          ),
+        ),
+        trailing: ElevatedButton(
+          onPressed: () => _showNewRequestDialog(req),
+          style: ElevatedButton.styleFrom(
+            backgroundColor: AppColors.brandYellow,
+            foregroundColor: Colors.black,
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+            shape:
+                RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+          ),
+          child: const Text('View',
+              style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
+        ),
       ),
     );
   }

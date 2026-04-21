@@ -56,64 +56,76 @@ class OsmMapWidget extends StatelessWidget {
     // Choose a tile style that blends with the app theme.
     // Light → default OSM tiles.  Dark → CartoDB dark-matter tiles (free).
     final tileUrl = dark
-        ? 'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png'
+        ? 'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}.png'
         : 'https://tile.openstreetmap.org/{z}/{x}/{y}.png';
 
     final subdomains = dark ? ['a', 'b', 'c', 'd'] : <String>[];
 
-    return Stack(
-      children: [
-        ClipRRect(
-          borderRadius: BorderRadius.circular(16),
-          child: FlutterMap(
-            mapController: mapController,
-            options: MapOptions(
-              initialCenter: center,
-              initialZoom: zoom,
-              onTap: onTap,
-            ),
-            children: [
-              // ── Tile layer ──
-              TileLayer(
-                urlTemplate: tileUrl,
-                subdomains: subdomains,
-                userAgentPackageName: 'com.fixongo.app',
-              ),
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        // Skip rendering if we don't have a valid size yet to prevent engine crashes
+        if (constraints.maxWidth <= 0 || constraints.maxHeight <= 0) {
+          return const SizedBox.shrink();
+        }
 
-              // ── Route polyline ──
-              if (polylinePoints != null && polylinePoints!.length >= 2)
-                PolylineLayer(
-                  polylines: [
-                    Polyline(
-                      points: polylinePoints!,
-                      strokeWidth: 4.0,
-                      color: routeColor,
+        return Stack(
+          children: [
+            ClipRRect(
+              borderRadius: BorderRadius.circular(16),
+              child: RepaintBoundary(
+                child: FlutterMap(
+                  key: const ValueKey('osm_map_instance'),
+                  mapController: mapController,
+                  options: MapOptions(
+                    initialCenter: center,
+                    initialZoom: zoom,
+                    onTap: onTap,
+                  ),
+                  children: [
+                    // ── Tile layer ──
+                    TileLayer(
+                      urlTemplate: tileUrl,
+                      subdomains: subdomains,
+                      userAgentPackageName: 'com.fixongo.app',
                     ),
+
+                    // ── Route polyline ──
+                    if (polylinePoints != null && polylinePoints!.length >= 2)
+                      PolylineLayer(
+                        polylines: [
+                          Polyline(
+                            points: polylinePoints!,
+                            strokeWidth: 4.0,
+                            color: routeColor,
+                          ),
+                        ],
+                      ),
+
+                    // ── Markers ──
+                    MarkerLayer(markers: markers),
                   ],
                 ),
-
-              // ── Markers ──
-              MarkerLayer(markers: markers),
-            ],
-          ),
-        ),
-
-        // ── Locate-me FAB ──
-        if (showLocateButton)
-          Positioned(
-            bottom: 16,
-            right: 16,
-            child: FloatingActionButton.small(
-              heroTag: 'locateMe',
-              backgroundColor: dark ? AppColors.darkSurface : Colors.white,
-              onPressed: onLocateMe,
-              child: Icon(
-                Icons.my_location,
-                color: dark ? AppColors.brandYellow : AppColors.primaryBlue,
               ),
             ),
-          ),
-      ],
+
+            // ── Locate-me FAB ──
+            if (showLocateButton)
+              Positioned(
+                bottom: 16,
+                right: 16,
+                child: FloatingActionButton.small(
+                  heroTag: 'locateMe',
+                  backgroundColor: dark ? AppColors.darkSurface : Colors.white,
+                  onPressed: onLocateMe,
+                  child: Icon(
+                    Icons.my_location,
+                    color: dark ? AppColors.brandYellow : AppColors.primaryBlue,
+                  ),
+                ),
+              ),
+          ],
+        );
+      },
     );
   }
 }
