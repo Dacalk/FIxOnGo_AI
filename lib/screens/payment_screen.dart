@@ -5,9 +5,9 @@ import '../theme_provider.dart';
 import 'add_card_screen.dart';
 
 class PaymentScreen extends StatefulWidget {
-  final String role;
+  final String? role;
 
-  const PaymentScreen({super.key, required this.role});
+  const PaymentScreen({super.key, this.role});
 
   @override
   State<PaymentScreen> createState() => _PaymentScreenState();
@@ -17,78 +17,127 @@ class _PaymentScreenState extends State<PaymentScreen> {
   List<Map<String, dynamic>> cards = [];
   bool isLoading = true;
   String? selectedCardId;
+  String? _effectiveRole;
 
   @override
   void initState() {
     super.initState();
-    loadCards();
+    _effectiveRole = widget.role;
+    _initPaymentData();
   }
 
-// 🔥 LOAD CARDS (NEW PATH)
+  Future<void> _initPaymentData() async {
+    if (_effectiveRole == null) {
+      await _fetchUserRole();
+    }
+    if (_effectiveRole != null) {
+      loadCards();
+    } else {
+      setState(() => isLoading = false);
+    }
+  }
+
+  Future<void> _fetchUserRole() async {
+    try {
+      final user = FirebaseAuth.instance.currentUser;
+      if (user != null) {
+        final doc = await FirebaseFirestore.instance
+            .collection('users')
+            .doc(user.uid)
+            .get();
+        if (doc.exists) {
+          final roles = doc.data()?['roles'] as Map<String, dynamic>? ?? {};
+          if (roles.isNotEmpty) {
+            _effectiveRole = roles.keys.first;
+          }
+        }
+      }
+    } catch (e) {
+      debugPrint("Error fetching role in PaymentScreen: $e");
+    }
+  }
+
   Future<void> loadCards() async {
     final user = FirebaseAuth.instance.currentUser;
-    if (user == null) return;
+    if (user == null || _effectiveRole == null) return;
 
-    final snapshot = await FirebaseFirestore.instance
-        .collection('users')
-        .doc(user.uid)
-        .collection('role') // 🔥 changed
-        .doc(widget.role)
-        .collection('cards')
-        .get();
+    setState(() => isLoading = true);
 
-    setState(() {
-      cards = snapshot.docs.map((doc) {
-        return {
-          'id': doc.id,
-          ...doc.data(),
-        };
-      }).toList();
-      isLoading = false;
-    });
+    try {
+      final snapshot = await FirebaseFirestore.instance
+          .collection('users')
+          .doc(user.uid)
+          .collection('role')
+          .doc(_effectiveRole)
+          .collection('cards')
+          .get();
+
+      if (mounted) {
+        setState(() {
+          cards = snapshot.docs.map((doc) {
+            return {
+              'id': doc.id,
+              ...doc.data(),
+            };
+          }).toList();
+          isLoading = false;
+        });
+      }
+    } catch (e) {
+      debugPrint("Error loading cards: $e");
+      if (mounted) {
+        setState(() => isLoading = false);
+      }
+    }
   }
 
-// 🔥 DELETE CARD (NEW PATH)
   Future<void> deleteCard(String cardId) async {
     final user = FirebaseAuth.instance.currentUser;
-    if (user == null) return;
+    if (user == null || _effectiveRole == null) return;
 
-    await FirebaseFirestore.instance
-        .collection('users')
-        .doc(user.uid)
-        .collection('role') // 🔥 changed
-        .doc(widget.role)
-        .collection('cards')
-        .doc(cardId)
-        .delete();
-
-    loadCards();
-  }
-
-// 🔥 MIGRATION FUNCTION (OLD → NEW)
-  Future<void> migrateCards() async {
-    final user = FirebaseAuth.instance.currentUser;
-    if (user == null) return;
-
-    final oldCards = await FirebaseFirestore.instance
-        .collection('users')
-        .doc(user.uid)
-        .collection('cards')
-        .get();
-
-    for (var doc in oldCards.docs) {
+    try {
       await FirebaseFirestore.instance
           .collection('users')
           .doc(user.uid)
-          .collection('role') // 🔥 changed
-          .doc(widget.role)
+          .collection('role')
+          .doc(_effectiveRole)
           .collection('cards')
-          .doc(doc.id)
-          .set(doc.data());
-    }
+          .doc(cardId)
+          .delete();
 
-    print("Migration Done");
-    loadCards();
+      loadCards();
+    } catch (e) {
+      debugPrint("Error deleting card: $e");
+    }
+  }
+
+  Future<void> migrateCards() async {
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null || _effectiveRole == null) return;
+
+    try {
+      final oldCards = await FirebaseFirestore.instance
+          .collection('users')
+          .doc(user.uid)
+          .collection('cards')
+          .get();
+
+      for (var doc in oldCards.docs) {
+        await FirebaseFirestore.instance
+            .collection('users')
+            .doc(user.uid)
+            .collection('role')
+            .doc(_effectiveRole)
+            .collection('cards')
+            .doc(doc.id)
+            .set(doc.data());
+      }
+
+      debugPrint("Migration Done");
+      loadCards();
+    } catch (e) {
+      debugPrint("Error during migration: $e");
+    }
   }
 
   @override
@@ -101,13 +150,12 @@ class _PaymentScreenState extends State<PaymentScreen> {
 
     return Scaffold(
       backgroundColor: bgColor,
-
       appBar: AppBar(
         backgroundColor: bgColor,
         elevation: 0,
         centerTitle: true,
         title: Text(
-          'Payment Methods (${widget.role})',
+          'Payment Methods (${_effectiveRole ?? "..."})',
           style: TextStyle(
             fontSize: 17,
             fontWeight: FontWeight.bold,
@@ -115,8 +163,6 @@ class _PaymentScreenState extends State<PaymentScreen> {
           ),
         ),
       ),
-
-      // 🔥 BODY
       body: isLoading
           ? const Center(child: CircularProgressIndicator())
           : cards.isEmpty
@@ -194,29 +240,23 @@ class _PaymentScreenState extends State<PaymentScreen> {
                     );
                   },
                 ),
-
-      // 🔥 BUTTONS
       floatingActionButton: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          // 🔥 MIGRATION BUTTON (TEMP)
           FloatingActionButton(
             heroTag: "migrate",
             backgroundColor: Colors.orange,
             onPressed: migrateCards,
             child: const Icon(Icons.sync),
           ),
-
           const SizedBox(height: 10),
-
-          // 🔥 ADD CARD
           FloatingActionButton(
             heroTag: "add",
             onPressed: () async {
               await Navigator.push(
                 context,
                 MaterialPageRoute(
-                  builder: (_) => AddCardScreen(role: widget.role),
+                  builder: (_) => AddCardScreen(role: _effectiveRole),
                 ),
               );
               loadCards();

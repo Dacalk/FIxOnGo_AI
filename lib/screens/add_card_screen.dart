@@ -8,9 +8,9 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 
 /// Add Card screen — form to enter credit/debit card details.
 class AddCardScreen extends StatefulWidget {
-  final String role; // 🔥 add this
+  final String? role;
 
-  const AddCardScreen({super.key, required this.role});
+  const AddCardScreen({super.key, this.role});
 
   @override
   State<AddCardScreen> createState() => _AddCardScreenState();
@@ -22,12 +22,44 @@ class _AddCardScreenState extends State<AddCardScreen> {
   final _expiryController = TextEditingController();
   final _cvcController = TextEditingController();
   bool _agreedToTerms = true;
+  String? _effectiveRole;
+  bool _isLoadingRole = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _effectiveRole = widget.role;
+    if (_effectiveRole == null) {
+      _fetchUserRole();
+    }
+  }
+
+  Future<void> _fetchUserRole() async {
+    setState(() => _isLoadingRole = true);
+    try {
+      final user = FirebaseAuth.instance.currentUser;
+      if (user != null) {
+        final doc = await FirebaseFirestore.instance
+            .collection('users')
+            .doc(user.uid)
+            .get();
+        if (doc.exists) {
+          final roles = doc.data()?['roles'] as Map<String, dynamic>? ?? {};
+          if (roles.isNotEmpty) {
+            setState(() => _effectiveRole = roles.keys.first);
+          }
+        }
+      }
+    } catch (e) {
+      debugPrint("Error fetching role: $e");
+    } finally {
+      setState(() => _isLoadingRole = false);
+    }
+  }
 
   Future<void> saveCard() async {
     final user = FirebaseAuth.instance.currentUser;
-    if (user == null) return;
-
-    print("USER UID: ${user.uid}");
+    if (user == null || _effectiveRole == null) return;
 
     final cardNumber = _cardNumberController.text;
     final name = _nameController.text;
@@ -41,21 +73,31 @@ class _AddCardScreenState extends State<AddCardScreen> {
       return;
     }
 
-    await FirebaseFirestore.instance
-        .collection('users')
-        .doc(user.uid)
-        .collection('role') //  changed
-        .doc(widget.role) //  role doc
-        .collection('cards')
-        .add({
-      'cardNumber': cardNumber,
-      'cardHolder': name,
-      'expiry': expiry,
-      'cvv': cvv,
-      'createdAt': FieldValue.serverTimestamp(),
-    });
+    try {
+      await FirebaseFirestore.instance
+          .collection('users')
+          .doc(user.uid)
+          .collection('role')
+          .doc(_effectiveRole)
+          .collection('cards')
+          .add({
+        'cardNumber': cardNumber,
+        'cardHolder': name,
+        'expiry': expiry,
+        'cvv': cvv,
+        'createdAt': FieldValue.serverTimestamp(),
+      });
 
-    Navigator.pop(context);
+      if (mounted) {
+        Navigator.pop(context);
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error saving card: $e')),
+        );
+      }
+    }
   }
 
   @override
@@ -108,7 +150,9 @@ class _AddCardScreenState extends State<AddCardScreen> {
           ),
         ),
       ),
-      body: Padding(
+      body: _isLoadingRole 
+        ? const Center(child: CircularProgressIndicator())
+        : Padding(
         padding: const EdgeInsets.symmetric(horizontal: 20),
         child: Column(
           children: [
@@ -140,7 +184,6 @@ class _AddCardScreenState extends State<AddCardScreen> {
                       ),
                       Row(
                         children: [
-                          // Visa indicator
                           Container(
                             width: 30,
                             height: 20,
@@ -150,7 +193,6 @@ class _AddCardScreenState extends State<AddCardScreen> {
                             ),
                           ),
                           const SizedBox(width: 6),
-                          // Mastercard indicator
                           Container(
                             width: 30,
                             height: 20,
@@ -166,7 +208,6 @@ class _AddCardScreenState extends State<AddCardScreen> {
 
                   const SizedBox(height: 18),
 
-                  // ── CARD NUMBER ──
                   Text(
                     'CARD NUMBER',
                     style: TextStyle(
@@ -210,7 +251,6 @@ class _AddCardScreenState extends State<AddCardScreen> {
 
                   const SizedBox(height: 18),
 
-                  // ── NAME ON CARD ──
                   Text(
                     'NAME ON CARD',
                     style: TextStyle(
@@ -249,10 +289,8 @@ class _AddCardScreenState extends State<AddCardScreen> {
 
                   const SizedBox(height: 18),
 
-                  // ── EXPIRY DATE & CVC ──
                   Row(
                     children: [
-                      // Expiry Date
                       Expanded(
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
@@ -264,7 +302,7 @@ class _AddCardScreenState extends State<AddCardScreen> {
                                 fontWeight: FontWeight.bold,
                                 color: labelColor,
                                 letterSpacing: 0.5,
-                              ),
+                                ),
                             ),
                             const SizedBox(height: 8),
                             Container(
@@ -304,7 +342,6 @@ class _AddCardScreenState extends State<AddCardScreen> {
                         ),
                       ),
                       const SizedBox(width: 14),
-                      // CVC
                       Expanded(
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
@@ -360,7 +397,6 @@ class _AddCardScreenState extends State<AddCardScreen> {
 
                   const SizedBox(height: 18),
 
-                  // ── Terms checkbox ──
                   Row(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
@@ -424,7 +460,6 @@ class _AddCardScreenState extends State<AddCardScreen> {
 
             const Spacer(),
 
-            // ── Add Card Button ──
             SafeArea(
               top: false,
               child: Padding(
@@ -443,7 +478,6 @@ class _AddCardScreenState extends State<AddCardScreen> {
   }
 }
 
-/// Formats card number with spaces every 4 digits
 class _CardNumberFormatter extends TextInputFormatter {
   @override
   TextEditingValue formatEditUpdate(
@@ -463,7 +497,6 @@ class _CardNumberFormatter extends TextInputFormatter {
   }
 }
 
-/// Formats expiry date as MM/YY
 class _ExpiryDateFormatter extends TextInputFormatter {
   @override
   TextEditingValue formatEditUpdate(
