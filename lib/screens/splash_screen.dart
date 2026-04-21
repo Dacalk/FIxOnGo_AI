@@ -38,7 +38,12 @@ class _FixOnGoSplashScreenState extends State<FixOnGoSplashScreen>
   }
 
   Future<void> _checkAuthAndNavigate() async {
-    final user = FirebaseAuth.instance.currentUser;
+    // With our fix in main.dart, the currentUser should be ready.
+    // However, we'll use userChanges().first for maximum safety.
+    final user = await FirebaseAuth.instance.userChanges().first.timeout(
+          const Duration(seconds: 1),
+          onTimeout: () => FirebaseAuth.instance.currentUser,
+        );
 
     if (user != null) {
       // User is logged in — find their role and go to dashboard

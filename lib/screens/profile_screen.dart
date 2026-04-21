@@ -28,6 +28,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
   String userPhone = '';
   String userPhotoUrl = '';
   String userRole = '';
+  List<String> availableRoles = [];
   bool isLoading = true;
   bool hasPassword = false;
 
@@ -69,22 +70,21 @@ class _ProfileScreenState extends State<ProfileScreen> {
                    roles[effectiveRole] as Map<String, dynamic>? ?? 
                    (roles.isNotEmpty ? roles.values.first : {});
 
-        if (mounted) {
-          setState(() {
-            userName = rd['fullName']?.toString().isNotEmpty == true
-                ? rd['fullName']
-                : user.displayName ?? 'User';
-            userEmail = data?['email']?.toString().isNotEmpty == true
-                ? data!['email']
-                : user.email ?? '';
-            userPhone = data?['phone']?.toString().isNotEmpty == true
-                ? data!['phone']
-                : user.phoneNumber ?? '';
-            userPhotoUrl = data?['photoUrl']?.toString() ?? user.photoURL ?? '';
-            userRole = effectiveRole;
-            isLoading = false;
-          });
-        }
+        setState(() {
+          userName = rd['fullName']?.toString().isNotEmpty == true
+              ? rd['fullName']
+              : user.displayName ?? 'User';
+          userEmail = data?['email']?.toString().isNotEmpty == true
+              ? data!['email']
+              : user.email ?? '';
+          userPhone = data?['phone']?.toString().isNotEmpty == true
+              ? data!['phone']
+              : user.phoneNumber ?? '';
+          userPhotoUrl = data?['photoUrl']?.toString() ?? user.photoURL ?? '';
+          userRole = firstRole;
+          availableRoles = roles.keys.toList();
+          isLoading = false;
+        });
       } else {
         if (mounted) {
           setState(() {
@@ -428,6 +428,25 @@ class _ProfileScreenState extends State<ProfileScreen> {
                                 showDivider: false,
                                 onTap: () => Navigator.pushNamed(context, '/help-support'),
                               ),
+                              if (availableRoles.length > 1)
+                                _buildMenuItem(
+                                  icon: Icons.swap_horiz,
+                                  title: 'Switch Mode',
+                                  trailingText: userRole.toUpperCase(),
+                                  dark: dark,
+                                  titleColor: titleColor,
+                                  subColor: subColor,
+                                  onTap: () {
+                                    final nextIndex =
+                                        (availableRoles.indexOf(userRole) + 1) %
+                                            availableRoles.length;
+                                    final nextRole = availableRoles[nextIndex];
+                                    Navigator.pushReplacementNamed(
+                                        context, '/dashboard',
+                                        arguments: nextRole);
+                                  },
+                                  showDivider: false,
+                                ),
                             ],
                           ),
                         ),

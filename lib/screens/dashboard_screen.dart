@@ -36,6 +36,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
   bool isLoading = true;
 
   // Role-specific data map
+  Map<String, dynamic> allRoles = {};
   Map<String, dynamic> roleData = {};
   String? currentRole;
   LatLng? _userLocation;
@@ -108,11 +109,9 @@ class _DashboardScreenState extends State<DashboardScreen> {
         }
 
         setState(() {
+          allRoles = rolesMap;
           // Update the localized role if we changed it
-          if (role != widget.role) {
-            // We can't update widget.role directly, but _buildDashboardContent uses local role
-          }
-          currentRole = role; // Store it locally for the build method
+          currentRole = role;
           userName = rd['fullName']?.toString().isNotEmpty == true
               ? rd['fullName']
               : user.displayName ?? 'User';
@@ -128,33 +127,25 @@ class _DashboardScreenState extends State<DashboardScreen> {
         });
 
         // 🟢 INIT DATA STREAMS FOR USER
-        if (currentRole?.toLowerCase() == 'user') {
+        if (currentRole?.toLowerCase() == 'user' ||
+            rolesMap.containsKey('user')) {
           _initUserDataStreams(user.uid);
         }
 
-        // 🧠 MOCK MECHANIC AUTO-INIT
-        if (userEmail == 'mock@fixongo.test') {
-          // If we are the mock email, ensure we have the mechanic role and start services
-          if (_userLocation != null) {
-            // ENSURE WE ARE THE ONLY MOCK: Cleanup hardcoded IDs and duplicates
+        // 🔧 ALWAYS START MECHANIC SERVICES IF ROLE EXISTS
+        // This ensures mechanics get requests even while browsing as a user
+        final isMechanic = rolesMap.containsKey('mechanic') ||
+            userEmail == 'mock@fixongo.test';
+
+        if (isMechanic) {
+          if (userEmail == 'mock@fixongo.test' && _userLocation != null) {
             await TestService.instance.cleanupMocks();
             await TestService.instance.removeDuplicateMocks(user.uid);
-
             await TestService.instance
                 .makeMeMockMechanic(user.uid, _userLocation!);
-
-            if (mounted) {
-              setState(() => currentRole = 'Mechanic');
-              _initMechanicServices(user.uid);
-              _initMechanicDataStreams(user.uid);
-            }
           }
-        } else {
-          // Normal role logic
-          if (role.toLowerCase() == 'mechanic') {
-            _initMechanicServices(user.uid);
-            _initMechanicDataStreams(user.uid);
-          }
+          _initMechanicServices(user.uid);
+          _initMechanicDataStreams(user.uid);
         }
       } else {
         // No Firestore doc — use Google profile data
@@ -217,6 +208,18 @@ class _DashboardScreenState extends State<DashboardScreen> {
     );
   }
 
+  void _switchRole(String newRole) {
+    if (newRole == currentRole) return;
+    final rd = allRoles[newRole.toLowerCase()] ?? allRoles[newRole] ?? {};
+    setState(() {
+      currentRole = newRole;
+      roleData = rd;
+      userName = rd['fullName']?.toString().isNotEmpty == true
+          ? rd['fullName']
+          : FirebaseAuth.instance.currentUser?.displayName ?? 'User';
+    });
+  }
+
   // ─── MECHANIC LOGIC ───────────────────────────────────────────
 
   void _initMechanicServices(String uid) {
@@ -224,14 +227,11 @@ class _DashboardScreenState extends State<DashboardScreen> {
     _posTimer?.cancel();
     _posTimer = Timer.periodic(const Duration(seconds: 30), (timer) async {
       final loc = await LocationService.instance.getCurrentLatLng();
-      await FirebaseFirestore.instance.collection('users').doc(uid).set({
-        'roles': {
-          'mechanic': {
-            'location': {'lat': loc.latitude, 'lng': loc.longitude},
-            'lastSeen': FieldValue.serverTimestamp(),
-          }
-        }
-      }, SetOptions(merge: true));
+      // Use dot notation to avoid overwriting the whole role map
+      await FirebaseFirestore.instance.collection('users').doc(uid).update({
+        'roles.mechanic.location': {'lat': loc.latitude, 'lng': loc.longitude},
+        'roles.mechanic.lastSeen': FieldValue.serverTimestamp(),
+      });
     });
 
     // 2. Listen for requests
@@ -464,6 +464,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
             role: role,
             photoUrl: userPhotoUrl,
             vehicleInfo: _rd('vehicleType', 'My Vehicle'),
+            availableRoles: allRoles.keys.toList(),
+            onSwitchRole: _switchRole,
           ),
           const SizedBox(height: 16),
 
@@ -661,6 +663,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
             role: role,
             photoUrl: userPhotoUrl,
             vehicleInfo: _rd('workshop', 'My Workshop'),
+            availableRoles: allRoles.keys.toList(),
+            onSwitchRole: _switchRole,
           ),
           const SizedBox(height: 20),
 
@@ -812,6 +816,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
             role: role,
             photoUrl: userPhotoUrl,
             vehicleInfo: _rd('truckModel', 'My Truck'),
+            availableRoles: allRoles.keys.toList(),
+            onSwitchRole: _switchRole,
           ),
           const SizedBox(height: 20),
 
@@ -954,6 +960,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
             role: role,
             photoUrl: userPhotoUrl,
             vehicleInfo: _rd('shopName', 'My Shop'),
+            availableRoles: allRoles.keys.toList(),
+            onSwitchRole: _switchRole,
           ),
           const SizedBox(height: 20),
 
@@ -1104,6 +1112,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
             role: role,
             photoUrl: userPhotoUrl,
             vehicleInfo: _rd('deliveryArea', 'My Area'),
+            availableRoles: allRoles.keys.toList(),
+            onSwitchRole: _switchRole,
           ),
           const SizedBox(height: 20),
 
@@ -1490,6 +1500,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
           role: currentRole ?? 'User',
           photoUrl: userPhotoUrl,
           vehicleInfo: 'Payment History',
+          availableRoles: allRoles.keys.toList(),
+          onSwitchRole: _switchRole,
         ),
         const SizedBox(height: 20),
         Padding(

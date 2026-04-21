@@ -32,6 +32,9 @@ import 'theme_provider.dart';
 
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:firebase_core/firebase_core.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+import 'package:flutter/foundation.dart' show kIsWeb;
+import 'package:flutter_web_plugins/url_strategy.dart';
 import 'firebase_options.dart';
 
 import 'components/auth_guard.dart'; // Import AuthGuard
@@ -47,8 +50,21 @@ void main() async {
     );
   }
 
-  // Optional: Initialize Firestore with specific settings if needed
-  // FirebaseFirestore.instance.settings = const Settings(persistenceEnabled: true);
+  // On Web, use path URL strategy (removes #) and wait for session restoration
+  if (kIsWeb) {
+    usePathUrlStrategy();
+
+    // Improved waiting logic: wait for a non-null user OR a 2-second timeout
+    // This solves the issue where authStateChanges().first returns null initially on Web
+    await FirebaseAuth.instance
+        .authStateChanges()
+        .where((user) => user != null)
+        .timeout(
+          const Duration(seconds: 2),
+          onTimeout: (sink) => sink.add(null),
+        )
+        .first;
+  }
 
   runApp(const FixOnGoApp());
 }
@@ -95,7 +111,6 @@ class FixOnGoApp extends StatelessWidget {
           themeMode: currentMode,
 
           // Route Map
-          initialRoute: '/',
           routes: {
             // Public Routes
             '/': (context) => const FixOnGoSplashScreen(),
