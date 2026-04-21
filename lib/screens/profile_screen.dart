@@ -4,8 +4,20 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import '../theme_provider.dart';
 import '../components/form_input.dart';
 
+import 'dashboard_screen.dart';
+import 'payment_screen.dart';
+
 /// Profile screen — user settings, payment methods, vehicles, and sign out.
 /// Features a bottom navigation bar.
+class ProfileScreen extends StatelessWidget {
+  final Map<String, dynamic> userData;
+  final String role;
+
+  const ProfileScreen({
+    super.key,
+    required this.userData,
+    required this.role,
+  });
 class ProfileScreen extends StatefulWidget {
   const ProfileScreen({super.key});
 
@@ -186,6 +198,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
       appBar: AppBar(
         backgroundColor: topBgColor,
         elevation: 0,
+        automaticallyImplyLeading: false, // 🔥 මෙක add කරන්න
         centerTitle: true,
         title: Text(
           'My Profile',
@@ -205,7 +218,14 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 size: 18,
                 color: dark ? Colors.white : Colors.black,
               ),
-              onPressed: () => Navigator.pop(context),
+              onPressed: () {
+                Navigator.pushReplacement(
+                  context,
+                  MaterialPageRoute(
+                    builder: (_) => DashboardScreen(role: role),
+                  ),
+                );
+              },
             ),
           ),
         ),
@@ -309,6 +329,90 @@ class _ProfileScreenState extends State<ProfileScreen> {
                           color: titleColor,
                         ),
                       ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 16),
+                Text(
+                  userData['fullName'] ?? 'No Name',
+                  style: TextStyle(
+                    fontSize: 20,
+                    fontWeight: FontWeight.bold,
+                    color: titleColor,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  userData['email'] ?? 'No Email',
+                  style: TextStyle(fontSize: 13, color: subColor),
+                ),
+              ],
+            ),
+          ),
+          Expanded(
+            child: SingleChildScrollView(
+              padding: const EdgeInsets.all(24),
+              child: Column(
+                children: [
+                  // ── Menu List ──
+                  Container(
+                    decoration: BoxDecoration(
+                      color: cardBg,
+                      borderRadius: BorderRadius.circular(20),
+                    ),
+                    padding: const EdgeInsets.symmetric(vertical: 8),
+                    child: Column(
+                      children: [
+                        _buildMenuItem(
+                          icon: Icons.directions_car_outlined,
+                          title: 'My Vehicles',
+                          dark: dark,
+                          titleColor: titleColor,
+                          subColor: subColor,
+                        ),
+                        _buildMenuItem(
+                          icon: Icons.credit_card_outlined,
+                          title: 'Payment Methods',
+                          trailingText: 'Visa **42',
+                          dark: dark,
+                          titleColor: titleColor,
+                          subColor: subColor,
+                          onTap: () {
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (_) => PaymentScreen(role: role),
+                              ),
+                            );
+                          },
+                        ),
+                        _buildMenuItem(
+                          icon: Icons.history,
+                          title: 'Payment History',
+                          dark: dark,
+                          titleColor: titleColor,
+                          subColor: subColor,
+                        ),
+                        _buildMenuItem(
+                          icon: Icons.people_outline,
+                          title: 'Emergency Contacts',
+                          dark: dark,
+                          titleColor: titleColor,
+                          subColor: subColor,
+                          onTap: () {
+                            Navigator.pushNamed(context, '/call-support');
+                          },
+                        ),
+                        _buildMenuItem(
+                          icon: Icons.help_outline,
+                          title: 'Help & Support',
+                          dark: dark,
+                          titleColor: titleColor,
+                          subColor: subColor,
+                          showDivider: false,
+                          onTap: () {
+                            Navigator.pushNamed(context, '/help-support');
+                          },
                       const SizedBox(height: 4),
                       Text(
                         userEmail,
@@ -540,6 +644,31 @@ class _ProfileScreenState extends State<ProfileScreen> {
         child: Row(
           mainAxisAlignment: MainAxisAlignment.spaceAround,
           children: [
+            _navItem(
+              context,
+              Icons.home,
+              'Dashboard',
+              false,
+              dark,
+              null, // 🔥 IMPORTANT
+            ),
+            _navItem(context, Icons.garage, 'Garage', false, dark, '/garage'),
+            _navItem(
+              context,
+              Icons.payments,
+              'Payment',
+              false,
+              dark,
+              '/payment-history',
+            ),
+            _navItem(
+              context,
+              Icons.person,
+              'Profile',
+              true,
+              dark,
+              '/profile',
+            ), // Active state
             _navItem(context, Icons.home_rounded, 'Dashboard', false, dark,
                 '/dashboard'),
             _navItem(context, Icons.garage_rounded, 'Garage', false, dark,
@@ -560,7 +689,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
     String label,
     bool isActive,
     bool dark,
-    String routeName,
+    String? routeName,
   ) {
     final color = isActive
         ? AppColors.primaryBlue
@@ -569,7 +698,16 @@ class _ProfileScreenState extends State<ProfileScreen> {
     return GestureDetector(
       onTap: () {
         if (!isActive) {
-          Navigator.pushReplacementNamed(context, routeName);
+          if (label == 'Dashboard') {
+            Navigator.pushReplacement(
+              context,
+              MaterialPageRoute(
+                builder: (_) => DashboardScreen(role: role),
+              ),
+            );
+          } else if (routeName != null) {
+            Navigator.pushReplacementNamed(context, routeName);
+          }
         }
       },
       behavior: HitTestBehavior.opaque,
