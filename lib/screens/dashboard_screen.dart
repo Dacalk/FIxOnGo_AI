@@ -177,11 +177,15 @@ class _DashboardScreenState extends State<DashboardScreen> {
     } catch (e) {
       print("Dashboard load error: ${e.toString()}");
       // Fallback to Google profile on any error
-      setState(() {
-        userName = user.displayName ?? 'User';
-        userEmail = user.email ?? '';
-        userPhotoUrl = user.photoURL ?? '';
-        isLoading = false;
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) {
+          setState(() {
+            userName = user.displayName ?? 'User';
+            userEmail = user.email ?? '';
+            userPhotoUrl = user.photoURL ?? '';
+            isLoading = false;
+          });
+        }
       });
     }
   }
@@ -194,9 +198,11 @@ class _DashboardScreenState extends State<DashboardScreen> {
     final user = FirebaseAuth.instance.currentUser;
     if (user == null) return;
 
-    if (mounted) {
-      setState(() => _isMechanicActive = value);
-    }
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) {
+        setState(() => _isMechanicActive = value);
+      }
+    });
 
     try {
       await FirebaseFirestore.instance
@@ -210,7 +216,11 @@ class _DashboardScreenState extends State<DashboardScreen> {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text("Error updating status: $e")),
         );
-        setState(() => _isMechanicActive = !value);
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (mounted) {
+            setState(() => _isMechanicActive = !value);
+          }
+        });
       }
     }
   }

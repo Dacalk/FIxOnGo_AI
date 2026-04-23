@@ -54,12 +54,14 @@ class _MechanicNavToUserScreenState extends State<MechanicNavToUserScreen> {
     // Fetch initial location immediately for ETA calculation
     try {
       final pos = await LocationService.instance.getCurrentLatLng();
-      if (mounted) {
-        setState(() {
-          _mechanicLatLng = pos;
-        });
-        _updateRoute();
-      }
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) {
+          setState(() {
+            _mechanicLatLng = pos;
+          });
+          _updateRoute();
+        }
+      });
     } catch (e) {
       debugPrint("Initial location error: $e");
     }

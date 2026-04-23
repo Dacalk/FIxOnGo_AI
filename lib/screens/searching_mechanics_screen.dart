@@ -121,10 +121,14 @@ class _SearchingMechanicsScreenState extends State<SearchingMechanicsScreen>
         _uiUpdateTimer?.cancel();
         _uiUpdateTimer = Timer(const Duration(milliseconds: 500), () {
           if (mounted) {
-            setState(() {
-              _mechanics = list;
-              if (_selectedMechanic == null && list.isNotEmpty) {
-                _selectedMechanic = list.first;
+            WidgetsBinding.instance.addPostFrameCallback((_) {
+              if (mounted) {
+                setState(() {
+                  _mechanics = list;
+                  if (_selectedMechanic == null && list.isNotEmpty) {
+                    _selectedMechanic = list.first;
+                  }
+                });
               }
             });
           }
@@ -191,8 +195,12 @@ class _SearchingMechanicsScreenState extends State<SearchingMechanicsScreen>
     try {
       final latLng = await LocationService.instance.getCurrentLatLng();
       if (!mounted) return;
-      setState(() => _userLatLng = latLng);
-      _mapController.move(latLng, 14);
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) {
+          setState(() => _userLatLng = latLng);
+          _mapController.move(latLng, 14);
+        }
+      });
     } catch (_) {
       // Fallback to Colombo
       if (!mounted) return;
@@ -598,12 +606,35 @@ class _SearchingMechanicsScreenState extends State<SearchingMechanicsScreen>
                       ),
                     ],
                   ),
-                  Text(
-                    mech['specialty'],
-                    style: TextStyle(
-                      fontSize: 12,
-                      color: Colors.grey[500],
-                    ),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Text(
+                        mech['specialty'],
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: Colors.grey[500],
+                        ),
+                      ),
+                      GestureDetector(
+                        onTap: () {
+                          Navigator.pushNamed(
+                            context,
+                            '/mechanic-details',
+                            arguments: mech['id'],
+                          );
+                        },
+                        child: Text(
+                          'View Profile',
+                          style: TextStyle(
+                            fontSize: 12,
+                            color: AppColors.primaryBlue,
+                            fontWeight: FontWeight.bold,
+                            decoration: TextDecoration.underline,
+                          ),
+                        ),
+                      ),
+                    ],
                   ),
                   const SizedBox(height: 8),
                   Row(

@@ -228,6 +228,15 @@ class PaymentSuccessfulScreen extends StatelessWidget {
                         context, '/', (route) => false);
                   } else {
                     // User might want to rate
+                    Navigator.pushNamed(
+                      context,
+                      '/rate-experience',
+                      arguments: {
+                        'requestId': args?['requestId'],
+                        'mechanicId': args?['mechanicId'],
+                        'mechanicName': args?['mechanicName'],
+                      },
+                    );
                   }
                 },
                 style: ElevatedButton.styleFrom(
@@ -240,7 +249,7 @@ class PaymentSuccessfulScreen extends StatelessWidget {
                   elevation: 0,
                 ),
                 child: Text(
-                  isMechanic ? 'BACK TO DASHBOARD' : 'DOWNLOAD RECEIPT',
+                  isMechanic ? 'BACK TO DASHBOARD' : 'RATE EXPERIENCE',
                   style: const TextStyle(
                       fontWeight: FontWeight.bold, fontSize: 16),
                 ),

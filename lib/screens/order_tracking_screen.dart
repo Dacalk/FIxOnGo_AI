@@ -76,7 +76,12 @@ class _OrderTrackingScreenState extends State<OrderTrackingScreen> {
           Navigator.pushReplacementNamed(
             context,
             '/payment-successful',
-            arguments: {'role': 'user'},
+            arguments: {
+              'role': 'user',
+              'requestId': _requestId,
+              'mechanicId': data['mechanicId'],
+              'mechanicName': data['mechanicName'],
+            },
           );
         }
       }

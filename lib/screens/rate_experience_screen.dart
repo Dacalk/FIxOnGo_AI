@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import '../theme_provider.dart';
 
 /// Rate Your Experience screen — post-service feedback form.
@@ -16,6 +18,94 @@ class _RateExperienceScreenState extends State<RateExperienceScreen> {
   int _rating = 4; // default 4 stars
   final Set<String> _selectedTags = {'Professional'};
   final TextEditingController _commentController = TextEditingController();
+  bool _isSubmitting = false;
+
+  String? _requestId;
+  String? _mechanicId;
+  String? _mechanicName;
+
+  @override
+  void initState() {
+    super.initState();
+    Future.microtask(() {
+      final args =
+          ModalRoute.of(context)?.settings.arguments as Map<String, dynamic>?;
+      if (args != null) {
+        setState(() {
+          _requestId = args['requestId'];
+          _mechanicId = args['mechanicId'];
+          _mechanicName = args['mechanicName'];
+        });
+      }
+    });
+  }
+
+  Future<void> _submitFeedback() async {
+    if (_mechanicId == null || _isSubmitting) return;
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null) return;
+
+    setState(() => _isSubmitting = true);
+
+    try {
+      final reviewData = {
+        'requestId': _requestId,
+        'userId': user.uid,
+        'userName': user.displayName ?? 'Anonymous',
+        'userPhotoUrl': user.photoURL ?? '',
+        'rating': _rating,
+        'isFixed': _isFixed,
+        'comment': _commentController.text,
+        'tags': _selectedTags.toList(),
+        'createdAt': FieldValue.serverTimestamp(),
+      };
+
+      // 1. Add to reviews collection
+      await FirebaseFirestore.instance
+          .collection('users')
+          .doc(_mechanicId)
+          .collection('reviews')
+          .add(reviewData);
+
+      // 2. Update mechanic overall rating & reviews count
+      final mechDoc =
+          FirebaseFirestore.instance.collection('users').doc(_mechanicId);
+
+      await FirebaseFirestore.instance.runTransaction((transaction) async {
+        final snapshot = await transaction.get(mechDoc);
+        if (!snapshot.exists) return;
+
+        final data = snapshot.data()!;
+        final m = Map<String, dynamic>.from(data['roles']['mechanic'] ?? {});
+
+        final double currentRating = (m['rating'] ?? 0.0).toDouble();
+        final int currentCount = (m['reviews'] ?? 0).toInt();
+
+        final newCount = currentCount + 1;
+        final newRating = ((currentRating * currentCount) + _rating) / newCount;
+
+        m['rating'] = newRating;
+        m['reviews'] = newCount;
+
+        transaction.update(mechDoc, {'roles.mechanic': m});
+      });
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Thank you for your feedback!')),
+        );
+        Navigator.pushNamedAndRemoveUntil(context, '/', (route) => false);
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error submitting feedback: $e')),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _isSubmitting = false);
+    }
+  }
 
   static const List<String> _feedbackTags = [
     'On Time',
@@ -76,9 +166,8 @@ class _RateExperienceScreenState extends State<RateExperienceScreen> {
                   // ── Avatar ──
                   CircleAvatar(
                     radius: 44,
-                    backgroundColor: dark
-                        ? const Color(0xFF1E3350)
-                        : Colors.grey[200],
+                    backgroundColor:
+                        dark ? const Color(0xFF1E3350) : Colors.grey[200],
                     child: Icon(
                       Icons.person,
                       size: 50,
@@ -89,7 +178,7 @@ class _RateExperienceScreenState extends State<RateExperienceScreen> {
 
                   // ── Name ──
                   Text(
-                    'Dulan Thabrew',
+                    _mechanicName ?? 'Mechanic',
                     style: TextStyle(
                       fontSize: 20,
                       fontWeight: FontWeight.bold,
@@ -260,9 +349,7 @@ class _RateExperienceScreenState extends State<RateExperienceScreen> {
             child: SizedBox(
               width: double.infinity,
               child: ElevatedButton(
-                onPressed: () {
-                  // Submit feedback logic
-                },
+                onPressed: _isSubmitting ? null : _submitFeedback,
                 style: ElevatedButton.styleFrom(
                   backgroundColor: btnColor,
                   foregroundColor: btnTextColor,
@@ -271,9 +358,10 @@ class _RateExperienceScreenState extends State<RateExperienceScreen> {
                     borderRadius: BorderRadius.circular(14),
                   ),
                 ),
-                child: const Text(
-                  'Submit Feedback',
-                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
+                child: Text(
+                  _isSubmitting ? 'Submitting...' : 'Submit Feedback',
+                  style: const TextStyle(
+                      fontWeight: FontWeight.bold, fontSize: 15),
                 ),
               ),
             ),
