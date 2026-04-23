@@ -51,6 +51,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
   // Real-time data streams
   Stream<List<Map<String, dynamic>>>? _ongoingRequestsStream;
   Stream<List<Map<String, dynamic>>>? _paymentHistoryStream;
+  bool _isMechanicActive = true;
   Stream<List<Map<String, dynamic>>>? _mechanicIncomingRequestsStream;
 
   @override
@@ -123,6 +124,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
               : user.phoneNumber ?? '';
           roleData = rd;
           userPhotoUrl = data?['photoUrl']?.toString() ?? user.photoURL ?? '';
+          _isMechanicActive = rd['isActive'] ?? true;
           isLoading = false;
         });
 
@@ -184,6 +186,29 @@ class _DashboardScreenState extends State<DashboardScreen> {
   // Helper to get a role field with a fallback
   String _rd(String key, [String fallback = '']) =>
       roleData[key]?.toString() ?? fallback;
+
+  Future<void> _toggleMechanicActive(bool value) async {
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null) return;
+
+    setState(() => _isMechanicActive = value);
+
+    try {
+      await FirebaseFirestore.instance
+          .collection('users')
+          .doc(user.uid)
+          .update({
+        'roles.mechanic.isActive': value,
+      });
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text("Error updating status: $e")),
+        );
+        setState(() => _isMechanicActive = !value);
+      }
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -715,22 +740,26 @@ class _DashboardScreenState extends State<DashboardScreen> {
               decoration: BoxDecoration(
                 color: dark ? AppColors.darkSurface : Colors.white,
                 borderRadius: BorderRadius.circular(18),
-                border: Border.all(color: Colors.green.withValues(alpha: 0.4)),
+                border: Border.all(
+                  color: _isMechanicActive
+                      ? Colors.green.withValues(alpha: 0.4)
+                      : Colors.grey.withValues(alpha: 0.4),
+                ),
               ),
               child: Row(
                 children: [
                   Container(
                     width: 10,
                     height: 10,
-                    decoration: const BoxDecoration(
-                      color: Colors.green,
+                    decoration: BoxDecoration(
+                      color: _isMechanicActive ? Colors.green : Colors.grey,
                       shape: BoxShape.circle,
                     ),
                   ),
                   const SizedBox(width: 12),
                   Expanded(
                     child: Text(
-                      'You are Online',
+                      _isMechanicActive ? 'You are Online' : 'You are Offline',
                       style: TextStyle(
                         fontSize: 15,
                         fontWeight: FontWeight.w600,
@@ -738,14 +767,10 @@ class _DashboardScreenState extends State<DashboardScreen> {
                       ),
                     ),
                   ),
-                  Text(
-                    'ACCEPTING JOBS',
-                    style: TextStyle(
-                      fontSize: 11,
-                      fontWeight: FontWeight.bold,
-                      color: Colors.green[600],
-                      letterSpacing: 0.5,
-                    ),
+                  Switch(
+                    value: _isMechanicActive,
+                    onChanged: _toggleMechanicActive,
+                    activeColor: Colors.green,
                   ),
                 ],
               ),
