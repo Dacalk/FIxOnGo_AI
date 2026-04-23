@@ -419,14 +419,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
         child: BottomNavigationBar(
           currentIndex: _currentIndex,
           onTap: (i) {
-            setState(() {
-              _currentIndex = i;
-            });
             // Handle navigation based on index
             switch (i) {
-              case 0:
-                // Dashboard is already handled by IndexedStack
-                break;
               case 1:
                 Navigator.pushReplacementNamed(context, '/garage');
                 break;
@@ -434,8 +428,13 @@ class _DashboardScreenState extends State<DashboardScreen> {
                 Navigator.pushReplacementNamed(context, '/payment-history');
                 break;
               case 3:
-                Navigator.pushReplacementNamed(context, '/profile');
+                Navigator.pushReplacementNamed(context, '/profile',
+                    arguments: currentRole);
                 break;
+              default:
+                setState(() {
+                  _currentIndex = i;
+                });
             }
           },
           type: BottomNavigationBarType.fixed,
