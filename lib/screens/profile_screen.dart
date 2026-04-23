@@ -3,7 +3,6 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import '../theme_provider.dart';
 import '../components/form_input.dart';
-import 'dashboard_screen.dart';
 import 'payment_screen.dart';
 
 /// Profile screen — user settings, payment methods, vehicles, and sign out.
@@ -41,7 +40,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
       userEmail = widget.userData!['email'] ?? '';
     }
     userRole = widget.role ?? 'User';
-    
+
     _loadProfile();
   }
 
@@ -62,13 +61,15 @@ class _ProfileScreenState extends State<ProfileScreen> {
       if (doc.exists) {
         final data = doc.data();
         final roles = data?['roles'] as Map<String, dynamic>? ?? {};
-        
+
         // Use the passed role or resolve dynamically
-        String effectiveRole = widget.role ?? (roles.isNotEmpty ? roles.keys.first : 'User');
-        
-        final rd = roles[effectiveRole.toLowerCase()] as Map<String, dynamic>? ?? 
-                   roles[effectiveRole] as Map<String, dynamic>? ?? 
-                   (roles.isNotEmpty ? roles.values.first : {});
+        String effectiveRole =
+            widget.role ?? (roles.isNotEmpty ? roles.keys.first : 'User');
+
+        final rd =
+            roles[effectiveRole.toLowerCase()] as Map<String, dynamic>? ??
+                roles[effectiveRole] as Map<String, dynamic>? ??
+                (roles.isNotEmpty ? roles.values.first : {});
 
         setState(() {
           userName = rd['fullName']?.toString().isNotEmpty == true
@@ -209,7 +210,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
       appBar: AppBar(
         backgroundColor: topBgColor,
         elevation: 0,
-        automaticallyImplyLeading: false, 
+        automaticallyImplyLeading: false,
         centerTitle: true,
         title: Text(
           'My Profile',
@@ -230,11 +231,10 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 color: dark ? Colors.white : Colors.black,
               ),
               onPressed: () {
-                Navigator.pushReplacement(
+                Navigator.pushReplacementNamed(
                   context,
-                  MaterialPageRoute(
-                    builder: (_) => DashboardScreen(role: userRole),
-                  ),
+                  '/dashboard',
+                  arguments: userRole,
                 );
               },
             ),
@@ -322,7 +322,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
                                 decoration: BoxDecoration(
                                   color: Colors.orange,
                                   shape: BoxShape.circle,
-                                  border: Border.all(color: topBgColor, width: 3),
+                                  border:
+                                      Border.all(color: topBgColor, width: 3),
                                 ),
                                 child: const Icon(
                                   Icons.camera_alt,
@@ -377,7 +378,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
                                 dark: dark,
                                 titleColor: titleColor,
                                 subColor: subColor,
-                                onTap: () => Navigator.pushNamed(context, '/garage'),
+                                onTap: () =>
+                                    Navigator.pushNamed(context, '/garage'),
                               ),
                               _buildMenuItem(
                                 icon: Icons.credit_card_outlined,
@@ -389,7 +391,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
                                   Navigator.push(
                                     context,
                                     MaterialPageRoute(
-                                      builder: (_) => PaymentScreen(role: userRole),
+                                      builder: (_) =>
+                                          PaymentScreen(role: userRole),
                                     ),
                                   );
                                 },
@@ -400,12 +403,14 @@ class _ProfileScreenState extends State<ProfileScreen> {
                                 dark: dark,
                                 titleColor: titleColor,
                                 subColor: subColor,
-                                onTap: () => Navigator.pushNamed(context, '/payment-history'),
+                                onTap: () => Navigator.pushNamed(
+                                    context, '/payment-history'),
                               ),
                               _buildMenuItem(
                                 icon: Icons.security,
                                 title: 'Account Security',
-                                trailingText: hasPassword ? 'Protected' : 'Incomplete',
+                                trailingText:
+                                    hasPassword ? 'Protected' : 'Incomplete',
                                 dark: dark,
                                 titleColor: titleColor,
                                 subColor: subColor,
@@ -417,7 +422,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
                                 dark: dark,
                                 titleColor: titleColor,
                                 subColor: subColor,
-                                onTap: () => Navigator.pushNamed(context, '/call-support'),
+                                onTap: () => Navigator.pushNamed(
+                                    context, '/call-support'),
                               ),
                               _buildMenuItem(
                                 icon: Icons.help_outline,
@@ -426,7 +432,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
                                 titleColor: titleColor,
                                 subColor: subColor,
                                 showDivider: false,
-                                onTap: () => Navigator.pushNamed(context, '/help-support'),
+                                onTap: () => Navigator.pushNamed(
+                                    context, '/help-support'),
                               ),
                               if (availableRoles.length > 1)
                                 _buildMenuItem(
@@ -468,7 +475,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
                               }
                             },
                             style: ElevatedButton.styleFrom(
-                              backgroundColor: dark ? signOutBgDark : signOutBgLight,
+                              backgroundColor:
+                                  dark ? signOutBgDark : signOutBgLight,
                               foregroundColor: dark ? Colors.black : Colors.red,
                               elevation: 0,
                               padding: const EdgeInsets.symmetric(vertical: 16),
@@ -578,7 +586,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
             padding: const EdgeInsets.symmetric(horizontal: 20),
             child: Divider(
               height: 1,
-              color: dark ? Colors.white10 : Colors.black.withValues(alpha: 0.05),
+              color:
+                  dark ? Colors.white10 : Colors.black.withValues(alpha: 0.05),
             ),
           ),
       ],
@@ -603,10 +612,14 @@ class _ProfileScreenState extends State<ProfileScreen> {
         child: Row(
           mainAxisAlignment: MainAxisAlignment.spaceAround,
           children: [
-            _navItem(context, Icons.home_rounded, 'Dashboard', false, dark, '/dashboard'),
-            _navItem(context, Icons.garage_rounded, 'Garage', false, dark, '/garage'),
-            _navItem(context, Icons.payments_rounded, 'Payment', false, dark, '/payment-history'),
-            _navItem(context, Icons.person_rounded, 'Profile', true, dark, '/profile'),
+            _navItem(context, Icons.home_rounded, 'Dashboard', false, dark,
+                '/dashboard'),
+            _navItem(context, Icons.garage_rounded, 'Garage', false, dark,
+                '/garage'),
+            _navItem(context, Icons.payments_rounded, 'Payment', false, dark,
+                '/payment-history'),
+            _navItem(context, Icons.person_rounded, 'Profile', true, dark,
+                '/profile'),
           ],
         ),
       ),
@@ -629,11 +642,10 @@ class _ProfileScreenState extends State<ProfileScreen> {
       onTap: () {
         if (!isActive) {
           if (label == 'Dashboard') {
-            Navigator.pushReplacement(
+            Navigator.pushReplacementNamed(
               context,
-              MaterialPageRoute(
-                builder: (_) => DashboardScreen(role: userRole),
-              ),
+              '/dashboard',
+              arguments: userRole,
             );
           } else if (routeName != null) {
             Navigator.pushReplacementNamed(context, routeName);
