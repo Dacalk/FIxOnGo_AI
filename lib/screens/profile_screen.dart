@@ -1,9 +1,11 @@
+import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import '../theme_provider.dart';
 import '../components/form_input.dart';
 import 'payment_screen.dart';
+import 'edit_profile_screen.dart';
 
 /// Profile screen — user settings, payment methods, vehicles, and sign out.
 /// Features a bottom navigation bar.
@@ -27,6 +29,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
   String userPhone = '';
   String userPhotoUrl = '';
   String userRole = '';
+  Map<String, dynamic> roleData = {};
   List<String> availableRoles = [];
   bool isLoading = true;
   bool hasPassword = false;
@@ -83,6 +86,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
               : user.phoneNumber ?? '';
           userPhotoUrl = data?['photoUrl']?.toString() ?? user.photoURL ?? '';
           userRole = effectiveRole;
+          roleData = rd;
           availableRoles = roles.keys.toList();
           isLoading = false;
         });
@@ -194,6 +198,65 @@ class _ProfileScreenState extends State<ProfileScreen> {
     return 'U';
   }
 
+  Widget _buildAvatar() {
+    final url = userPhotoUrl;
+    final initials = Center(
+      child: Text(
+        _getInitials(userName),
+        style: const TextStyle(
+          fontSize: 32,
+          fontWeight: FontWeight.bold,
+          color: AppColors.primaryBlue,
+        ),
+      ),
+    );
+
+    if (url.isEmpty) return initials;
+
+    // base64 data URL (saved locally)
+    if (url.startsWith('data:')) {
+      try {
+        final comma = url.indexOf(',');
+        final bytes = _base64ToBytes(url.substring(comma + 1));
+        return Image.memory(
+          bytes,
+          fit: BoxFit.cover,
+          width: 100,
+          height: 100,
+          errorBuilder: (_, __, ___) => initials,
+        );
+      } catch (_) {
+        return initials;
+      }
+    }
+
+    // Remote URL
+    return Image.network(
+      url,
+      fit: BoxFit.cover,
+      width: 100,
+      height: 100,
+      errorBuilder: (_, __, ___) => initials,
+    );
+  }
+
+  Uint8List _base64ToBytes(String base64Str) {
+    const chars =
+        'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/';
+    final cleaned = base64Str.replaceAll(RegExp(r'\s'), '');
+    final result = <int>[];
+    for (var i = 0; i < cleaned.length; i += 4) {
+      final c0 = chars.indexOf(cleaned[i]);
+      final c1 = chars.indexOf(cleaned[i + 1]);
+      final c2 = cleaned[i + 2] == '=' ? 0 : chars.indexOf(cleaned[i + 2]);
+      final c3 = cleaned[i + 3] == '=' ? 0 : chars.indexOf(cleaned[i + 3]);
+      result.add(((c0 << 2) | (c1 >> 4)) & 0xFF);
+      if (cleaned[i + 2] != '=') result.add(((c1 << 4) | (c2 >> 2)) & 0xFF);
+      if (cleaned[i + 3] != '=') result.add(((c2 << 6) | c3) & 0xFF);
+    }
+    return Uint8List.fromList(result);
+  }
+
   @override
   Widget build(BuildContext context) {
     final dark = isDarkMode(context);
@@ -242,7 +305,21 @@ class _ProfileScreenState extends State<ProfileScreen> {
         ),
         actions: [
           TextButton(
-            onPressed: () {},
+            onPressed: () async {
+              final updated = await Navigator.push<bool>(
+                context,
+                MaterialPageRoute(
+                  builder: (_) => EditProfileScreen(
+                    roleData: roleData,
+                    role: userRole,
+                    initialPhotoUrl: userPhotoUrl,
+                    email: userEmail,
+                    phone: userPhone,
+                  ),
+                ),
+              );
+              if (updated == true) _loadProfile();
+            },
             child: Text(
               'Edit',
               style: TextStyle(
@@ -285,33 +362,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                                 ),
                               ),
                               child: ClipOval(
-                                child: userPhotoUrl.isNotEmpty
-                                    ? Image.network(
-                                        userPhotoUrl,
-                                        fit: BoxFit.cover,
-                                        width: 100,
-                                        height: 100,
-                                        errorBuilder: (_, __, ___) => Center(
-                                          child: Text(
-                                            _getInitials(userName),
-                                            style: const TextStyle(
-                                              fontSize: 32,
-                                              fontWeight: FontWeight.bold,
-                                              color: AppColors.primaryBlue,
-                                            ),
-                                          ),
-                                        ),
-                                      )
-                                    : Center(
-                                        child: Text(
-                                          _getInitials(userName),
-                                          style: const TextStyle(
-                                            fontSize: 32,
-                                            fontWeight: FontWeight.bold,
-                                            color: AppColors.primaryBlue,
-                                          ),
-                                        ),
-                                      ),
+                                child: _buildAvatar(),
                               ),
                             ),
                             Positioned(
