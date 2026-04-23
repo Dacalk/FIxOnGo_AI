@@ -109,67 +109,70 @@ class _DashboardScreenState extends State<DashboardScreen> {
           rd = rolesMap[role] as Map<String, dynamic>? ?? {};
         }
 
-        setState(() {
-          allRoles = rolesMap;
-          // Update the localized role if we changed it
-          currentRole = role;
-          userName = rd['fullName']?.toString().isNotEmpty == true
-              ? rd['fullName']
-              : user.displayName ?? 'User';
-          userEmail = data?['email']?.toString().isNotEmpty == true
-              ? data!['email']
-              : user.email ?? '';
-          userPhone = data?['phone']?.toString().isNotEmpty == true
-              ? data!['phone']
-              : user.phoneNumber ?? '';
-          roleData = rd;
-          userPhotoUrl = data?['photoUrl']?.toString() ?? user.photoURL ?? '';
-          _isMechanicActive = rd['isActive'] ?? true;
-          isLoading = false;
-        });
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (mounted) {
+            setState(() {
+              allRoles = rolesMap;
+              // Update the localized role if we changed it
+              currentRole = role;
+              userName = rd['fullName']?.toString().isNotEmpty == true
+                  ? rd['fullName']
+                  : user.displayName ?? 'User';
+              userEmail = data?['email']?.toString().isNotEmpty == true
+                  ? data!['email']
+                  : user.email ?? '';
+              userPhone = data?['phone']?.toString().isNotEmpty == true
+                  ? data!['phone']
+                  : user.phoneNumber ?? '';
+              roleData = rd;
+              userPhotoUrl =
+                  data?['photoUrl']?.toString() ?? user.photoURL ?? '';
+              _isMechanicActive = rd['isActive'] ?? true;
+              isLoading = false;
+            });
 
-        // 🟢 INIT DATA STREAMS FOR USER
-        if (currentRole?.toLowerCase() == 'user' ||
-            rolesMap.containsKey('user')) {
-          _initUserDataStreams(user.uid);
-        }
+            // 🟢 INIT DATA STREAMS FOR USER
+            if (currentRole?.toLowerCase() == 'user' ||
+                rolesMap.containsKey('user')) {
+              _initUserDataStreams(user.uid);
+            }
 
-        // 🔧 ALWAYS START MECHANIC SERVICES IF ROLE EXISTS
-        // This ensures mechanics get requests even while browsing as a user
-        final isMechanic = rolesMap.containsKey('mechanic') ||
-            userEmail == 'mock@fixongo.test';
+            // 🔧 ALWAYS START MECHANIC SERVICES IF ROLE EXISTS
+            final isMechanic = rolesMap.containsKey('mechanic') ||
+                userEmail == 'mock@fixongo.test';
 
-        if (isMechanic) {
-          if (userEmail == 'mock@fixongo.test' && _userLocation != null) {
-            await TestService.instance.cleanupMocks();
-            await TestService.instance.removeDuplicateMocks(user.uid);
-            await TestService.instance
-                .makeMeMockMechanic(user.uid, _userLocation!);
+            if (isMechanic) {
+              if (userEmail == 'mock@fixongo.test' && _userLocation != null) {
+                TestService.instance.cleanupMocks();
+                TestService.instance.removeDuplicateMocks(user.uid);
+                TestService.instance
+                    .makeMeMockMechanic(user.uid, _userLocation!);
+              }
+              _initMechanicServices(user.uid);
+              _initMechanicDataStreams(user.uid);
+            }
           }
-          _initMechanicServices(user.uid);
-          _initMechanicDataStreams(user.uid);
-        }
+        });
       } else {
         // No Firestore doc — use Google profile data
-        setState(() {
-          userName = user.displayName ?? 'User';
-          userEmail = user.email ?? '';
-          userPhone = user.phoneNumber ?? '';
-          userPhotoUrl = user.photoURL ?? '';
-          isLoading = false;
-        });
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (mounted) {
+            setState(() {
+              userName = user.displayName ?? 'User';
+              userEmail = user.email ?? '';
+              userPhone = user.phoneNumber ?? '';
+              userPhotoUrl = user.photoURL ?? '';
+              isLoading = false;
+            });
 
-        // 🔧 START MECHANIC SERVICES (Auto-init for mock email even without doc)
-        if (role.toLowerCase() == 'mechanic' ||
-            user.email == 'mock@fixongo.test') {
-          // Initialize mock data if it's the test account
-          if (user.email == 'mock@fixongo.test') {
-            final loc = await LocationService.instance.getCurrentLatLng();
-            await TestService.instance.makeMeMockMechanic(user.uid, loc);
+            // 🔧 START MECHANIC SERVICES
+            if (role.toLowerCase() == 'mechanic' ||
+                user.email == 'mock@fixongo.test') {
+              _initMechanicServices(user.uid);
+              _initMechanicDataStreams(user.uid);
+            }
           }
-          _initMechanicServices(user.uid);
-          _initMechanicDataStreams(user.uid);
-        }
+        });
       }
     } catch (e) {
       print("Dashboard load error: ${e.toString()}");
@@ -191,7 +194,9 @@ class _DashboardScreenState extends State<DashboardScreen> {
     final user = FirebaseAuth.instance.currentUser;
     if (user == null) return;
 
-    setState(() => _isMechanicActive = value);
+    if (mounted) {
+      setState(() => _isMechanicActive = value);
+    }
 
     try {
       await FirebaseFirestore.instance
@@ -298,8 +303,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
         .snapshots()
         .map((snap) =>
             snap.docs.map((doc) => {'id': doc.id, ...doc.data()}).toList());
-
-    setState(() {});
   }
 
   void _initMechanicDataStreams(String uid) {
@@ -320,8 +323,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
         .snapshots()
         .map((snap) =>
             snap.docs.map((doc) => {'id': doc.id, ...doc.data()}).toList());
-
-    setState(() {});
   }
 
   void _showNewRequestDialog(Map<String, dynamic> req) {
