@@ -11,7 +11,7 @@ import 'screens/add_location_screen.dart';
 import 'screens/searching_mechanics_screen.dart';
 import 'screens/add_card_screen.dart';
 import 'screens/mechanic_accepted_screen.dart';
-import 'screens/request_tools_screen.dart';
+
 import 'screens/video_call_screen.dart';
 import 'screens/voice_call_screen.dart';
 import 'screens/mechanic_chat_screen.dart';
@@ -30,6 +30,9 @@ import 'screens/help_support_screen.dart';
 import 'screens/profile_screen.dart';
 import 'screens/rate_experience_screen.dart';
 import 'screens/mechanic_details_screen.dart';
+import 'screens/mechanic_shop_screen.dart';
+import 'screens/add_product_screen.dart';
+import 'screens/user_shop_view_screen.dart';
 import 'theme_provider.dart';
 
 import 'package:flutter_dotenv/flutter_dotenv.dart';
@@ -135,8 +138,7 @@ class FixOnGoApp extends StatelessWidget {
             '/add-card': (context) => const AuthGuard(child: AddCardScreen()),
             '/mechanic-accepted': (context) =>
                 const AuthGuard(child: MechanicAcceptedScreen()),
-            '/request-tools': (context) =>
-                const AuthGuard(child: RequestToolsScreen()),
+
             '/video-call': (context) =>
                 const AuthGuard(child: VideoCallScreen()),
             '/voice-call': (context) =>
@@ -168,6 +170,12 @@ class FixOnGoApp extends StatelessWidget {
                 const AuthGuard(child: RateExperienceScreen()),
             '/mechanic-details': (context) =>
                 const AuthGuard(child: MechanicDetailsScreen()),
+            '/mechanic-shop': (context) =>
+                const AuthGuard(child: MechanicShopScreen()),
+            '/add-product': (context) =>
+                const AuthGuard(child: AddProductScreen()),
+            '/user-shop-view': (context) =>
+                const AuthGuard(child: UserShopViewScreen()),
             '/home': (context) => const AuthGuard(child: HomeScreen()),
           },
         );

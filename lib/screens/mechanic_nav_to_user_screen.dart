@@ -44,11 +44,12 @@ class _MechanicNavToUserScreenState extends State<MechanicNavToUserScreen> {
 
   Future<void> _initData() async {
     Future.microtask(() {
+      if (!mounted) return;
       final args = ModalRoute.of(context)?.settings.arguments;
-      if (args is String) {
-        setState(() => _requestId = args);
-        _listenToRequest();
-      }
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) setState(() => _requestId = args is String ? args : null);
+        if (_requestId != null) _listenToRequest();
+      });
     });
 
     // Fetch initial location immediately for ETA calculation
@@ -68,13 +69,16 @@ class _MechanicNavToUserScreenState extends State<MechanicNavToUserScreen> {
 
     // Start local location tracking for the mechanic
     LocationService.instance.getPositionStream(distanceFilter: 5).listen((pos) {
-      if (mounted) {
-        setState(() {
-          _mechanicLatLng = LatLng(pos.latitude, pos.longitude);
-        });
-        _updateRoute();
-        _updateMechanicLocationInFirestore();
-      }
+      if (!mounted) return;
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) {
+          setState(() {
+            _mechanicLatLng = LatLng(pos.latitude, pos.longitude);
+          });
+          _updateRoute();
+          _updateMechanicLocationInFirestore();
+        }
+      });
     });
   }
 
@@ -87,14 +91,18 @@ class _MechanicNavToUserScreenState extends State<MechanicNavToUserScreen> {
         .listen((snap) {
       if (snap.exists && mounted) {
         final data = snap.data()!;
-        setState(() {
-          _requestData = data;
-          final uLoc = data['userLocation'] as Map<String, dynamic>;
-          _userLatLng = LatLng(uLoc['lat'], uLoc['lng']);
-          _isArrived = data['status'] == 'arrived';
-          _paymentStatus = data['paymentStatus'] ?? 'pending';
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (mounted) {
+            setState(() {
+              _requestData = data;
+              final uLoc = data['userLocation'] as Map<String, dynamic>;
+              _userLatLng = LatLng(uLoc['lat'], uLoc['lng']);
+              _isArrived = data['status'] == 'arrived';
+              _paymentStatus = data['paymentStatus'] ?? 'pending';
+            });
+            _updateRoute();
+          }
         });
-        _updateRoute();
       }
     });
   }
@@ -121,12 +129,15 @@ class _MechanicNavToUserScreenState extends State<MechanicNavToUserScreen> {
         _mechanicLatLng!,
         _userLatLng!,
       );
-      if (mounted) {
-        setState(() {
-          _routePoints = route.points;
-          _eta = route.summary;
-        });
-      }
+      if (!mounted) return;
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) {
+          setState(() {
+            _routePoints = route.points;
+            _eta = route.summary;
+          });
+        }
+      });
     } catch (e) {
       debugPrint("Route error: $e");
     }
@@ -134,33 +145,47 @@ class _MechanicNavToUserScreenState extends State<MechanicNavToUserScreen> {
 
   Future<void> _handleArrived() async {
     if (_requestId == null || _isProcessing) return;
-    setState(() => _isProcessing = true);
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) {
+        setState(() => _isProcessing = true);
+      }
+    });
 
     await FirebaseFirestore.instance
         .collection('requests')
         .doc(_requestId)
         .update({'status': 'arrived'});
 
-    if (mounted) setState(() => _isProcessing = false);
+    if (!mounted) return;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) setState(() => _isProcessing = false);
+    });
   }
 
   Future<void> _handleComplete() async {
     if (_requestId == null || _isProcessing) return;
-    setState(() => _isProcessing = true);
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) {
+        setState(() => _isProcessing = true);
+      }
+    });
 
     await FirebaseFirestore.instance
         .collection('requests')
         .doc(_requestId)
         .update({'status': 'completed'});
 
-    if (mounted) {
-      setState(() => _isProcessing = false);
-      Navigator.pushReplacementNamed(
-        context,
-        '/payment-successful',
-        arguments: {'role': 'mechanic'},
-      );
-    }
+    if (!mounted) return;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) {
+        setState(() => _isProcessing = false);
+        Navigator.pushReplacementNamed(
+          context,
+          '/payment-successful',
+          arguments: {'role': 'mechanic'},
+        );
+      }
+    });
   }
 
   @override
