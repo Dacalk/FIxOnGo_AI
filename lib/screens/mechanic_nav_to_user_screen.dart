@@ -28,6 +28,7 @@ class _MechanicNavToUserScreenState extends State<MechanicNavToUserScreen> {
   String _eta = "Fetching...";
   bool _isArrived = false;
   bool _isProcessing = false;
+  String _paymentStatus = 'pending';
 
   @override
   void initState() {
@@ -49,6 +50,19 @@ class _MechanicNavToUserScreenState extends State<MechanicNavToUserScreen> {
         _listenToRequest();
       }
     });
+
+    // Fetch initial location immediately for ETA calculation
+    try {
+      final pos = await LocationService.instance.getCurrentLatLng();
+      if (mounted) {
+        setState(() {
+          _mechanicLatLng = pos;
+        });
+        _updateRoute();
+      }
+    } catch (e) {
+      debugPrint("Initial location error: $e");
+    }
 
     // Start local location tracking for the mechanic
     LocationService.instance.getPositionStream(distanceFilter: 5).listen((pos) {
@@ -76,6 +90,7 @@ class _MechanicNavToUserScreenState extends State<MechanicNavToUserScreen> {
           final uLoc = data['userLocation'] as Map<String, dynamic>;
           _userLatLng = LatLng(uLoc['lat'], uLoc['lng']);
           _isArrived = data['status'] == 'arrived';
+          _paymentStatus = data['paymentStatus'] ?? 'pending';
         });
         _updateRoute();
       }
@@ -265,10 +280,18 @@ class _MechanicNavToUserScreenState extends State<MechanicNavToUserScreen> {
                       ),
                       const SizedBox(height: 24),
                       PrimaryButton(
-                        label: _isArrived ? 'COMPLETE JOB' : 'I HAVE ARRIVED',
+                        label: _isArrived
+                            ? (_paymentStatus == 'paid'
+                                ? 'COMPLETE JOB'
+                                : 'AWAITING PAYMENT')
+                            : 'I HAVE ARRIVED',
                         isLoading: _isProcessing,
-                        onPressed:
-                            _isArrived ? _handleComplete : _handleArrived,
+                        onPressed: (_isArrived && _paymentStatus == 'paid')
+                            ? _handleComplete
+                            : (!_isArrived ? _handleArrived : null),
+                        color: (_isArrived && _paymentStatus != 'paid')
+                            ? Colors.grey
+                            : AppColors.primaryBlue,
                       ),
                       const SizedBox(height: 12),
                       Row(
@@ -278,9 +301,13 @@ class _MechanicNavToUserScreenState extends State<MechanicNavToUserScreen> {
                               color: Colors.green, size: 16),
                           const SizedBox(width: 8),
                           Text(
-                            'Payment: Awaiting Job Completion',
+                            _paymentStatus == 'paid'
+                                ? 'Payment: Completed'
+                                : 'Payment: Awaiting User Payment',
                             style: TextStyle(
-                                color: Colors.green[600],
+                                color: _paymentStatus == 'paid'
+                                    ? Colors.green[600]
+                                    : Colors.orange[600],
                                 fontSize: 12,
                                 fontWeight: FontWeight.w600),
                           ),
