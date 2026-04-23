@@ -48,6 +48,9 @@ class _DashboardScreenState extends State<DashboardScreen> {
   bool _isOverlayShown = false;
   bool _isInitialized = false;
 
+  // Mechanic Status
+  bool isMechanicOnline = true;
+
   // Real-time data streams
   Stream<List<Map<String, dynamic>>>? _ongoingRequestsStream;
   Stream<List<Map<String, dynamic>>>? _paymentHistoryStream;
@@ -113,6 +116,28 @@ class _DashboardScreenState extends State<DashboardScreen> {
           rd = rolesMap[role] as Map<String, dynamic>? ?? {};
         }
 
+        setState(() {
+          allRoles = rolesMap;
+          // Update the localized role if we changed it
+          currentRole = role;
+          userName = rd['fullName']?.toString().isNotEmpty == true
+              ? rd['fullName']
+              : user.displayName ?? 'User';
+          userEmail = data?['email']?.toString().isNotEmpty == true
+              ? data!['email']
+              : user.email ?? '';
+          userPhone = data?['phone']?.toString().isNotEmpty == true
+              ? data!['phone']
+              : user.phoneNumber ?? '';
+          roleData = rd;
+          userPhotoUrl = data?['photoUrl']?.toString() ?? user.photoURL ?? '';
+          
+          // Initialize mechanic online status
+          final mechData = rolesMap['mechanic'] as Map<String, dynamic>?;
+          isMechanicOnline = mechData?['isActive'] ?? true;
+          
+          isLoading = false;
+        });
         WidgetsBinding.instance.addPostFrameCallback((_) {
           if (mounted) {
             setState(() {
@@ -255,6 +280,26 @@ class _DashboardScreenState extends State<DashboardScreen> {
   void _switchRole(String newRole) {
     if (newRole == currentRole) return;
     final rd = allRoles[newRole.toLowerCase()] ?? allRoles[newRole] ?? {};
+    setState(() {
+      currentRole = newRole;
+      roleData = rd;
+      userName = rd['fullName']?.toString().isNotEmpty == true
+          ? rd['fullName']
+          : FirebaseAuth.instance.currentUser?.displayName ?? 'User';
+      
+      // Update mechanic online status when switching roles
+      if (newRole.toLowerCase() == 'mechanic') {
+        isMechanicOnline = rd['isActive'] ?? true;
+      }
+    });
+  }
+
+  Future<void> _toggleMechanicAvailability(bool value) async {
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null) return;
+
+    setState(() {
+      isMechanicOnline = value;
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted) {
         setState(() {
@@ -266,6 +311,18 @@ class _DashboardScreenState extends State<DashboardScreen> {
         });
       }
     });
+
+    try {
+      await FirebaseFirestore.instance.collection('users').doc(user.uid).update({
+        'roles.mechanic.isActive': value,
+      });
+    } catch (e) {
+      print("Error toggling availability: $e");
+      // Revert UI if DB update fails
+      setState(() {
+        isMechanicOnline = !value;
+      });
+    }
   }
 
   // ─── MECHANIC LOGIC ───────────────────────────────────────────
@@ -612,15 +669,39 @@ class _DashboardScreenState extends State<DashboardScreen> {
                     color: dark ? AppColors.darkSurface : Colors.grey[200],
                     borderRadius: BorderRadius.circular(14),
                   ),
-                  child: Text(
-                    '24/7 ACTIVE',
-                    style: TextStyle(
-                      fontSize: 11,
-                      fontWeight: FontWeight.bold,
-                      color:
-                          dark ? AppColors.brandYellow : AppColors.primaryBlue,
-                      letterSpacing: 0.5,
-                    ),
+                  child: StreamBuilder<QuerySnapshot>(
+                    stream: FirebaseFirestore.instance
+                        .collection('users')
+                        .where('roles.mechanic.isActive', isEqualTo: true)
+                        .snapshots(),
+                    builder: (context, snapshot) {
+                      final count = snapshot.data?.docs.length ?? 0;
+                      return Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Container(
+                            width: 6,
+                            height: 6,
+                            decoration: BoxDecoration(
+                              color: count > 0 ? Colors.green : Colors.grey,
+                              shape: BoxShape.circle,
+                            ),
+                          ),
+                          const SizedBox(width: 6),
+                          Text(
+                            count > 0 ? '$count ONLINE' : 'OFFLINE',
+                            style: TextStyle(
+                              fontSize: 11,
+                              fontWeight: FontWeight.bold,
+                              color: count > 0
+                                  ? (dark ? AppColors.brandYellow : AppColors.primaryBlue)
+                                  : Colors.grey,
+                              letterSpacing: 0.5,
+                            ),
+                          ),
+                        ],
+                      );
+                    },
                   ),
                 ),
               ],
@@ -778,11 +859,12 @@ class _DashboardScreenState extends State<DashboardScreen> {
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 20),
             child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
+              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
               decoration: BoxDecoration(
                 color: dark ? AppColors.darkSurface : Colors.white,
                 borderRadius: BorderRadius.circular(18),
                 border: Border.all(
+                  color: isMechanicOnline
                   color: _isMechanicActive
                       ? Colors.green.withValues(alpha: 0.4)
                       : Colors.grey.withValues(alpha: 0.4),
@@ -794,12 +876,41 @@ class _DashboardScreenState extends State<DashboardScreen> {
                     width: 10,
                     height: 10,
                     decoration: BoxDecoration(
+                      color: isMechanicOnline ? Colors.green : Colors.grey,
                       color: _isMechanicActive ? Colors.green : Colors.grey,
                       shape: BoxShape.circle,
                     ),
                   ),
                   const SizedBox(width: 12),
                   Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          isMechanicOnline ? 'You are Online' : 'You are Offline',
+                          style: TextStyle(
+                            fontSize: 15,
+                            fontWeight: FontWeight.w600,
+                            color: dark ? Colors.white : Colors.black87,
+                          ),
+                        ),
+                        Text(
+                          isMechanicOnline
+                              ? 'Accepting jobs'
+                              : 'Not visible to users',
+                          style: TextStyle(
+                            fontSize: 12,
+                            color: Colors.grey[500],
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  Switch(
+                    value: isMechanicOnline,
+                    onChanged: _toggleMechanicAvailability,
+                    activeColor: AppColors.brandYellow,
+                    activeTrackColor: AppColors.primaryBlue,
                     child: Text(
                       _isMechanicActive ? 'You are Online' : 'You are Offline',
                       style: TextStyle(
