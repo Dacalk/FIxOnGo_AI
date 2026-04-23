@@ -397,7 +397,6 @@ class _GarageScreenState extends State<GarageScreen> {
   Widget _navItem(BuildContext context, IconData icon, String label, bool isActive, bool dark, String routeName) {
     final color = isActive ? AppColors.primaryBlue : (dark ? Colors.grey[500]! : Colors.grey[400]!);
     return GestureDetector(
-      onTap: () { if (!isActive) Navigator.pushReplacementNamed(context, routeName); },
       onTap: () {
         if (!isActive) {
           WidgetsBinding.instance.addPostFrameCallback((_) {

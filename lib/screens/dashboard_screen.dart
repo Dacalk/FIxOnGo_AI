@@ -300,16 +300,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
     setState(() {
       isMechanicOnline = value;
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (mounted) {
-        setState(() {
-          currentRole = newRole;
-          roleData = rd;
-          userName = rd['fullName']?.toString().isNotEmpty == true
-              ? rd['fullName']
-              : FirebaseAuth.instance.currentUser?.displayName ?? 'User';
-        });
-      }
     });
 
     try {
@@ -319,9 +309,11 @@ class _DashboardScreenState extends State<DashboardScreen> {
     } catch (e) {
       print("Error toggling availability: $e");
       // Revert UI if DB update fails
-      setState(() {
-        isMechanicOnline = !value;
-      });
+      if (mounted) {
+        setState(() {
+          isMechanicOnline = !value;
+        });
+      }
     }
   }
 
@@ -865,7 +857,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
                 borderRadius: BorderRadius.circular(18),
                 border: Border.all(
                   color: isMechanicOnline
-                  color: _isMechanicActive
                       ? Colors.green.withValues(alpha: 0.4)
                       : Colors.grey.withValues(alpha: 0.4),
                 ),
@@ -877,7 +868,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
                     height: 10,
                     decoration: BoxDecoration(
                       color: isMechanicOnline ? Colors.green : Colors.grey,
-                      color: _isMechanicActive ? Colors.green : Colors.grey,
                       shape: BoxShape.circle,
                     ),
                   ),
@@ -911,14 +901,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
                     onChanged: _toggleMechanicAvailability,
                     activeColor: AppColors.brandYellow,
                     activeTrackColor: AppColors.primaryBlue,
-                    child: Text(
-                      _isMechanicActive ? 'You are Online' : 'You are Offline',
-                      style: TextStyle(
-                        fontSize: 15,
-                        fontWeight: FontWeight.w600,
-                        color: dark ? Colors.white : Colors.black87,
-                      ),
-                    ),
                   ),
                   Switch(
                     value: _isMechanicActive,
