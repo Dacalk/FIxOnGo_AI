@@ -241,14 +241,15 @@ class DashboardHeader extends StatelessWidget {
   }
 
   IconData _roleIcon() {
-    switch (role) {
-      case 'Mechanic':
+    final r = role.toLowerCase();
+    switch (r) {
+      case 'mechanic':
         return Icons.build_circle;
-      case 'Tow':
+      case 'tow':
         return Icons.local_shipping;
-      case 'Seller':
+      case 'seller':
         return Icons.storefront;
-      case 'Driver':
+      case 'driver':
         return Icons.delivery_dining;
       default:
         return Icons.person;
@@ -256,14 +257,15 @@ class DashboardHeader extends StatelessWidget {
   }
 
   String _defaultStatus() {
-    switch (role) {
-      case 'Mechanic':
+    final r = role.toLowerCase();
+    switch (r) {
+      case 'mechanic':
         return 'Ready to help drivers today.';
-      case 'Tow':
+      case 'tow':
         return 'Your truck is ready for action.';
-      case 'Seller':
+      case 'seller':
         return 'Your shop is open and active.';
-      case 'Driver':
+      case 'driver':
         return 'Ready for deliveries today.';
       default:
         return 'Stay safe on the road today.\nYour current status is';
@@ -271,14 +273,15 @@ class DashboardHeader extends StatelessWidget {
   }
 
   String _badgeEmoji() {
-    switch (role) {
-      case 'Mechanic':
+    final r = role.toLowerCase();
+    switch (r) {
+      case 'mechanic':
         return '🔧';
-      case 'Tow':
+      case 'tow':
         return '🚛';
-      case 'Seller':
+      case 'seller':
         return '🏪';
-      case 'Driver':
+      case 'driver':
         return '🚚';
       default:
         return '🚗';

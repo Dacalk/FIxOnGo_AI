@@ -87,6 +87,9 @@ class _SearchingMechanicsScreenState extends State<SearchingMechanicsScreen>
         final data = doc.data();
         final m = data['roles']['mechanic'] as Map<String, dynamic>?;
         if (m != null) {
+          final isActive = m['isActive'] ?? true;
+          if (!isActive) continue;
+
           final loc = m['location'] as Map<String, dynamic>?;
           if (loc != null) {
             list.add({
