@@ -775,7 +775,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                     title: 'Job History',
                     color: const Color(0xFF1565C0),
                     onTap: () {
-                      Navigator.pushNamed(context, '/ai-chat-history');
+                      Navigator.pushNamed(context, '/job-history');
                     },
                   ),
                 ),

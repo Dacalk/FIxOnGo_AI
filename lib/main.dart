@@ -28,6 +28,7 @@ import 'screens/garage_screen.dart';
 import 'screens/payment_history_screen.dart';
 import 'screens/help_support_screen.dart';
 import 'screens/profile_screen.dart';
+import 'screens/job_history_screen.dart';
 import 'theme_provider.dart';
 
 import 'package:flutter_dotenv/flutter_dotenv.dart';
@@ -162,6 +163,8 @@ class FixOnGoApp extends StatelessWidget {
                 const AuthGuard(child: PaymentHistoryScreen()),
             '/help-support': (context) =>
                 const AuthGuard(child: HelpSupportScreen()),
+            '/job-history': (context) =>
+                const AuthGuard(child: JobHistoryScreen()),
             '/home': (context) => const AuthGuard(child: HomeScreen()),
           },
         );
