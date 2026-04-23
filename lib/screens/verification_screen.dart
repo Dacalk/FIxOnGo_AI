@@ -8,6 +8,8 @@ import '../components/otp_box.dart';
 
 import 'dashboard_screen.dart';
 import 'signup_screen.dart';
+import '../services/auth_service.dart';
+import 'dart:async';
 
 class VerificationScreen extends StatefulWidget {
   const VerificationScreen({super.key});
@@ -19,38 +21,136 @@ class VerificationScreen extends StatefulWidget {
 class _VerificationScreenState extends State<VerificationScreen> {
   String _enteredOtp = '';
   String _verificationId = '';
+  int? _resendToken;
   bool _isLoading = false;
+  bool _isResending = false;
 
-  // 🔹 SEND OTP
-  Future<void> _sendOtp() async {
+  // Timer related
+  Timer? _timer;
+  int _secondsRemaining = 30;
+  bool _canResend = false;
+
+  final AuthService _authService = AuthService();
+
+  void _startTimer() {
+    setState(() {
+      _secondsRemaining = 30;
+      _canResend = false;
+    });
+    _timer?.cancel();
+    _timer = Timer.periodic(const Duration(seconds: 1), (timer) {
+      setState(() {
+        if (_secondsRemaining > 0) {
+          _secondsRemaining--;
+        } else {
+          _canResend = true;
+          _timer?.cancel();
+        }
+      });
+    });
+  }
+
+  void _resendOtp() async {
+    if (!_canResend || _isResending) return;
+
     final args =
-        ModalRoute.of(context)?.settings.arguments as Map<String, String>? ??
+        ModalRoute.of(context)?.settings.arguments as Map<String, dynamic>? ??
             {};
+    final phone = args['phone'] ?? '';
 
-    final rawPhone = args['phone'] ?? '';
-    final phone = rawPhone.startsWith('0') ? rawPhone.substring(1) : rawPhone;
+    setState(() => _isResending = true);
 
-    await FirebaseAuth.instance.verifyPhoneNumber(
-      phoneNumber: '+94$phone',
-      verificationCompleted: (PhoneAuthCredential credential) async {
-        await FirebaseAuth.instance.signInWithCredential(credential);
-      },
-      verificationFailed: (FirebaseAuthException e) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(e.message ?? "Verification failed")),
-        );
-      },
-      codeSent: (String verificationId, int? resendToken) {
-        setState(() {
-          _verificationId = verificationId;
-        });
+    try {
+      await _authService.verifyPhone(
+        phoneNumber: '+94$phone',
+        resendToken: _resendToken,
+        onCodeSent: (verificationId, resendToken) {
+          setState(() {
+            _verificationId = verificationId;
+            _resendToken = resendToken;
+            _isResending = false;
+          });
+          _startTimer();
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text("OTP Resent Successfully")),
+          );
+        },
+        onVerificationFailed: (e) {
+          setState(() => _isResending = false);
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text(e.message ?? "Resend failed")),
+          );
+        },
+        onVerificationCompleted: (credential) async {
+          // Auto-verification handling
+          try {
+            final userCredential =
+                await FirebaseAuth.instance.signInWithCredential(credential);
+            if (userCredential.user != null) {
+              _handleNavigation(userCredential.user!);
+            }
+          } catch (e) {
+            print("Auto-verification error: $e");
+          }
+        },
+      );
+    } catch (e) {
+      setState(() => _isResending = false);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text("Error: ${e.toString()}")),
+      );
+    }
+  }
 
-        print("Verification ID: $verificationId");
-      },
-      codeAutoRetrievalTimeout: (String verificationId) {
-        _verificationId = verificationId;
-      },
-    );
+  Future<void> _handleNavigation(User user) async {
+    final args =
+        ModalRoute.of(context)?.settings.arguments as Map<String, dynamic>? ??
+            {};
+    final role = args['role'] as String?;
+
+    try {
+      final doc = await _authService.getUserData(user.uid);
+
+      if (doc != null && doc.exists) {
+        final data = doc.data() as Map<String, dynamic>?;
+        Map roles = data?['roles'] ?? {};
+
+        if (roles.isNotEmpty) {
+          String matchedRole = (role != null &&
+                  roles.containsKey(role.toLowerCase()))
+              ? role.toLowerCase()
+              : roles.keys.first.toString();
+
+          if (mounted) {
+            Navigator.pushReplacement(
+              context,
+              MaterialPageRoute(
+                builder: (_) => DashboardScreen(role: matchedRole),
+              ),
+            );
+          }
+        } else {
+          _goToSignup(role);
+        }
+      } else {
+        _goToSignup(role);
+      }
+    } catch (e) {
+      print("Navigation error: $e");
+    }
+  }
+
+  void _goToSignup(String? role) {
+    if (mounted) {
+      Navigator.pushReplacement(
+        context,
+        MaterialPageRoute(
+          builder: (_) => const SignupScreen(),
+          settings:
+              role != null ? RouteSettings(arguments: role) : null,
+        ),
+      );
+    }
   }
 
   @override
@@ -58,14 +158,27 @@ class _VerificationScreenState extends State<VerificationScreen> {
     super.initState();
 
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      _sendOtp();
+      final args = ModalRoute.of(context)?.settings.arguments
+              as Map<String, dynamic>? ??
+          {};
+      setState(() {
+        _verificationId = args['verificationId'] ?? '';
+        _resendToken = args['resendToken'];
+      });
+      _startTimer();
     });
+  }
+
+  @override
+  void dispose() {
+    _timer?.cancel();
+    super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
     final args =
-        ModalRoute.of(context)?.settings.arguments as Map<String, String>? ??
+        ModalRoute.of(context)?.settings.arguments as Map<String, dynamic>? ??
             {};
 
     final role = args['role']; // Nullable
@@ -150,16 +263,22 @@ class _VerificationScreenState extends State<VerificationScreen> {
                 ),
                 const SizedBox(width: 5),
                 Text(
-                  "Resend code in ",
+                  _canResend ? "Didn't receive code? " : "Resend code in ",
                   style: TextStyle(
                     color: dark ? Colors.grey[500] : Colors.blueGrey[400],
                   ),
                 ),
-                const Text(
-                  "00:27",
-                  style: TextStyle(
-                    color: Colors.blue,
-                    fontWeight: FontWeight.w500,
+                GestureDetector(
+                  onTap: _canResend ? _resendOtp : null,
+                  child: Text(
+                    _canResend
+                        ? (_isResending ? "Sending..." : "Resend")
+                        : "00:${_secondsRemaining.toString().padLeft(2, '0')}",
+                    style: TextStyle(
+                      color: _canResend ? AppColors.primaryBlue : Colors.blue,
+                      fontWeight: FontWeight.w500,
+                      decoration: _canResend ? TextDecoration.underline : null,
+                    ),
                   ),
                 ),
               ],
@@ -187,71 +306,13 @@ class _VerificationScreenState extends State<VerificationScreen> {
                   setState(() => _isLoading = true);
 
                   try {
-                    final credential = PhoneAuthProvider.credential(
+                    final user = await _authService.verifyOtp(
                       verificationId: _verificationId,
                       smsCode: _enteredOtp,
                     );
 
-                    // ✅ LOGIN ONCE
-                    await FirebaseAuth.instance
-                        .signInWithCredential(credential);
-
-                    final user = FirebaseAuth.instance.currentUser;
-                    if (user == null) return;
-
-                    //  CHECK FIRESTORE
-                    var doc = await FirebaseFirestore.instance
-                        .collection('users')
-                        .doc(user.uid)
-                        .get();
-
-                    if (doc.exists) {
-                      final data = doc.data();
-                      Map roles = data?['roles'] ?? {};
-
-                      if (roles.isNotEmpty) {
-                        // Use pre-selected role if provided and exists, else pick first
-                        String matchedRole = (role != null &&
-                                roles.containsKey(role.toLowerCase()))
-                            ? role.toLowerCase()
-                            : roles.keys.first.toString();
-
-                        if (mounted) {
-                          Navigator.pushReplacement(
-                            context,
-                            MaterialPageRoute(
-                              builder: (_) =>
-                                  DashboardScreen(role: matchedRole),
-                            ),
-                          );
-                        }
-                      } else {
-                        // No roles found -> Signup
-                        if (mounted) {
-                          Navigator.pushReplacement(
-                            context,
-                            MaterialPageRoute(
-                              builder: (_) => const SignupScreen(),
-                              settings: role != null
-                                  ? RouteSettings(arguments: role)
-                                  : null,
-                            ),
-                          );
-                        }
-                      }
-                    } else {
-                      // Doc doesn't exist -> Signup
-                      if (mounted) {
-                        Navigator.pushReplacement(
-                          context,
-                          MaterialPageRoute(
-                            builder: (_) => const SignupScreen(),
-                            settings: role != null
-                                ? RouteSettings(arguments: role)
-                                : null,
-                          ),
-                        );
-                      }
+                    if (user != null) {
+                      await _handleNavigation(user);
                     }
                   } catch (e) {
                     ScaffoldMessenger.of(context).showSnackBar(

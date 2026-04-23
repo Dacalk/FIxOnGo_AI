@@ -9,8 +9,9 @@ import '../components/phone_input.dart';
 import '../components/form_input.dart';
 
 import '../services/google_auth_service.dart';
-import 'dashboard_screen.dart';
 import 'signup_screen.dart';
+import 'dashboard_screen.dart';
+import '../services/auth_service.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -29,6 +30,7 @@ class _LoginScreenState extends State<LoginScreen> {
 
   bool _isGoogleLoading = false;
   bool _isEmailLoading = false;
+  bool _isOtpLoading = false;
   bool _showEmailLogin = false;
 
   @override
@@ -114,18 +116,56 @@ class _LoginScreenState extends State<LoginScreen> {
   }
 
   // 🔵 OTP FLOW
+  final AuthService _authService = AuthService();
+
   void _onGetOtp() async {
-    final error = PhoneInput.validateSriLankanPhone(_phoneController.text);
+    final phone = _phoneController.text.trim();
+    final error = PhoneInput.validateSriLankanPhone(phone);
     setState(() => _phoneError = error);
 
     if (error == null) {
-      Navigator.pushNamed(
-        context,
-        '/verification',
-        arguments: {
-          'phone': _phoneController.text,
-        },
-      );
+      setState(() => _isOtpLoading = true);
+
+      try {
+        await _authService.verifyPhone(
+          phoneNumber: '+94$phone',
+          onCodeSent: (verificationId, resendToken) {
+            setState(() => _isOtpLoading = false);
+            Navigator.pushNamed(
+              context,
+              '/verification',
+              arguments: {
+                'phone': phone,
+                'verificationId': verificationId,
+                'resendToken': resendToken,
+              },
+            );
+          },
+          onVerificationFailed: (e) {
+            setState(() => _isOtpLoading = false);
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(content: Text(e.message ?? "Verification failed")),
+            );
+          },
+          onVerificationCompleted: (credential) async {
+            // This happens on some Android devices for auto-verification
+            try {
+              final userCredential =
+                  await FirebaseAuth.instance.signInWithCredential(credential);
+              if (userCredential.user != null) {
+                await checkUserAndNavigate(userCredential.user!);
+              }
+            } catch (e) {
+              print("Auto-verification error: $e");
+            }
+          },
+        );
+      } catch (e) {
+        setState(() => _isOtpLoading = false);
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text("Error: ${e.toString()}")),
+        );
+      }
     }
   }
 
@@ -336,7 +376,7 @@ class _LoginScreenState extends State<LoginScreen> {
                     label: _showEmailLogin ? "Login" : "Get OTP",
                     onPressed: _showEmailLogin ? _handleEmailLogin : _onGetOtp,
                     icon: Icons.arrow_forward,
-                    isLoading: _isEmailLoading,
+                    isLoading: _showEmailLogin ? _isEmailLoading : _isOtpLoading,
                   ),
                   const SizedBox(height: 30),
                   Row(
