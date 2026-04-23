@@ -82,11 +82,11 @@ class _MechanicAcceptedScreenState extends State<MechanicAcceptedScreen> {
             'createdAt': FieldValue.serverTimestamp(),
           });
 
-          // 2. Mark Request status (Optional: if we want to track payment)
-          // await FirebaseFirestore.instance
-          //     .collection('requests')
-          //     .doc(_requestId)
-          //     .update({'paymentStatus': 'paid'});
+          // 2. Mark Request status
+          await FirebaseFirestore.instance
+              .collection('requests')
+              .doc(_requestId)
+              .update({'paymentStatus': 'paid'});
         }
       } catch (e) {
         print("Error saving payment: $e");
