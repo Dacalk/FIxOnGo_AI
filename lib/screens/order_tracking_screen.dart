@@ -49,7 +49,11 @@ class _OrderTrackingScreenState extends State<OrderTrackingScreen> {
 
     try {
       final userPos = await LocationService.instance.getCurrentLatLng();
-      if (mounted) setState(() => _userLatLng = userPos);
+      if (mounted) {
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (mounted) setState(() => _userLatLng = userPos);
+        });
+      }
     } catch (_) {}
   }
 
@@ -62,23 +66,31 @@ class _OrderTrackingScreenState extends State<OrderTrackingScreen> {
         .listen((snap) {
       if (snap.exists && mounted) {
         final data = snap.data()!;
-        setState(() => _requestData = data);
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (!mounted) return;
+          setState(() => _requestData = data);
 
-        final mLoc = data['mechanicLocation'] as Map<String, dynamic>?;
-        if (mLoc != null) {
-          final newPos = LatLng(mLoc['lat'], mLoc['lng']);
-          setState(() => _mechanicLatLng = newPos);
-          _updateRoute();
-        }
+          final mLoc = data['mechanicLocation'] as Map<String, dynamic>?;
+          if (mLoc != null) {
+            final newPos = LatLng(mLoc['lat'], mLoc['lng']);
+            setState(() => _mechanicLatLng = newPos);
+            _updateRoute();
+          }
 
-        // If status completed, navigate to success or show arrived notification
-        if (data['status'] == 'completed') {
-          Navigator.pushReplacementNamed(
-            context,
-            '/payment-successful',
-            arguments: {'role': 'user'},
-          );
-        }
+          // If status completed, navigate to success or show arrived notification
+          if (data['status'] == 'completed') {
+            Navigator.pushReplacementNamed(
+              context,
+              '/payment-successful',
+              arguments: {
+                'role': 'user',
+                'requestId': _requestId,
+                'mechanicId': data['mechanicId'],
+                'mechanicName': data['mechanicName'],
+              },
+            );
+          }
+        });
       }
     });
   }
@@ -90,9 +102,13 @@ class _OrderTrackingScreenState extends State<OrderTrackingScreen> {
       final route = await MapService.instance
           .getDirections(_mechanicLatLng!, _userLatLng!);
       if (mounted) {
-        setState(() {
-          _routePoints = route.points;
-          _eta = route.summary;
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (mounted) {
+            setState(() {
+              _routePoints = route.points;
+              _eta = route.summary;
+            });
+          }
         });
       }
     } catch (_) {}
@@ -165,7 +181,11 @@ class _OrderTrackingScreenState extends State<OrderTrackingScreen> {
                   top: MediaQuery.of(context).padding.top + 8,
                   left: 16,
                   child: GestureDetector(
-                    onTap: () => Navigator.pop(context),
+                    onTap: () {
+                      WidgetsBinding.instance.addPostFrameCallback((_) {
+                        if (mounted) Navigator.pop(context);
+                      });
+                    },
                     child: CircleAvatar(
                       backgroundColor:
                           dark ? AppColors.darkSurface : Colors.white,

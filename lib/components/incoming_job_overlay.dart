@@ -18,22 +18,14 @@ class IncomingJobOverlay extends StatefulWidget {
   State<IncomingJobOverlay> createState() => _IncomingJobOverlayState();
 }
 
-class _IncomingJobOverlayState extends State<IncomingJobOverlay>
-    with SingleTickerProviderStateMixin {
-  late AnimationController _pulseController;
-
+class _IncomingJobOverlayState extends State<IncomingJobOverlay> {
   @override
   void initState() {
     super.initState();
-    _pulseController = AnimationController(
-      vsync: this,
-      duration: const Duration(seconds: 2),
-    )..repeat(reverse: true);
   }
 
   @override
   void dispose() {
-    _pulseController.dispose();
     super.dispose();
   }
 

@@ -20,9 +20,7 @@ class SearchingMechanicsScreen extends StatefulWidget {
       _SearchingMechanicsScreenState();
 }
 
-class _SearchingMechanicsScreenState extends State<SearchingMechanicsScreen>
-    with SingleTickerProviderStateMixin {
-  late AnimationController _dotController;
+class _SearchingMechanicsScreenState extends State<SearchingMechanicsScreen> {
   final MapController _mapController = MapController();
 
   LatLng? _userLatLng;
@@ -41,10 +39,6 @@ class _SearchingMechanicsScreenState extends State<SearchingMechanicsScreen>
   @override
   void initState() {
     super.initState();
-    _dotController = AnimationController(
-      vsync: this,
-      duration: const Duration(milliseconds: 1500),
-    )..repeat();
     _fetchLocation();
     _listenToMechanics();
     _initUserData();
@@ -56,10 +50,15 @@ class _SearchingMechanicsScreenState extends State<SearchingMechanicsScreen>
 
     // Try to get service info from arguments
     Future.microtask(() {
+      if (!mounted) return;
       final args = ModalRoute.of(context)?.settings.arguments;
       if (args is Map<String, dynamic>) {
-        setState(() {
-          _serviceType = args['serviceType'];
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (mounted) {
+            setState(() {
+              _serviceType = args['serviceType'];
+            });
+          }
         });
       }
     });
@@ -70,8 +69,12 @@ class _SearchingMechanicsScreenState extends State<SearchingMechanicsScreen>
         .doc(user.uid)
         .get();
     if (doc.exists && mounted) {
-      setState(() {
-        _userName = doc.data()?['fullName'] ?? user.displayName ?? 'User';
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) {
+          setState(() {
+            _userName = doc.data()?['fullName'] ?? user.displayName ?? 'User';
+          });
+        }
       });
     }
   }
@@ -87,6 +90,9 @@ class _SearchingMechanicsScreenState extends State<SearchingMechanicsScreen>
         final data = doc.data();
         final m = data['roles']['mechanic'] as Map<String, dynamic>?;
         if (m != null) {
+          final isActive = m['isActive'] ?? true;
+          if (!isActive) continue;
+
           final loc = m['location'] as Map<String, dynamic>?;
           if (loc != null) {
             list.add({
@@ -118,10 +124,14 @@ class _SearchingMechanicsScreenState extends State<SearchingMechanicsScreen>
         _uiUpdateTimer?.cancel();
         _uiUpdateTimer = Timer(const Duration(milliseconds: 500), () {
           if (mounted) {
-            setState(() {
-              _mechanics = list;
-              if (_selectedMechanic == null && list.isNotEmpty) {
-                _selectedMechanic = list.first;
+            WidgetsBinding.instance.addPostFrameCallback((_) {
+              if (mounted) {
+                setState(() {
+                  _mechanics = list;
+                  if (_selectedMechanic == null && list.isNotEmpty) {
+                    _selectedMechanic = list.first;
+                  }
+                });
               }
             });
           }
@@ -137,7 +147,11 @@ class _SearchingMechanicsScreenState extends State<SearchingMechanicsScreen>
     final user = FirebaseAuth.instance.currentUser;
     if (user == null) return;
 
-    setState(() => _isRequesting = true);
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) {
+        setState(() => _isRequesting = true);
+      }
+    });
 
     final ref = await FirebaseFirestore.instance.collection('requests').add({
       'userId': user.uid,
@@ -150,6 +164,9 @@ class _SearchingMechanicsScreenState extends State<SearchingMechanicsScreen>
       'mechanicName': _selectedMechanic!['name'],
       'serviceType': _serviceType ?? 'General Service',
       'status': 'pending',
+      'basePrice': 2000,
+      'totalPrice': 2000,
+      'tools': [],
       'createdAt': FieldValue.serverTimestamp(),
     });
 
@@ -165,17 +182,26 @@ class _SearchingMechanicsScreenState extends State<SearchingMechanicsScreen>
           _requestSub?.cancel();
 
           if (mounted) {
-            Navigator.pushReplacementNamed(context, '/mechanic-accepted',
-                arguments: _currentRequestId);
+            WidgetsBinding.instance.addPostFrameCallback((_) {
+              if (mounted) {
+                Navigator.pushReplacementNamed(context, '/mechanic-accepted',
+                    arguments: _currentRequestId);
+              }
+            });
           }
         } else if (status == 'rejected') {
           if (mounted) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(content: Text("Request rejected by mechanic.")),
-            );
-            setState(() {
-              _isRequesting = false;
-              _currentRequestId = null;
+            WidgetsBinding.instance.addPostFrameCallback((_) {
+              if (mounted) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(
+                      content: Text("Request rejected by mechanic.")),
+                );
+                setState(() {
+                  _isRequesting = false;
+                  _currentRequestId = null;
+                });
+              }
             });
             _requestSub?.cancel();
           }
@@ -188,12 +214,20 @@ class _SearchingMechanicsScreenState extends State<SearchingMechanicsScreen>
     try {
       final latLng = await LocationService.instance.getCurrentLatLng();
       if (!mounted) return;
-      setState(() => _userLatLng = latLng);
-      _mapController.move(latLng, 14);
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) {
+          setState(() => _userLatLng = latLng);
+          _mapController.move(latLng, 14);
+        }
+      });
     } catch (_) {
       // Fallback to Colombo
       if (!mounted) return;
-      setState(() => _userLatLng = const LatLng(6.9271, 79.8612));
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) {
+          setState(() => _userLatLng = const LatLng(6.9271, 79.8612));
+        }
+      });
     }
   }
 
@@ -227,7 +261,11 @@ class _SearchingMechanicsScreenState extends State<SearchingMechanicsScreen>
           height: 40,
           child: GestureDetector(
             onTap: () {
-              setState(() => _selectedMechanic = mech);
+              WidgetsBinding.instance.addPostFrameCallback((_) {
+                if (mounted) {
+                  setState(() => _selectedMechanic = mech);
+                }
+              });
             },
             child: Container(
               decoration: BoxDecoration(
@@ -263,10 +301,10 @@ class _SearchingMechanicsScreenState extends State<SearchingMechanicsScreen>
 
   @override
   void dispose() {
-    _dotController.dispose();
     _mechanicSub?.cancel();
     _requestSub?.cancel();
     _uiUpdateTimer?.cancel();
+    _mapController.dispose();
     super.dispose();
   }
 
@@ -526,8 +564,12 @@ class _SearchingMechanicsScreenState extends State<SearchingMechanicsScreen>
   Widget _mechanicCard(Map<String, dynamic> mech, bool selected, bool dark) {
     return GestureDetector(
       onTap: () {
-        setState(() => _selectedMechanic = mech);
-        _mapController.move(LatLng(mech['lat'], mech['lng']), 14);
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (mounted) {
+            setState(() => _selectedMechanic = mech);
+            _mapController.move(LatLng(mech['lat'], mech['lng']), 14);
+          }
+        });
       },
       child: Container(
         width: MediaQuery.of(context).size.width *
@@ -595,12 +637,58 @@ class _SearchingMechanicsScreenState extends State<SearchingMechanicsScreen>
                       ),
                     ],
                   ),
-                  Text(
-                    mech['specialty'],
-                    style: TextStyle(
-                      fontSize: 12,
-                      color: Colors.grey[500],
-                    ),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Text(
+                        mech['specialty'],
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: Colors.grey[500],
+                        ),
+                      ),
+                      GestureDetector(
+                        onTap: () {
+                          Navigator.pushNamed(
+                            context,
+                            '/mechanic-details',
+                            arguments: mech['id'],
+                          );
+                        },
+                        child: Text(
+                          'View Profile',
+                          style: TextStyle(
+                            fontSize: 12,
+                            color: AppColors.primaryBlue,
+                            fontWeight: FontWeight.bold,
+                            decoration: TextDecoration.underline,
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      GestureDetector(
+                        onTap: () {
+                          Navigator.pushNamed(
+                            context,
+                            '/user-shop-view',
+                            arguments: {
+                              'mechanicId': mech['id'],
+                              'mechanicName': mech['name'],
+                              'requestId': _currentRequestId,
+                            },
+                          );
+                        },
+                        child: Text(
+                          'View Shop',
+                          style: TextStyle(
+                            fontSize: 12,
+                            color: Colors.green,
+                            fontWeight: FontWeight.bold,
+                            decoration: TextDecoration.underline,
+                          ),
+                        ),
+                      ),
+                    ],
                   ),
                   const SizedBox(height: 8),
                   Row(

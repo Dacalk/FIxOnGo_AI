@@ -54,6 +54,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
   // Real-time data streams
   Stream<List<Map<String, dynamic>>>? _ongoingRequestsStream;
   Stream<List<Map<String, dynamic>>>? _paymentHistoryStream;
+  bool _isMechanicActive = true;
   Stream<List<Map<String, dynamic>>>? _mechanicIncomingRequestsStream;
 
   @override
@@ -68,7 +69,11 @@ class _DashboardScreenState extends State<DashboardScreen> {
     try {
       final loc = await LocationService.instance.getCurrentLatLng();
       if (mounted) {
-        setState(() => _userLocation = loc);
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (mounted) {
+            setState(() => _userLocation = loc);
+          }
+        });
       }
     } catch (e) {
       print("Error fetching dashboard location: $e");
@@ -133,58 +138,83 @@ class _DashboardScreenState extends State<DashboardScreen> {
           
           isLoading = false;
         });
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (mounted) {
+            setState(() {
+              allRoles = rolesMap;
+              // Update the localized role if we changed it
+              currentRole = role;
+              userName = rd['fullName']?.toString().isNotEmpty == true
+                  ? rd['fullName']
+                  : user.displayName ?? 'User';
+              userEmail = data?['email']?.toString().isNotEmpty == true
+                  ? data!['email']
+                  : user.email ?? '';
+              userPhone = data?['phone']?.toString().isNotEmpty == true
+                  ? data!['phone']
+                  : user.phoneNumber ?? '';
+              roleData = rd;
+              userPhotoUrl =
+                  data?['photoUrl']?.toString() ?? user.photoURL ?? '';
+              _isMechanicActive = rd['isActive'] ?? true;
+              isLoading = false;
+            });
 
-        // 🟢 INIT DATA STREAMS FOR USER
-        if (currentRole?.toLowerCase() == 'user' ||
-            rolesMap.containsKey('user')) {
-          _initUserDataStreams(user.uid);
-        }
+            // 🟢 INIT DATA STREAMS FOR USER
+            if (currentRole?.toLowerCase() == 'user' ||
+                rolesMap.containsKey('user')) {
+              _initUserDataStreams(user.uid);
+            }
 
-        // 🔧 ALWAYS START MECHANIC SERVICES IF ROLE EXISTS
-        // This ensures mechanics get requests even while browsing as a user
-        final isMechanic = rolesMap.containsKey('mechanic') ||
-            userEmail == 'mock@fixongo.test';
+            // 🔧 ALWAYS START MECHANIC SERVICES IF ROLE EXISTS
+            final isMechanic = rolesMap.containsKey('mechanic') ||
+                userEmail == 'mock@fixongo.test';
 
-        if (isMechanic) {
-          if (userEmail == 'mock@fixongo.test' && _userLocation != null) {
-            await TestService.instance.cleanupMocks();
-            await TestService.instance.removeDuplicateMocks(user.uid);
-            await TestService.instance
-                .makeMeMockMechanic(user.uid, _userLocation!);
+            if (isMechanic) {
+              if (userEmail == 'mock@fixongo.test' && _userLocation != null) {
+                TestService.instance.cleanupMocks();
+                TestService.instance.removeDuplicateMocks(user.uid);
+                TestService.instance
+                    .makeMeMockMechanic(user.uid, _userLocation!);
+              }
+              _initMechanicServices(user.uid);
+              _initMechanicDataStreams(user.uid);
+            }
           }
-          _initMechanicServices(user.uid);
-          _initMechanicDataStreams(user.uid);
-        }
+        });
       } else {
         // No Firestore doc — use Google profile data
-        setState(() {
-          userName = user.displayName ?? 'User';
-          userEmail = user.email ?? '';
-          userPhone = user.phoneNumber ?? '';
-          userPhotoUrl = user.photoURL ?? '';
-          isLoading = false;
-        });
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (mounted) {
+            setState(() {
+              userName = user.displayName ?? 'User';
+              userEmail = user.email ?? '';
+              userPhone = user.phoneNumber ?? '';
+              userPhotoUrl = user.photoURL ?? '';
+              isLoading = false;
+            });
 
-        // 🔧 START MECHANIC SERVICES (Auto-init for mock email even without doc)
-        if (role.toLowerCase() == 'mechanic' ||
-            user.email == 'mock@fixongo.test') {
-          // Initialize mock data if it's the test account
-          if (user.email == 'mock@fixongo.test') {
-            final loc = await LocationService.instance.getCurrentLatLng();
-            await TestService.instance.makeMeMockMechanic(user.uid, loc);
+            // 🔧 START MECHANIC SERVICES
+            if (role.toLowerCase() == 'mechanic' ||
+                user.email == 'mock@fixongo.test') {
+              _initMechanicServices(user.uid);
+              _initMechanicDataStreams(user.uid);
+            }
           }
-          _initMechanicServices(user.uid);
-          _initMechanicDataStreams(user.uid);
-        }
+        });
       }
     } catch (e) {
       print("Dashboard load error: ${e.toString()}");
       // Fallback to Google profile on any error
-      setState(() {
-        userName = user.displayName ?? 'User';
-        userEmail = user.email ?? '';
-        userPhotoUrl = user.photoURL ?? '';
-        isLoading = false;
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) {
+          setState(() {
+            userName = user.displayName ?? 'User';
+            userEmail = user.email ?? '';
+            userPhotoUrl = user.photoURL ?? '';
+            isLoading = false;
+          });
+        }
       });
     }
   }
@@ -192,6 +222,37 @@ class _DashboardScreenState extends State<DashboardScreen> {
   // Helper to get a role field with a fallback
   String _rd(String key, [String fallback = '']) =>
       roleData[key]?.toString() ?? fallback;
+
+  Future<void> _toggleMechanicActive(bool value) async {
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null) return;
+
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) {
+        setState(() => _isMechanicActive = value);
+      }
+    });
+
+    try {
+      await FirebaseFirestore.instance
+          .collection('users')
+          .doc(user.uid)
+          .update({
+        'roles.mechanic.isActive': value,
+      });
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text("Error updating status: $e")),
+        );
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (mounted) {
+            setState(() => _isMechanicActive = !value);
+          }
+        });
+      }
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -239,6 +300,16 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
     setState(() {
       isMechanicOnline = value;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) {
+        setState(() {
+          currentRole = newRole;
+          roleData = rd;
+          userName = rd['fullName']?.toString().isNotEmpty == true
+              ? rd['fullName']
+              : FirebaseAuth.instance.currentUser?.displayName ?? 'User';
+        });
+      }
     });
 
     try {
@@ -307,8 +378,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
         .snapshots()
         .map((snap) =>
             snap.docs.map((doc) => {'id': doc.id, ...doc.data()}).toList());
-
-    setState(() {});
   }
 
   void _initMechanicDataStreams(String uid) {
@@ -329,13 +398,15 @@ class _DashboardScreenState extends State<DashboardScreen> {
         .snapshots()
         .map((snap) =>
             snap.docs.map((doc) => {'id': doc.id, ...doc.data()}).toList());
-
-    setState(() {});
   }
 
   void _showNewRequestDialog(Map<String, dynamic> req) {
     if (_isOverlayShown) return;
-    setState(() => _isOverlayShown = true);
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) {
+        setState(() => _isOverlayShown = true);
+      }
+    });
 
     showModalBottomSheet(
       context: context,
@@ -350,7 +421,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
               .doc(req['id'])
               .update({'status': 'rejected'});
           if (mounted) {
-            setState(() => _isOverlayShown = false);
             Navigator.pop(context);
           }
         },
@@ -366,20 +436,29 @@ class _DashboardScreenState extends State<DashboardScreen> {
           _lastDialogRequestId = null;
 
           if (mounted) {
-            setState(() => _isOverlayShown = false);
             Navigator.pop(context);
           }
           // Navigate to mechanic tracking screen
           if (mounted) {
-            if (_isNavigating) return;
-            _isNavigating = true;
-            Navigator.pushNamed(context, '/mechanic-nav-to-user',
-                arguments: req['id']);
+            WidgetsBinding.instance.addPostFrameCallback((_) {
+              if (mounted) {
+                if (_isNavigating) return;
+                _isNavigating = true;
+                Navigator.pushNamed(context, '/mechanic-nav-to-user',
+                    arguments: req['id']);
+              }
+            });
           }
         },
       ),
     ).then((_) {
-      if (mounted) setState(() => _isOverlayShown = false);
+      if (mounted) {
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (mounted) {
+            setState(() => _isOverlayShown = false);
+          }
+        });
+      }
     });
   }
 
@@ -417,24 +496,29 @@ class _DashboardScreenState extends State<DashboardScreen> {
         child: BottomNavigationBar(
           currentIndex: _currentIndex,
           onTap: (i) {
-            setState(() {
-              _currentIndex = i;
+            WidgetsBinding.instance.addPostFrameCallback((_) {
+              if (!mounted) return;
+              switch (i) {
+                case 1:
+                  if (currentRole?.toLowerCase() == 'mechanic') {
+                    Navigator.pushReplacementNamed(context, '/mechanic-shop');
+                  } else {
+                    Navigator.pushReplacementNamed(context, '/garage');
+                  }
+                  break;
+                case 2:
+                  Navigator.pushReplacementNamed(context, '/payment-history');
+                  break;
+                case 3:
+                  Navigator.pushReplacementNamed(context, '/profile',
+                      arguments: currentRole);
+                  break;
+                default:
+                  setState(() {
+                    _currentIndex = i;
+                  });
+              }
             });
-            // Handle navigation based on index
-            switch (i) {
-              case 0:
-                // Dashboard is already handled by IndexedStack
-                break;
-              case 1:
-                Navigator.pushReplacementNamed(context, '/garage');
-                break;
-              case 2:
-                Navigator.pushReplacementNamed(context, '/payment-history');
-                break;
-              case 3:
-                Navigator.pushReplacementNamed(context, '/profile');
-                break;
-            }
           },
           type: BottomNavigationBarType.fixed,
           backgroundColor: dark ? const Color(0xFF111D35) : Colors.white,
@@ -443,14 +527,17 @@ class _DashboardScreenState extends State<DashboardScreen> {
           unselectedItemColor: dark ? Colors.grey[600] : Colors.grey[400],
           selectedFontSize: 12,
           unselectedFontSize: 11,
-          items: const [
-            BottomNavigationBarItem(
+          items: [
+            const BottomNavigationBarItem(
               icon: Icon(Icons.home_rounded),
               label: 'Dashboard',
             ),
             BottomNavigationBarItem(
-              icon: Icon(Icons.garage_rounded),
-              label: 'Garage',
+              icon: Icon(currentRole?.toLowerCase() == 'mechanic'
+                  ? Icons.shopping_bag
+                  : Icons.garage_rounded),
+              label:
+                  currentRole?.toLowerCase() == 'mechanic' ? 'Shop' : 'Garage',
             ),
             BottomNavigationBarItem(
               icon: Icon(Icons.payments_rounded),
@@ -502,21 +589,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
             onSwitchRole: _switchRole,
           ),
           const SizedBox(height: 16),
-
-          // Quick service pills
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16),
-            child: Row(
-              children: [
-                _servicePill(Icons.local_shipping, 'Towing', dark),
-                const SizedBox(width: 10),
-                _servicePill(Icons.bolt, 'Jump Start', dark),
-                const SizedBox(width: 10),
-                _servicePill(Icons.tire_repair, 'Flat Tire', dark),
-              ],
-            ),
-          ),
-          const SizedBox(height: 20),
 
           // Real Map
           Padding(
@@ -651,7 +723,10 @@ class _DashboardScreenState extends State<DashboardScreen> {
                         title: 'AI Assistant',
                         color: const Color(0xFF2E7D32),
                         onTap: () {
-                          Navigator.pushNamed(context, '/ai-chat');
+                          WidgetsBinding.instance.addPostFrameCallback((_) {
+                            if (mounted)
+                              Navigator.pushNamed(context, '/ai-chat');
+                          });
                         },
                       ),
                     ),
@@ -663,7 +738,12 @@ class _DashboardScreenState extends State<DashboardScreen> {
                         title: 'Mechanic',
                         color: const Color(0xFFE65100),
                         onTap: () {
-                          Navigator.pushNamed(context, '/searching-mechanics');
+                          WidgetsBinding.instance.addPostFrameCallback((_) {
+                            if (mounted) {
+                              Navigator.pushNamed(
+                                  context, '/searching-mechanics');
+                            }
+                          });
                         },
                       ),
                     ),
@@ -674,12 +754,18 @@ class _DashboardScreenState extends State<DashboardScreen> {
                   children: [
                     Expanded(
                       child: QuickActionCard(
-                        icon: Icons.handyman,
-                        subtitle: 'DIY SUPPORT',
-                        title: 'Get Tools',
+                        icon: Icons.store_rounded,
+                        subtitle: 'SHOP TOOLS',
+                        title: 'Browse Shop',
                         color: const Color(0xFF1B5E20),
                         onTap: () {
-                          Navigator.pushNamed(context, '/request-tools');
+                          // Redirect to searching for mechanics who have products/shops
+                          WidgetsBinding.instance.addPostFrameCallback((_) {
+                            if (mounted) {
+                              Navigator.pushNamed(
+                                  context, '/searching-mechanics');
+                            }
+                          });
                         },
                       ),
                     ),
@@ -691,7 +777,11 @@ class _DashboardScreenState extends State<DashboardScreen> {
                         title: 'Call Support',
                         color: const Color(0xFF1A2940),
                         onTap: () {
-                          Navigator.pushNamed(context, '/call-support');
+                          WidgetsBinding.instance.addPostFrameCallback((_) {
+                            if (mounted) {
+                              Navigator.pushNamed(context, '/call-support');
+                            }
+                          });
                         },
                       ),
                     ),
@@ -775,6 +865,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                 borderRadius: BorderRadius.circular(18),
                 border: Border.all(
                   color: isMechanicOnline
+                  color: _isMechanicActive
                       ? Colors.green.withValues(alpha: 0.4)
                       : Colors.grey.withValues(alpha: 0.4),
                 ),
@@ -786,6 +877,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                     height: 10,
                     decoration: BoxDecoration(
                       color: isMechanicOnline ? Colors.green : Colors.grey,
+                      color: _isMechanicActive ? Colors.green : Colors.grey,
                       shape: BoxShape.circle,
                     ),
                   ),
@@ -819,6 +911,19 @@ class _DashboardScreenState extends State<DashboardScreen> {
                     onChanged: _toggleMechanicAvailability,
                     activeColor: AppColors.brandYellow,
                     activeTrackColor: AppColors.primaryBlue,
+                    child: Text(
+                      _isMechanicActive ? 'You are Online' : 'You are Offline',
+                      style: TextStyle(
+                        fontSize: 15,
+                        fontWeight: FontWeight.w600,
+                        color: dark ? Colors.white : Colors.black87,
+                      ),
+                    ),
+                  ),
+                  Switch(
+                    value: _isMechanicActive,
+                    onChanged: _toggleMechanicActive,
+                    activeColor: Colors.green,
                   ),
                 ],
               ),
@@ -995,7 +1100,9 @@ class _DashboardScreenState extends State<DashboardScreen> {
                     title: 'Start Tow',
                     color: const Color(0xFFE65100),
                     onTap: () {
-                      Navigator.pushNamed(context, '/location');
+                      WidgetsBinding.instance.addPostFrameCallback((_) {
+                        if (mounted) Navigator.pushNamed(context, '/location');
+                      });
                     },
                   ),
                 ),
@@ -1007,7 +1114,10 @@ class _DashboardScreenState extends State<DashboardScreen> {
                     title: 'Support',
                     color: const Color(0xFF1A2940),
                     onTap: () {
-                      Navigator.pushNamed(context, '/call-support');
+                      WidgetsBinding.instance.addPostFrameCallback((_) {
+                        if (mounted)
+                          Navigator.pushNamed(context, '/call-support');
+                      });
                     },
                   ),
                 ),
@@ -1126,7 +1236,10 @@ class _DashboardScreenState extends State<DashboardScreen> {
                         title: 'View Orders',
                         color: const Color(0xFF1565C0),
                         onTap: () {
-                          Navigator.pushNamed(context, '/order-tracking');
+                          WidgetsBinding.instance.addPostFrameCallback((_) {
+                            if (mounted)
+                              Navigator.pushNamed(context, '/order-tracking');
+                          });
                         },
                       ),
                     ),
@@ -1157,7 +1270,10 @@ class _DashboardScreenState extends State<DashboardScreen> {
                         title: 'Messages',
                         color: const Color(0xFFE65100),
                         onTap: () {
-                          Navigator.pushNamed(context, '/mechanic-chat');
+                          WidgetsBinding.instance.addPostFrameCallback((_) {
+                            if (mounted)
+                              Navigator.pushNamed(context, '/mechanic-chat');
+                          });
                         },
                       ),
                     ),
@@ -1347,7 +1463,10 @@ class _DashboardScreenState extends State<DashboardScreen> {
                     title: 'New Delivery',
                     color: const Color(0xFF2E7D32),
                     onTap: () {
-                      Navigator.pushNamed(context, '/order-tracking');
+                      WidgetsBinding.instance.addPostFrameCallback((_) {
+                        if (mounted)
+                          Navigator.pushNamed(context, '/order-tracking');
+                      });
                     },
                   ),
                 ),
@@ -1359,7 +1478,9 @@ class _DashboardScreenState extends State<DashboardScreen> {
                     title: 'View Route',
                     color: const Color(0xFF1565C0),
                     onTap: () {
-                      Navigator.pushNamed(context, '/location');
+                      WidgetsBinding.instance.addPostFrameCallback((_) {
+                        if (mounted) Navigator.pushNamed(context, '/location');
+                      });
                     },
                   ),
                 ),
@@ -1806,17 +1927,20 @@ class _DashboardScreenState extends State<DashboardScreen> {
           ),
           ElevatedButton(
             onPressed: () {
-              if (status == 'pending') {
-                Navigator.pushNamed(context, '/searching-mechanics',
-                    arguments: {'serviceType': req['serviceType']});
-              } else if (status == 'accepted' ||
-                  status == 'arriving' ||
-                  status == 'arrived') {
-                final route = (status == 'accepted')
-                    ? '/mechanic-accepted'
-                    : '/order-tracking';
-                Navigator.pushNamed(context, route, arguments: req['id']);
-              }
+              WidgetsBinding.instance.addPostFrameCallback((_) {
+                if (!mounted) return;
+                if (status == 'pending') {
+                  Navigator.pushNamed(context, '/searching-mechanics',
+                      arguments: {'serviceType': req['serviceType']});
+                } else if (status == 'accepted' ||
+                    status == 'arriving' ||
+                    status == 'arrived') {
+                  final route = (status == 'accepted')
+                      ? '/mechanic-accepted'
+                      : '/order-tracking';
+                  Navigator.pushNamed(context, route, arguments: req['id']);
+                }
+              });
             },
             style: ElevatedButton.styleFrom(
               backgroundColor: AppColors.primaryBlue,

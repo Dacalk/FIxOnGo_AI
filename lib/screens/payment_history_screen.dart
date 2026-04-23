@@ -491,7 +491,11 @@ class PaymentHistoryScreen extends StatelessWidget {
     return GestureDetector(
       onTap: () {
         if (!isActive) {
-          Navigator.pushReplacementNamed(context, routeName);
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            if (context.mounted) {
+              Navigator.pushReplacementNamed(context, routeName);
+            }
+          });
         }
       },
       behavior: HitTestBehavior.opaque,

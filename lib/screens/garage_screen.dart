@@ -398,6 +398,15 @@ class _GarageScreenState extends State<GarageScreen> {
     final color = isActive ? AppColors.primaryBlue : (dark ? Colors.grey[500]! : Colors.grey[400]!);
     return GestureDetector(
       onTap: () { if (!isActive) Navigator.pushReplacementNamed(context, routeName); },
+      onTap: () {
+        if (!isActive) {
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            if (context.mounted) {
+              Navigator.pushReplacementNamed(context, routeName);
+            }
+          });
+        }
+      },
       behavior: HitTestBehavior.opaque,
       child: Column(
         mainAxisSize: MainAxisSize.min,
