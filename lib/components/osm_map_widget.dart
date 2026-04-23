@@ -53,8 +53,6 @@ class OsmMapWidget extends StatelessWidget {
     final routeColor =
         polylineColor ?? (dark ? AppColors.brandYellow : AppColors.primaryBlue);
 
-    // Choose a tile style that blends with the app theme.
-    // Light → default OSM tiles.  Dark → CartoDB dark-matter tiles (free).
     final tileUrl = dark
         ? 'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}.png'
         : 'https://tile.openstreetmap.org/{z}/{x}/{y}.png';
@@ -63,7 +61,6 @@ class OsmMapWidget extends StatelessWidget {
 
     return LayoutBuilder(
       builder: (context, constraints) {
-        // Skip rendering if we don't have a valid size yet to prevent engine crashes
         if (constraints.maxWidth <= 0 || constraints.maxHeight <= 0) {
           return const SizedBox.shrink();
         }
@@ -72,43 +69,33 @@ class OsmMapWidget extends StatelessWidget {
           children: [
             ClipRRect(
               borderRadius: BorderRadius.circular(16),
-              child: RepaintBoundary(
-                child: FlutterMap(
-                  key: const ValueKey('osm_map_instance'),
-                  mapController: mapController,
-                  options: MapOptions(
-                    initialCenter: center,
-                    initialZoom: zoom,
-                    onTap: onTap,
-                  ),
-                  children: [
-                    // ── Tile layer ──
-                    TileLayer(
-                      urlTemplate: tileUrl,
-                      subdomains: subdomains,
-                      userAgentPackageName: 'com.fixongo.app',
-                    ),
-
-                    // ── Route polyline ──
-                    if (polylinePoints != null && polylinePoints!.length >= 2)
-                      PolylineLayer(
-                        polylines: [
-                          Polyline(
-                            points: polylinePoints!,
-                            strokeWidth: 4.0,
-                            color: routeColor,
-                          ),
-                        ],
-                      ),
-
-                    // ── Markers ──
-                    MarkerLayer(markers: markers),
-                  ],
+              child: FlutterMap(
+                mapController: mapController,
+                options: MapOptions(
+                  initialCenter: center,
+                  initialZoom: zoom,
+                  onTap: onTap,
                 ),
+                children: [
+                  TileLayer(
+                    urlTemplate: tileUrl,
+                    subdomains: subdomains,
+                    userAgentPackageName: 'com.fixongo.app',
+                  ),
+                  if (polylinePoints != null && polylinePoints!.length >= 2)
+                    PolylineLayer(
+                      polylines: [
+                        Polyline(
+                          points: polylinePoints!,
+                          strokeWidth: 4.0,
+                          color: routeColor,
+                        ),
+                      ],
+                    ),
+                  MarkerLayer(markers: markers),
+                ],
               ),
             ),
-
-            // ── Locate-me FAB ──
             if (showLocateButton)
               Positioned(
                 bottom: 16,
