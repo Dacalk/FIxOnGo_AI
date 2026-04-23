@@ -469,21 +469,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
           ),
           const SizedBox(height: 16),
 
-          // Quick service pills
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16),
-            child: Row(
-              children: [
-                _servicePill(Icons.local_shipping, 'Towing', dark),
-                const SizedBox(width: 10),
-                _servicePill(Icons.bolt, 'Jump Start', dark),
-                const SizedBox(width: 10),
-                _servicePill(Icons.tire_repair, 'Flat Tire', dark),
-              ],
-            ),
-          ),
-          const SizedBox(height: 20),
-
           // Real Map
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 16),
