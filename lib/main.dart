@@ -28,8 +28,6 @@ import 'screens/garage_screen.dart';
 import 'screens/payment_history_screen.dart';
 import 'screens/help_support_screen.dart';
 import 'screens/profile_screen.dart';
-import 'screens/add_vehicle_screen.dart';
-import 'screens/add_inventory_item_screen.dart';
 import 'theme_provider.dart';
 
 import 'package:flutter_dotenv/flutter_dotenv.dart';
@@ -163,10 +161,6 @@ class FixOnGoApp extends StatelessWidget {
                 const AuthGuard(child: PaymentHistoryScreen()),
             '/help-support': (context) =>
                 const AuthGuard(child: HelpSupportScreen()),
-            '/add-vehicle': (context) =>
-                const AuthGuard(child: AddVehicleScreen()),
-            '/add-inventory-item': (context) =>
-                const AuthGuard(child: AddInventoryItemScreen()),
             '/home': (context) => const AuthGuard(child: HomeScreen()),
           },
         );

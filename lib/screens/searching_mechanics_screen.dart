@@ -82,7 +82,7 @@ class _SearchingMechanicsScreenState extends State<SearchingMechanicsScreen> {
   void _listenToMechanics() {
     _mechanicSub = FirebaseFirestore.instance
         .collection('users')
-        .where('roles.mechanic.isActive', isEqualTo: true)
+        .where('roles.mechanic', isNotEqualTo: null)
         .snapshots()
         .listen((snap) {
       final list = <Map<String, dynamic>>[];
