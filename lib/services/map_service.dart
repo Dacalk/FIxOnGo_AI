@@ -53,67 +53,33 @@ class MapService {
   /// Fetch driving directions between [origin] and [destination].
   /// Returns a [RouteResult] with polyline points and metadata.
   Future<RouteResult> getDirections(LatLng origin, LatLng destination) async {
-    // 1. Check if points are identical or extremely close
-    final dist = const Distance().as(LengthUnit.Meter, origin, destination);
-    if (dist < 5) {
-      return RouteResult(
-        points: [origin, destination],
-        distanceMetres: dist.toDouble(),
-        durationSeconds: 0,
-      );
+    final url = Uri.parse(
+      '$_baseUrl/v2/directions/driving-car'
+      '?api_key=$_apiKey'
+      '&start=${origin.longitude},${origin.latitude}'
+      '&end=${destination.longitude},${destination.latitude}',
+    );
+
+    final response = await http.get(url);
+    if (response.statusCode != 200) {
+      throw 'Directions request failed (${response.statusCode}): '
+          '${response.body}';
     }
 
-    // 2. Fallback if API key is missing
-    if (_apiKey.isEmpty) {
-      print("ORS API Key missing, using straight-line fallback");
-      return _mockRoute(origin, destination);
-    }
+    final data = jsonDecode(response.body);
+    final feature = data['features'][0];
+    final geometry = feature['geometry']['coordinates'] as List;
+    final props = feature['properties']['summary'];
 
-    try {
-      final url = Uri.parse(
-        '$_baseUrl/v2/directions/driving-car'
-        '?api_key=$_apiKey'
-        '&start=${origin.longitude},${origin.latitude}'
-        '&end=${destination.longitude},${destination.latitude}',
-      );
-
-      final response = await http.get(url);
-      if (response.statusCode != 200) {
-        print("ORS API Error: ${response.statusCode}. Falling back.");
-        return _mockRoute(origin, destination);
-      }
-
-      final data = jsonDecode(response.body);
-      final feature = data['features'][0];
-      final geometry = feature['geometry']['coordinates'] as List;
-      final props = feature['properties']['summary'];
-
-      final points = geometry
-          .map<LatLng>(
-              (c) => LatLng((c[1] as num).toDouble(), (c[0] as num).toDouble()))
-          .toList();
-
-      return RouteResult(
-        points: points,
-        distanceMetres: (props['distance'] as num).toDouble(),
-        durationSeconds: (props['duration'] as num).toDouble(),
-      );
-    } catch (e) {
-      print("Routing exception: $e. Falling back.");
-      return _mockRoute(origin, destination);
-    }
-  }
-
-  /// Creates a simple straight-line route as a visual fallback.
-  RouteResult _mockRoute(LatLng origin, LatLng destination) {
-    final dist = const Distance().as(LengthUnit.Meter, origin, destination);
-    // Rough estimate: 30km/h = 8.33 m/s
-    final duration = dist / 8.33;
+    final points = geometry
+        .map<LatLng>(
+            (c) => LatLng((c[1] as num).toDouble(), (c[0] as num).toDouble()))
+        .toList();
 
     return RouteResult(
-      points: [origin, destination],
-      distanceMetres: dist.toDouble(),
-      durationSeconds: duration,
+      points: points,
+      distanceMetres: (props['distance'] as num).toDouble(),
+      durationSeconds: (props['duration'] as num).toDouble(),
     );
   }
 

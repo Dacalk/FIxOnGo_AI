@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:url_launcher/url_launcher.dart';
 import '../theme_provider.dart';
 
 /// Call Support screen — linked from Profile > Emergency Contacts.
@@ -140,7 +139,9 @@ class CallSupportScreen extends StatelessWidget {
                       ),
                       // Core button
                       GestureDetector(
-                        onTap: () => _makeCall('1234'), // Example support number
+                        onTap: () {
+                          // Trigger Call Support
+                        },
                         child: Container(
                           width: 110,
                           height: 110,
@@ -227,8 +228,7 @@ class CallSupportScreen extends StatelessWidget {
               iconBgColor: const Color(0xFF1E3A8A), // Navy blue
               title: 'Police / Highway Patrol',
               subtitle: 'For accidents & safety hazards',
-              trailing: '119',
-              onTap: () => _makeCall('119'),
+              trailing: '911',
               dark: dark,
               cardBg: cardBg,
               titleColor: titleColor,
@@ -238,13 +238,13 @@ class CallSupportScreen extends StatelessWidget {
             const SizedBox(height: 12),
 
             _buildEmergencyOption(
-              icon: Icons.directions_car,
+              icon: Icons
+                  .directions_car, // Using a car since no exact ambulance matching perfectly (local_pharmacy is not exact either)
               iconColor: Colors.white,
               iconBgColor: Colors.red[700]!, // Red
               title: 'Medical Emergency',
-              subtitle: 'Suwa Seriya Ambulance',
-              trailing: '1990',
-              onTap: () => _makeCall('1990'),
+              subtitle: 'Immediate medical attention',
+              trailing: '911',
               dark: dark,
               cardBg: cardBg,
               titleColor: titleColor,
@@ -260,10 +260,6 @@ class CallSupportScreen extends StatelessWidget {
               title: 'Local Towing Services',
               subtitle: 'Nearest partnered provider',
               trailingIcon: Icons.chevron_right,
-              onTap: () {
-                // Future: Navigate to a list of towing providers or call a dispatch center
-                _makeCall('0117466466'); // Example towing hotline
-              },
               dark: dark,
               cardBg: cardBg,
               titleColor: titleColor,
@@ -363,16 +359,6 @@ class CallSupportScreen extends StatelessWidget {
     );
   }
 
-  Future<void> _makeCall(String phoneNumber) async {
-    final Uri launchUri = Uri(
-      scheme: 'tel',
-      path: phoneNumber,
-    );
-    if (await canLaunchUrl(launchUri)) {
-      await launchUrl(launchUri);
-    }
-  }
-
   Widget _buildEmergencyOption({
     required IconData icon,
     required Color iconColor,
@@ -385,12 +371,8 @@ class CallSupportScreen extends StatelessWidget {
     required Color cardBg,
     required Color titleColor,
     required Color subColor,
-    required VoidCallback onTap,
   }) {
-    return InkWell(
-      onTap: onTap,
-      borderRadius: BorderRadius.circular(20),
-      child: Container(
+    return Container(
       padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
       decoration: BoxDecoration(
         color: cardBg,
@@ -462,7 +444,6 @@ class CallSupportScreen extends StatelessWidget {
             ),
         ],
       ),
-    ),
-  );
-}
+    );
+  }
 }

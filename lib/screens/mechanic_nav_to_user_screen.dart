@@ -28,7 +28,6 @@ class _MechanicNavToUserScreenState extends State<MechanicNavToUserScreen> {
   String _eta = "Fetching...";
   bool _isArrived = false;
   bool _isProcessing = false;
-  String _paymentStatus = 'pending';
 
   @override
   void initState() {
@@ -44,41 +43,22 @@ class _MechanicNavToUserScreenState extends State<MechanicNavToUserScreen> {
 
   Future<void> _initData() async {
     Future.microtask(() {
-      if (!mounted) return;
       final args = ModalRoute.of(context)?.settings.arguments;
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (mounted) setState(() => _requestId = args is String ? args : null);
-        if (_requestId != null) _listenToRequest();
-      });
+      if (args is String) {
+        setState(() => _requestId = args);
+        _listenToRequest();
+      }
     });
-
-    // Fetch initial location immediately for ETA calculation
-    try {
-      final pos = await LocationService.instance.getCurrentLatLng();
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (mounted) {
-          setState(() {
-            _mechanicLatLng = pos;
-          });
-          _updateRoute();
-        }
-      });
-    } catch (e) {
-      debugPrint("Initial location error: $e");
-    }
 
     // Start local location tracking for the mechanic
     LocationService.instance.getPositionStream(distanceFilter: 5).listen((pos) {
-      if (!mounted) return;
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (mounted) {
-          setState(() {
-            _mechanicLatLng = LatLng(pos.latitude, pos.longitude);
-          });
-          _updateRoute();
-          _updateMechanicLocationInFirestore();
-        }
-      });
+      if (mounted) {
+        setState(() {
+          _mechanicLatLng = LatLng(pos.latitude, pos.longitude);
+        });
+        _updateRoute();
+        _updateMechanicLocationInFirestore();
+      }
     });
   }
 
@@ -91,18 +71,13 @@ class _MechanicNavToUserScreenState extends State<MechanicNavToUserScreen> {
         .listen((snap) {
       if (snap.exists && mounted) {
         final data = snap.data()!;
-        WidgetsBinding.instance.addPostFrameCallback((_) {
-          if (mounted) {
-            setState(() {
-              _requestData = data;
-              final uLoc = data['userLocation'] as Map<String, dynamic>;
-              _userLatLng = LatLng(uLoc['lat'], uLoc['lng']);
-              _isArrived = data['status'] == 'arrived';
-              _paymentStatus = data['paymentStatus'] ?? 'pending';
-            });
-            _updateRoute();
-          }
+        setState(() {
+          _requestData = data;
+          final uLoc = data['userLocation'] as Map<String, dynamic>;
+          _userLatLng = LatLng(uLoc['lat'], uLoc['lng']);
+          _isArrived = data['status'] == 'arrived';
         });
+        _updateRoute();
       }
     });
   }
@@ -129,15 +104,12 @@ class _MechanicNavToUserScreenState extends State<MechanicNavToUserScreen> {
         _mechanicLatLng!,
         _userLatLng!,
       );
-      if (!mounted) return;
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (mounted) {
-          setState(() {
-            _routePoints = route.points;
-            _eta = route.summary;
-          });
-        }
-      });
+      if (mounted) {
+        setState(() {
+          _routePoints = route.points;
+          _eta = route.summary;
+        });
+      }
     } catch (e) {
       debugPrint("Route error: $e");
     }
@@ -145,47 +117,33 @@ class _MechanicNavToUserScreenState extends State<MechanicNavToUserScreen> {
 
   Future<void> _handleArrived() async {
     if (_requestId == null || _isProcessing) return;
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (mounted) {
-        setState(() => _isProcessing = true);
-      }
-    });
+    setState(() => _isProcessing = true);
 
     await FirebaseFirestore.instance
         .collection('requests')
         .doc(_requestId)
         .update({'status': 'arrived'});
 
-    if (!mounted) return;
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (mounted) setState(() => _isProcessing = false);
-    });
+    if (mounted) setState(() => _isProcessing = false);
   }
 
   Future<void> _handleComplete() async {
     if (_requestId == null || _isProcessing) return;
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (mounted) {
-        setState(() => _isProcessing = true);
-      }
-    });
+    setState(() => _isProcessing = true);
 
     await FirebaseFirestore.instance
         .collection('requests')
         .doc(_requestId)
         .update({'status': 'completed'});
 
-    if (!mounted) return;
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (mounted) {
-        setState(() => _isProcessing = false);
-        Navigator.pushReplacementNamed(
-          context,
-          '/payment-successful',
-          arguments: {'role': 'mechanic'},
-        );
-      }
-    });
+    if (mounted) {
+      setState(() => _isProcessing = false);
+      Navigator.pushReplacementNamed(
+        context,
+        '/payment-successful',
+        arguments: {'role': 'mechanic'},
+      );
+    }
   }
 
   @override
@@ -307,18 +265,10 @@ class _MechanicNavToUserScreenState extends State<MechanicNavToUserScreen> {
                       ),
                       const SizedBox(height: 24),
                       PrimaryButton(
-                        label: _isArrived
-                            ? (_paymentStatus == 'paid'
-                                ? 'COMPLETE JOB'
-                                : 'AWAITING PAYMENT')
-                            : 'I HAVE ARRIVED',
+                        label: _isArrived ? 'COMPLETE JOB' : 'I HAVE ARRIVED',
                         isLoading: _isProcessing,
-                        onPressed: (_isArrived && _paymentStatus == 'paid')
-                            ? _handleComplete
-                            : (!_isArrived ? _handleArrived : null),
-                        color: (_isArrived && _paymentStatus != 'paid')
-                            ? Colors.grey
-                            : AppColors.primaryBlue,
+                        onPressed:
+                            _isArrived ? _handleComplete : _handleArrived,
                       ),
                       const SizedBox(height: 12),
                       Row(
@@ -328,13 +278,9 @@ class _MechanicNavToUserScreenState extends State<MechanicNavToUserScreen> {
                               color: Colors.green, size: 16),
                           const SizedBox(width: 8),
                           Text(
-                            _paymentStatus == 'paid'
-                                ? 'Payment: Completed'
-                                : 'Payment: Awaiting User Payment',
+                            'Payment: Awaiting Job Completion',
                             style: TextStyle(
-                                color: _paymentStatus == 'paid'
-                                    ? Colors.green[600]
-                                    : Colors.orange[600],
+                                color: Colors.green[600],
                                 fontSize: 12,
                                 fontWeight: FontWeight.w600),
                           ),

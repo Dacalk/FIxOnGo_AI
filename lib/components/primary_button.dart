@@ -10,7 +10,6 @@ class PrimaryButton extends StatelessWidget {
   final IconData? icon;
   final double height;
   final double borderRadius;
-  final Color? color;
   final bool isLoading;
 
   const PrimaryButton({
@@ -20,15 +19,14 @@ class PrimaryButton extends StatelessWidget {
     this.icon,
     this.height = 55,
     this.borderRadius = 18,
-    this.color,
     this.isLoading = false,
   });
 
   @override
   Widget build(BuildContext context) {
     final dark = isDarkMode(context);
-    final bgColor = color ??
-        (dark ? AppColors.darkAccentButton : AppColors.lightAccentButton);
+    final bgColor =
+        dark ? AppColors.darkAccentButton : AppColors.lightAccentButton;
     final fgColor =
         dark ? AppColors.darkAccentButtonText : AppColors.lightAccentButtonText;
 

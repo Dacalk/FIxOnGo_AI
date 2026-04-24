@@ -1,11 +1,10 @@
-import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import '../theme_provider.dart';
 import '../components/form_input.dart';
+import 'dashboard_screen.dart';
 import 'payment_screen.dart';
-import 'edit_profile_screen.dart';
 
 /// Profile screen — user settings, payment methods, vehicles, and sign out.
 /// Features a bottom navigation bar.
@@ -29,7 +28,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
   String userPhone = '';
   String userPhotoUrl = '';
   String userRole = '';
-  Map<String, dynamic> roleData = {};
   List<String> availableRoles = [];
   bool isLoading = true;
   bool hasPassword = false;
@@ -43,7 +41,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
       userEmail = widget.userData!['email'] ?? '';
     }
     userRole = widget.role ?? 'User';
-
+    
     _loadProfile();
   }
 
@@ -64,15 +62,13 @@ class _ProfileScreenState extends State<ProfileScreen> {
       if (doc.exists) {
         final data = doc.data();
         final roles = data?['roles'] as Map<String, dynamic>? ?? {};
-
+        
         // Use the passed role or resolve dynamically
-        String effectiveRole =
-            widget.role ?? (roles.isNotEmpty ? roles.keys.first : 'User');
-
-        final rd =
-            roles[effectiveRole.toLowerCase()] as Map<String, dynamic>? ??
-                roles[effectiveRole] as Map<String, dynamic>? ??
-                (roles.isNotEmpty ? roles.values.first : {});
+        String effectiveRole = widget.role ?? (roles.isNotEmpty ? roles.keys.first : 'User');
+        
+        final rd = roles[effectiveRole.toLowerCase()] as Map<String, dynamic>? ?? 
+                   roles[effectiveRole] as Map<String, dynamic>? ?? 
+                   (roles.isNotEmpty ? roles.values.first : {});
 
         setState(() {
           userName = rd['fullName']?.toString().isNotEmpty == true
@@ -86,7 +82,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
               : user.phoneNumber ?? '';
           userPhotoUrl = data?['photoUrl']?.toString() ?? user.photoURL ?? '';
           userRole = effectiveRole;
-          roleData = rd;
           availableRoles = roles.keys.toList();
           isLoading = false;
         });
@@ -198,65 +193,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
     return 'U';
   }
 
-  Widget _buildAvatar() {
-    final url = userPhotoUrl;
-    final initials = Center(
-      child: Text(
-        _getInitials(userName),
-        style: const TextStyle(
-          fontSize: 32,
-          fontWeight: FontWeight.bold,
-          color: AppColors.primaryBlue,
-        ),
-      ),
-    );
-
-    if (url.isEmpty) return initials;
-
-    // base64 data URL (saved locally)
-    if (url.startsWith('data:')) {
-      try {
-        final comma = url.indexOf(',');
-        final bytes = _base64ToBytes(url.substring(comma + 1));
-        return Image.memory(
-          bytes,
-          fit: BoxFit.cover,
-          width: 100,
-          height: 100,
-          errorBuilder: (_, __, ___) => initials,
-        );
-      } catch (_) {
-        return initials;
-      }
-    }
-
-    // Remote URL
-    return Image.network(
-      url,
-      fit: BoxFit.cover,
-      width: 100,
-      height: 100,
-      errorBuilder: (_, __, ___) => initials,
-    );
-  }
-
-  Uint8List _base64ToBytes(String base64Str) {
-    const chars =
-        'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/';
-    final cleaned = base64Str.replaceAll(RegExp(r'\s'), '');
-    final result = <int>[];
-    for (var i = 0; i < cleaned.length; i += 4) {
-      final c0 = chars.indexOf(cleaned[i]);
-      final c1 = chars.indexOf(cleaned[i + 1]);
-      final c2 = cleaned[i + 2] == '=' ? 0 : chars.indexOf(cleaned[i + 2]);
-      final c3 = cleaned[i + 3] == '=' ? 0 : chars.indexOf(cleaned[i + 3]);
-      result.add(((c0 << 2) | (c1 >> 4)) & 0xFF);
-      if (cleaned[i + 2] != '=') result.add(((c1 << 4) | (c2 >> 2)) & 0xFF);
-      if (cleaned[i + 3] != '=') result.add(((c2 << 6) | c3) & 0xFF);
-    }
-    return Uint8List.fromList(result);
-  }
-
   @override
   Widget build(BuildContext context) {
     final dark = isDarkMode(context);
@@ -273,7 +209,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
       appBar: AppBar(
         backgroundColor: topBgColor,
         elevation: 0,
-        automaticallyImplyLeading: false,
+        automaticallyImplyLeading: false, 
         centerTitle: true,
         title: Text(
           'My Profile',
@@ -294,10 +230,11 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 color: dark ? Colors.white : Colors.black,
               ),
               onPressed: () {
-                Navigator.pushReplacementNamed(
+                Navigator.pushReplacement(
                   context,
-                  '/dashboard',
-                  arguments: userRole,
+                  MaterialPageRoute(
+                    builder: (_) => DashboardScreen(role: userRole),
+                  ),
                 );
               },
             ),
@@ -305,21 +242,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
         ),
         actions: [
           TextButton(
-            onPressed: () async {
-              final updated = await Navigator.push<bool>(
-                context,
-                MaterialPageRoute(
-                  builder: (_) => EditProfileScreen(
-                    roleData: roleData,
-                    role: userRole,
-                    initialPhotoUrl: userPhotoUrl,
-                    email: userEmail,
-                    phone: userPhone,
-                  ),
-                ),
-              );
-              if (updated == true) _loadProfile();
-            },
+            onPressed: () {},
             child: Text(
               'Edit',
               style: TextStyle(
@@ -362,7 +285,33 @@ class _ProfileScreenState extends State<ProfileScreen> {
                                 ),
                               ),
                               child: ClipOval(
-                                child: _buildAvatar(),
+                                child: userPhotoUrl.isNotEmpty
+                                    ? Image.network(
+                                        userPhotoUrl,
+                                        fit: BoxFit.cover,
+                                        width: 100,
+                                        height: 100,
+                                        errorBuilder: (_, __, ___) => Center(
+                                          child: Text(
+                                            _getInitials(userName),
+                                            style: const TextStyle(
+                                              fontSize: 32,
+                                              fontWeight: FontWeight.bold,
+                                              color: AppColors.primaryBlue,
+                                            ),
+                                          ),
+                                        ),
+                                      )
+                                    : Center(
+                                        child: Text(
+                                          _getInitials(userName),
+                                          style: const TextStyle(
+                                            fontSize: 32,
+                                            fontWeight: FontWeight.bold,
+                                            color: AppColors.primaryBlue,
+                                          ),
+                                        ),
+                                      ),
                               ),
                             ),
                             Positioned(
@@ -373,8 +322,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                                 decoration: BoxDecoration(
                                   color: Colors.orange,
                                   shape: BoxShape.circle,
-                                  border:
-                                      Border.all(color: topBgColor, width: 3),
+                                  border: Border.all(color: topBgColor, width: 3),
                                 ),
                                 child: const Icon(
                                   Icons.camera_alt,
@@ -429,8 +377,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                                 dark: dark,
                                 titleColor: titleColor,
                                 subColor: subColor,
-                                onTap: () =>
-                                    Navigator.pushNamed(context, '/garage'),
+                                onTap: () => Navigator.pushNamed(context, '/garage'),
                               ),
                               _buildMenuItem(
                                 icon: Icons.credit_card_outlined,
@@ -442,8 +389,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                                   Navigator.push(
                                     context,
                                     MaterialPageRoute(
-                                      builder: (_) =>
-                                          PaymentScreen(role: userRole),
+                                      builder: (_) => PaymentScreen(role: userRole),
                                     ),
                                   );
                                 },
@@ -454,14 +400,12 @@ class _ProfileScreenState extends State<ProfileScreen> {
                                 dark: dark,
                                 titleColor: titleColor,
                                 subColor: subColor,
-                                onTap: () => Navigator.pushNamed(
-                                    context, '/payment-history'),
+                                onTap: () => Navigator.pushNamed(context, '/payment-history'),
                               ),
                               _buildMenuItem(
                                 icon: Icons.security,
                                 title: 'Account Security',
-                                trailingText:
-                                    hasPassword ? 'Protected' : 'Incomplete',
+                                trailingText: hasPassword ? 'Protected' : 'Incomplete',
                                 dark: dark,
                                 titleColor: titleColor,
                                 subColor: subColor,
@@ -473,8 +417,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                                 dark: dark,
                                 titleColor: titleColor,
                                 subColor: subColor,
-                                onTap: () => Navigator.pushNamed(
-                                    context, '/call-support'),
+                                onTap: () => Navigator.pushNamed(context, '/call-support'),
                               ),
                               _buildMenuItem(
                                 icon: Icons.help_outline,
@@ -483,8 +426,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                                 titleColor: titleColor,
                                 subColor: subColor,
                                 showDivider: false,
-                                onTap: () => Navigator.pushNamed(
-                                    context, '/help-support'),
+                                onTap: () => Navigator.pushNamed(context, '/help-support'),
                               ),
                               if (availableRoles.length > 1)
                                 _buildMenuItem(
@@ -526,8 +468,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                               }
                             },
                             style: ElevatedButton.styleFrom(
-                              backgroundColor:
-                                  dark ? signOutBgDark : signOutBgLight,
+                              backgroundColor: dark ? signOutBgDark : signOutBgLight,
                               foregroundColor: dark ? Colors.black : Colors.red,
                               elevation: 0,
                               padding: const EdgeInsets.symmetric(vertical: 16),
@@ -637,8 +578,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
             padding: const EdgeInsets.symmetric(horizontal: 20),
             child: Divider(
               height: 1,
-              color:
-                  dark ? Colors.white10 : Colors.black.withValues(alpha: 0.05),
+              color: dark ? Colors.white10 : Colors.black.withValues(alpha: 0.05),
             ),
           ),
       ],
@@ -663,14 +603,10 @@ class _ProfileScreenState extends State<ProfileScreen> {
         child: Row(
           mainAxisAlignment: MainAxisAlignment.spaceAround,
           children: [
-            _navItem(context, Icons.home_rounded, 'Dashboard', false, dark,
-                '/dashboard'),
-            _navItem(context, Icons.garage_rounded, 'Garage', false, dark,
-                '/garage'),
-            _navItem(context, Icons.payments_rounded, 'Payment', false, dark,
-                '/payment-history'),
-            _navItem(context, Icons.person_rounded, 'Profile', true, dark,
-                '/profile'),
+            _navItem(context, Icons.home_rounded, 'Dashboard', false, dark, '/dashboard'),
+            _navItem(context, Icons.garage_rounded, 'Garage', false, dark, '/garage'),
+            _navItem(context, Icons.payments_rounded, 'Payment', false, dark, '/payment-history'),
+            _navItem(context, Icons.person_rounded, 'Profile', true, dark, '/profile'),
           ],
         ),
       ),
@@ -693,10 +629,11 @@ class _ProfileScreenState extends State<ProfileScreen> {
       onTap: () {
         if (!isActive) {
           if (label == 'Dashboard') {
-            Navigator.pushReplacementNamed(
+            Navigator.pushReplacement(
               context,
-              '/dashboard',
-              arguments: userRole,
+              MaterialPageRoute(
+                builder: (_) => DashboardScreen(role: userRole),
+              ),
             );
           } else if (routeName != null) {
             Navigator.pushReplacementNamed(context, routeName);

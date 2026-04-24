@@ -372,13 +372,7 @@ class GarageScreen extends StatelessWidget {
 
     return GestureDetector(
       onTap: () {
-        if (!isActive) {
-          WidgetsBinding.instance.addPostFrameCallback((_) {
-            if (context.mounted) {
-              Navigator.pushReplacementNamed(context, routeName);
-            }
-          });
-        }
+        if (!isActive) Navigator.pushReplacementNamed(context, routeName);
       },
       behavior: HitTestBehavior.opaque,
       child: Column(

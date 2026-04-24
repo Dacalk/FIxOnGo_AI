@@ -4,6 +4,7 @@ import 'package:latlong2/latlong.dart';
 import '../theme_provider.dart';
 import '../components/primary_button.dart';
 import '../components/osm_map_widget.dart';
+import '../services/location_service.dart';
 import '../services/map_service.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'dart:async';
@@ -21,19 +22,15 @@ class _MechanicAcceptedScreenState extends State<MechanicAcceptedScreen> {
   int _selectedPayment = 0; // 0=Card, 1=Cash, 2=Paypal
 
   final MapController _mapController = MapController();
-
-  StreamSubscription? _requestSub;
-  String? _requestId;
-  String? _mechanicId;
-  Map<String, dynamic>? _requestData;
-  Map<String, dynamic>? _mechanicData;
-  String _paymentStatus = 'pending';
   LatLng? _userLatLng;
   LatLng? _mechanicLatLng;
   List<LatLng> _routePoints = [];
-  String? _eta;
+  String? _eta; // Nullable to track loading state
+
+  Map<String, dynamic>? _mechanicData;
+  StreamSubscription? _requestSub;
+  String? _requestId;
   bool _isProcessingPayment = false;
-  bool _isRemovingTool = false;
 
   @override
   void initState() {
@@ -44,23 +41,21 @@ class _MechanicAcceptedScreenState extends State<MechanicAcceptedScreen> {
   Future<void> _loadMapData() async {
     // Arguments handling
     Future.microtask(() {
-      if (!mounted) return;
       final args = ModalRoute.of(context)?.settings.arguments;
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (mounted) {
-          setState(() => _requestId = args is String ? args : null);
-          _startListeningToRequest();
-        }
-      });
+      if (args is String) {
+        setState(() => _requestId = args);
+        _startListeningToRequest();
+      } else {
+        // Fallback or error
+        _loadSimulatedData();
+      }
     });
   }
 
   Future<void> _handlePayment() async {
     if (_isProcessingPayment) return;
 
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (mounted) setState(() => _isProcessingPayment = true);
-    });
+    setState(() => _isProcessingPayment = true);
 
     // Simulate banking delay
     await Future.delayed(const Duration(milliseconds: 1500));
@@ -81,31 +76,28 @@ class _MechanicAcceptedScreenState extends State<MechanicAcceptedScreen> {
             'mechanicId': reqData['mechanicId'],
             'mechanicName': reqData['mechanicName'] ?? 'Mechanic',
             'userName': reqData['userName'] ?? 'User',
-            'amount': reqData['totalPrice'] ?? 2000,
+            'amount': 2000, // Fixed dummy price for now
             'currency': 'LKR',
             'status': 'success',
             'createdAt': FieldValue.serverTimestamp(),
           });
 
-          // 2. Mark Request status
-          await FirebaseFirestore.instance
-              .collection('requests')
-              .doc(_requestId)
-              .update({'paymentStatus': 'paid'});
+          // 2. Mark Request status (Optional: if we want to track payment)
+          // await FirebaseFirestore.instance
+          //     .collection('requests')
+          //     .doc(_requestId)
+          //     .update({'paymentStatus': 'paid'});
         }
       } catch (e) {
         print("Error saving payment: $e");
       }
     }
 
-    if (!mounted) return;
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (mounted) {
-        setState(() => _isProcessingPayment = false);
-        Navigator.pushReplacementNamed(context, '/order-tracking',
-            arguments: _requestId);
-      }
-    });
+    if (mounted) {
+      setState(() => _isProcessingPayment = false);
+      Navigator.pushReplacementNamed(context, '/order-tracking',
+          arguments: _requestId);
+    }
   }
 
   void _startListeningToRequest() {
@@ -120,7 +112,6 @@ class _MechanicAcceptedScreenState extends State<MechanicAcceptedScreen> {
 
         final uLoc = data['userLocation'] as Map<String, dynamic>;
         final mId = data['mechanicId'];
-        _mechanicId = mId;
 
         // Fetch User location (should be fixed usually, but could move)
         final userLatLng = LatLng(uLoc['lat'], uLoc['lng']);
@@ -136,18 +127,13 @@ class _MechanicAcceptedScreenState extends State<MechanicAcceptedScreen> {
           if (mLoc != null) {
             final mechLatLng = LatLng(mLoc['lat'], mLoc['lng']);
 
-            if (!mounted) return;
-            WidgetsBinding.instance.addPostFrameCallback((_) {
-              if (mounted) {
-                setState(() {
-                  _userLatLng = userLatLng;
-                  _mechanicLatLng = mechLatLng;
-                  _requestData = data;
-                  _paymentStatus = data['paymentStatus'] ?? 'pending';
-                });
-                _updateRoute();
-              }
-            });
+            if (mounted) {
+              setState(() {
+                _userLatLng = userLatLng;
+                _mechanicLatLng = mechLatLng;
+              });
+              _updateRoute();
+            }
           }
         }
       }
@@ -159,15 +145,27 @@ class _MechanicAcceptedScreenState extends State<MechanicAcceptedScreen> {
     try {
       final route = await MapService.instance
           .getDirections(_mechanicLatLng!, _userLatLng!);
-      if (!mounted) return;
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (mounted) {
-          setState(() {
-            _routePoints = route.points;
-            _eta = '${(route.durationSeconds / 60).ceil()} mins';
-          });
-        }
-      });
+      if (mounted) {
+        setState(() {
+          _routePoints = route.points;
+          _eta = '${(route.durationSeconds / 60).ceil()} mins';
+        });
+      }
+    } catch (_) {}
+  }
+
+  Future<void> _loadSimulatedData() async {
+    try {
+      final userPos = await LocationService.instance.getCurrentLatLng();
+      final mechPos =
+          LatLng(userPos.latitude + 0.008, userPos.longitude + 0.005);
+      if (mounted) {
+        setState(() {
+          _userLatLng = userPos;
+          _mechanicLatLng = mechPos;
+        });
+        _updateRoute();
+      }
     } catch (_) {}
   }
 
@@ -529,18 +527,7 @@ class _MechanicAcceptedScreenState extends State<MechanicAcceptedScreen> {
                     // â”€â”€ Request Tools â”€â”€
                     GestureDetector(
                       onTap: () {
-                        if (_mechanicId != null) {
-                          Navigator.pushNamed(
-                            context,
-                            '/user-shop-view',
-                            arguments: {
-                              'mechanicId': _mechanicId,
-                              'mechanicName':
-                                  _mechanicData?['fullName'] ?? 'Mechanic',
-                              'requestId': _requestId,
-                            },
-                          );
-                        }
+                        Navigator.pushNamed(context, '/request-tools');
                       },
                       child: Container(
                         padding: const EdgeInsets.symmetric(
@@ -601,56 +588,10 @@ class _MechanicAcceptedScreenState extends State<MechanicAcceptedScreen> {
                             ),
                           ),
                           const SizedBox(height: 10),
-                          _priceRow(
-                              'Service Fee',
-                              'Rs. ${(_requestData?['basePrice'] ?? 2000).toString()}',
-                              dark),
+                          _priceRow('Service Fee', 'Rs. 2,000', dark),
                           const SizedBox(height: 6),
-                          ...((_requestData?['tools'] as List<dynamic>?) ?? [])
-                              .asMap()
-                              .entries
-                              .map((entry) {
-                            final tool = entry.value;
-                            final idx = entry.key;
-                            return Column(
-                              children: [
-                                Row(
-                                  children: [
-                                    Expanded(
-                                      child: _priceRow(tool['name'] ?? 'Tool',
-                                          'Rs. ${tool['price'] ?? 0}', dark),
-                                    ),
-                                    if (_paymentStatus != 'paid')
-                                      IconButton(
-                                        icon: _isRemovingTool
-                                            ? const SizedBox(
-                                                width: 16,
-                                                height: 16,
-                                                child:
-                                                    CircularProgressIndicator(
-                                                  strokeWidth: 2,
-                                                  valueColor:
-                                                      AlwaysStoppedAnimation<
-                                                          Color>(Colors.red),
-                                                ),
-                                              )
-                                            : const Icon(Icons.delete_outline,
-                                                color: Colors.red, size: 20),
-                                        onPressed: _isRemovingTool
-                                            ? null
-                                            : () =>
-                                                _handleRemoveTool(idx, tool),
-                                        padding: EdgeInsets.zero,
-                                        constraints: const BoxConstraints(),
-                                        splashRadius: 24,
-                                      ),
-                                  ],
-                                ),
-                                const SizedBox(height: 6),
-                              ],
-                            );
-                          }),
-                          const SizedBox(height: 6),
+                          _priceRow('Parts (Battery)', 'Rs. 0', dark),
+                          const SizedBox(height: 12),
                           Row(
                             children: [
                               Text(
@@ -663,7 +604,7 @@ class _MechanicAcceptedScreenState extends State<MechanicAcceptedScreen> {
                           Row(
                             children: [
                               Text(
-                                'Rs. ${(_requestData?['totalPrice'] ?? 2000).toString()}',
+                                'Rs. 2,000',
                                 style: TextStyle(
                                   fontSize: 22,
                                   fontWeight: FontWeight.bold,
@@ -1028,75 +969,5 @@ class _MechanicAcceptedScreenState extends State<MechanicAcceptedScreen> {
       polylinePoints: _routePoints.isNotEmpty ? _routePoints : null,
       showLocateButton: false,
     );
-  }
-
-  Future<void> _handleRemoveTool(int index, Map<String, dynamic> tool) async {
-    if (_requestId == null || _isRemovingTool) return;
-
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (mounted) setState(() => _isRemovingTool = true);
-    });
-
-    try {
-      // Use FieldValue for atomic updates - more robust on Web than transactions
-      final requestRef =
-          FirebaseFirestore.instance.collection('requests').doc(_requestId);
-
-      // Safe price extraction for increment
-      num toolPrice = 0;
-      final rawToolPrice = tool['price'];
-      if (rawToolPrice is num) {
-        toolPrice = rawToolPrice;
-      } else if (rawToolPrice is String) {
-        toolPrice = num.tryParse(rawToolPrice) ?? 0;
-      }
-
-      // 1. Update Request (Atomic)
-      await requestRef.update({
-        'tools': FieldValue.arrayRemove([tool]),
-        'totalPrice': FieldValue.increment(-toolPrice),
-      });
-
-      // 2. Restore Stock (Atomic)
-      final String? productId = tool['productId']?.toString();
-      if (productId != null &&
-          productId.isNotEmpty &&
-          _mechanicId != null &&
-          _mechanicId!.isNotEmpty) {
-        final productRef = FirebaseFirestore.instance
-            .collection('users')
-            .doc(_mechanicId)
-            .collection('products')
-            .doc(productId);
-
-        await productRef.update({
-          'stockCount': FieldValue.increment(1),
-        }).catchError((e) {
-          debugPrint("Safe ignore: Stock restore failed: $e");
-        });
-      }
-    } catch (e) {
-      if (mounted) {
-        WidgetsBinding.instance.addPostFrameCallback((_) {
-          if (mounted) {
-            final errorMsg = e.toString().contains('converted Future')
-                ? "Update failed (Web Engine). Please try again."
-                : "Error: $e";
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(
-                content: Text(errorMsg),
-                backgroundColor: Colors.redAccent,
-              ),
-            );
-          }
-        });
-      }
-    } finally {
-      if (mounted) {
-        WidgetsBinding.instance.addPostFrameCallback((_) {
-          if (mounted) setState(() => _isRemovingTool = false);
-        });
-      }
-    }
   }
 }
