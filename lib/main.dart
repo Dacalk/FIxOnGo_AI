@@ -11,6 +11,7 @@ import 'screens/add_location_screen.dart';
 import 'screens/searching_mechanics_screen.dart';
 import 'screens/add_card_screen.dart';
 import 'screens/mechanic_accepted_screen.dart';
+import 'screens/add_product_screen.dart';
 
 import 'screens/video_call_screen.dart';
 import 'screens/voice_call_screen.dart';
@@ -137,6 +138,8 @@ class FixOnGoApp extends StatelessWidget {
             '/add-card': (context) => const AuthGuard(child: AddCardScreen()),
             '/mechanic-accepted': (context) =>
                 const AuthGuard(child: MechanicAcceptedScreen()),
+            '/add-product': (context) =>
+                const AuthGuard(child: AddProductScreen()),
 
             '/video-call': (context) =>
                 const AuthGuard(child: VideoCallScreen()),
