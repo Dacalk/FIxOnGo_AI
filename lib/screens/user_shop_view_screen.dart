@@ -249,19 +249,21 @@ class _UserShopViewScreenState extends State<UserShopViewScreen> {
         transaction.update(productRef, {'stockCount': currentStock - 1});
 
         // 2. Update Request Tools & Price
-        final currentPrice = (rSnap.data()?['totalPrice'] ?? 2000).toDouble();
-        final List<dynamic> currentTools = rSnap.data()?['tools'] ?? [];
+        final requestData = rSnap.data() as Map<String, dynamic>;
+        final currentPrice = (requestData['totalPrice'] ?? 2000).toDouble();
+        final List<dynamic> currentTools = requestData['tools'] ?? [];
 
-        final num priceVal = price is num ? price : 0;
+        final num priceVal =
+            (price is num) ? price : (double.tryParse(price.toString()) ?? 0.0);
 
         transaction.update(requestRef, {
-          'totalPrice': currentPrice + priceVal,
+          'totalPrice': currentPrice + priceVal.toDouble(),
           'tools': [
             ...currentTools,
             {
               'productId': productId,
               'name': name,
-              'price': priceVal,
+              'price': priceVal.toDouble(),
               'requestedAt': Timestamp.now(),
             }
           ],

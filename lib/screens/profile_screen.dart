@@ -13,10 +13,13 @@ class ProfileScreen extends StatefulWidget {
   final Map<String, dynamic>? userData;
   final String? role;
 
+  final bool isEmbedded;
+
   const ProfileScreen({
     super.key,
     this.userData,
     this.role,
+    this.isEmbedded = false,
   });
 
   @override
@@ -268,6 +271,255 @@ class _ProfileScreenState extends State<ProfileScreen> {
     final signOutBgDark = AppColors.brandYellow;
     final signOutBgLight = const Color(0xFFFFF2F2);
 
+    final content = SingleChildScrollView(
+      child: Column(
+        children: [
+          // ── Profile Header ──
+          Container(
+            width: double.infinity,
+            color: topBgColor,
+            padding: const EdgeInsets.only(bottom: 24),
+            child: Column(
+              children: [
+                const SizedBox(height: 10),
+                Stack(
+                  alignment: Alignment.bottomRight,
+                  children: [
+                    Container(
+                      width: 100,
+                      height: 100,
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFE8F0FE),
+                        shape: BoxShape.circle,
+                        border: Border.all(
+                          color: dark
+                              ? const Color(0xFF2A3A50)
+                              : const Color(0xFFD4E3FB),
+                          width: 4,
+                        ),
+                      ),
+                      child: ClipOval(
+                        child: _buildAvatar(),
+                      ),
+                    ),
+                    Positioned(
+                      bottom: 4,
+                      right: 4,
+                      child: Container(
+                        padding: const EdgeInsets.all(6),
+                        decoration: BoxDecoration(
+                          color: Colors.orange,
+                          shape: BoxShape.circle,
+                          border: Border.all(color: topBgColor, width: 3),
+                        ),
+                        child: const Icon(
+                          Icons.camera_alt,
+                          size: 14,
+                          color: Colors.white,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 16),
+                Text(
+                  userName,
+                  style: TextStyle(
+                    fontSize: 20,
+                    fontWeight: FontWeight.bold,
+                    color: titleColor,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  userEmail,
+                  style: TextStyle(fontSize: 13, color: subColor),
+                ),
+                if (userPhone.isNotEmpty) ...[
+                  const SizedBox(height: 2),
+                  Text(
+                    userPhone,
+                    style: TextStyle(fontSize: 12, color: subColor),
+                  ),
+                ],
+              ],
+            ),
+          ),
+
+          // ── Menu List ──
+          Padding(
+            padding: const EdgeInsets.all(24),
+            child: Column(
+              children: [
+                Container(
+                  decoration: BoxDecoration(
+                    color: cardBg,
+                    borderRadius: BorderRadius.circular(20),
+                  ),
+                  padding: const EdgeInsets.symmetric(vertical: 8),
+                  child: Column(
+                    children: [
+                      _buildMenuItem(
+                        icon: Icons.edit_outlined,
+                        title: 'Edit Profile',
+                        dark: dark,
+                        titleColor: titleColor,
+                        subColor: subColor,
+                        onTap: () async {
+                          final updated = await Navigator.push<bool>(
+                            context,
+                            MaterialPageRoute(
+                              builder: (_) => EditProfileScreen(
+                                roleData: roleData,
+                                role: userRole,
+                                initialPhotoUrl: userPhotoUrl,
+                                email: userEmail,
+                                phone: userPhone,
+                              ),
+                            ),
+                          );
+                          if (updated == true) _loadProfile();
+                        },
+                      ),
+                      _buildMenuItem(
+                        icon: Icons.directions_car_outlined,
+                        title: 'My Vehicles',
+                        dark: dark,
+                        titleColor: titleColor,
+                        subColor: subColor,
+                        onTap: () => Navigator.pushNamed(context, '/garage'),
+                      ),
+                      _buildMenuItem(
+                        icon: Icons.credit_card_outlined,
+                        title: 'Payment Methods',
+                        dark: dark,
+                        titleColor: titleColor,
+                        subColor: subColor,
+                        onTap: () {
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (_) => PaymentScreen(role: userRole),
+                            ),
+                          );
+                        },
+                      ),
+                      _buildMenuItem(
+                        icon: Icons.history,
+                        title: 'Payment History',
+                        dark: dark,
+                        titleColor: titleColor,
+                        subColor: subColor,
+                        onTap: () =>
+                            Navigator.pushNamed(context, '/payment-history'),
+                      ),
+                      _buildMenuItem(
+                        icon: Icons.security,
+                        title: 'Account Security',
+                        trailingText: hasPassword ? 'Protected' : 'Incomplete',
+                        dark: dark,
+                        titleColor: titleColor,
+                        subColor: subColor,
+                        onTap: _showPasswordDialog,
+                      ),
+                      _buildMenuItem(
+                        icon: Icons.people_outline,
+                        title: 'Emergency Contacts',
+                        dark: dark,
+                        titleColor: titleColor,
+                        subColor: subColor,
+                        onTap: () =>
+                            Navigator.pushNamed(context, '/call-support'),
+                      ),
+                      _buildMenuItem(
+                        icon: Icons.help_outline,
+                        title: 'Help & Support',
+                        dark: dark,
+                        titleColor: titleColor,
+                        subColor: subColor,
+                        showDivider: false,
+                        onTap: () =>
+                            Navigator.pushNamed(context, '/help-support'),
+                      ),
+                      if (availableRoles.length > 1)
+                        _buildMenuItem(
+                          icon: Icons.swap_horiz,
+                          title: 'Switch Mode',
+                          trailingText: userRole.toUpperCase(),
+                          dark: dark,
+                          titleColor: titleColor,
+                          subColor: subColor,
+                          onTap: () {
+                            final nextIndex =
+                                (availableRoles.indexOf(userRole) + 1) %
+                                    availableRoles.length;
+                            final nextRole = availableRoles[nextIndex];
+                            Navigator.pushReplacementNamed(
+                                context, '/dashboard',
+                                arguments: nextRole);
+                          },
+                          showDivider: false,
+                        ),
+                    ],
+                  ),
+                ),
+
+                const SizedBox(height: 32),
+
+                // ── Sign Out Button ──
+                SizedBox(
+                  width: double.infinity,
+                  child: ElevatedButton(
+                    onPressed: () async {
+                      await FirebaseAuth.instance.signOut();
+                      if (context.mounted) {
+                        Navigator.pushNamedAndRemoveUntil(
+                          context,
+                          '/login',
+                          (route) => false,
+                        );
+                      }
+                    },
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: dark ? signOutBgDark : signOutBgLight,
+                      foregroundColor: dark ? Colors.black : Colors.red,
+                      elevation: 0,
+                      padding: const EdgeInsets.symmetric(vertical: 16),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(16),
+                      ),
+                    ),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Icon(
+                          Icons.logout,
+                          size: 20,
+                          color: dark ? Colors.black : Colors.red,
+                        ),
+                        const SizedBox(width: 8),
+                        Text(
+                          'Sign Out',
+                          style: TextStyle(
+                            fontSize: 15,
+                            fontWeight: FontWeight.bold,
+                            color: dark ? Colors.black : Colors.red,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 40),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+
+    if (widget.isEmbedded) return content;
+
     return Scaffold(
       backgroundColor: bgColor,
       appBar: AppBar(
@@ -332,237 +584,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
           const SizedBox(width: 8),
         ],
       ),
-      body: isLoading
-          ? const Center(child: CircularProgressIndicator())
-          : SingleChildScrollView(
-              child: Column(
-                children: [
-                  // ── Profile Header ──
-                  Container(
-                    width: double.infinity,
-                    color: topBgColor,
-                    padding: const EdgeInsets.only(bottom: 24),
-                    child: Column(
-                      children: [
-                        const SizedBox(height: 10),
-                        Stack(
-                          alignment: Alignment.bottomRight,
-                          children: [
-                            Container(
-                              width: 100,
-                              height: 100,
-                              decoration: BoxDecoration(
-                                color: const Color(0xFFE8F0FE),
-                                shape: BoxShape.circle,
-                                border: Border.all(
-                                  color: dark
-                                      ? const Color(0xFF2A3A50)
-                                      : const Color(0xFFD4E3FB),
-                                  width: 4,
-                                ),
-                              ),
-                              child: ClipOval(
-                                child: _buildAvatar(),
-                              ),
-                            ),
-                            Positioned(
-                              bottom: 4,
-                              right: 4,
-                              child: Container(
-                                padding: const EdgeInsets.all(6),
-                                decoration: BoxDecoration(
-                                  color: Colors.orange,
-                                  shape: BoxShape.circle,
-                                  border:
-                                      Border.all(color: topBgColor, width: 3),
-                                ),
-                                child: const Icon(
-                                  Icons.camera_alt,
-                                  size: 14,
-                                  color: Colors.white,
-                                ),
-                              ),
-                            ),
-                          ],
-                        ),
-                        const SizedBox(height: 16),
-                        Text(
-                          userName,
-                          style: TextStyle(
-                            fontSize: 20,
-                            fontWeight: FontWeight.bold,
-                            color: titleColor,
-                          ),
-                        ),
-                        const SizedBox(height: 4),
-                        Text(
-                          userEmail,
-                          style: TextStyle(fontSize: 13, color: subColor),
-                        ),
-                        if (userPhone.isNotEmpty) ...[
-                          const SizedBox(height: 2),
-                          Text(
-                            userPhone,
-                            style: TextStyle(fontSize: 12, color: subColor),
-                          ),
-                        ],
-                      ],
-                    ),
-                  ),
-
-                  // ── Menu List ──
-                  Padding(
-                    padding: const EdgeInsets.all(24),
-                    child: Column(
-                      children: [
-                        Container(
-                          decoration: BoxDecoration(
-                            color: cardBg,
-                            borderRadius: BorderRadius.circular(20),
-                          ),
-                          padding: const EdgeInsets.symmetric(vertical: 8),
-                          child: Column(
-                            children: [
-                              _buildMenuItem(
-                                icon: Icons.directions_car_outlined,
-                                title: 'My Vehicles',
-                                dark: dark,
-                                titleColor: titleColor,
-                                subColor: subColor,
-                                onTap: () =>
-                                    Navigator.pushNamed(context, '/garage'),
-                              ),
-                              _buildMenuItem(
-                                icon: Icons.credit_card_outlined,
-                                title: 'Payment Methods',
-                                dark: dark,
-                                titleColor: titleColor,
-                                subColor: subColor,
-                                onTap: () {
-                                  Navigator.push(
-                                    context,
-                                    MaterialPageRoute(
-                                      builder: (_) =>
-                                          PaymentScreen(role: userRole),
-                                    ),
-                                  );
-                                },
-                              ),
-                              _buildMenuItem(
-                                icon: Icons.history,
-                                title: 'Payment History',
-                                dark: dark,
-                                titleColor: titleColor,
-                                subColor: subColor,
-                                onTap: () => Navigator.pushNamed(
-                                    context, '/payment-history'),
-                              ),
-                              _buildMenuItem(
-                                icon: Icons.security,
-                                title: 'Account Security',
-                                trailingText:
-                                    hasPassword ? 'Protected' : 'Incomplete',
-                                dark: dark,
-                                titleColor: titleColor,
-                                subColor: subColor,
-                                onTap: _showPasswordDialog,
-                              ),
-                              _buildMenuItem(
-                                icon: Icons.people_outline,
-                                title: 'Emergency Contacts',
-                                dark: dark,
-                                titleColor: titleColor,
-                                subColor: subColor,
-                                onTap: () => Navigator.pushNamed(
-                                    context, '/call-support'),
-                              ),
-                              _buildMenuItem(
-                                icon: Icons.help_outline,
-                                title: 'Help & Support',
-                                dark: dark,
-                                titleColor: titleColor,
-                                subColor: subColor,
-                                showDivider: false,
-                                onTap: () => Navigator.pushNamed(
-                                    context, '/help-support'),
-                              ),
-                              if (availableRoles.length > 1)
-                                _buildMenuItem(
-                                  icon: Icons.swap_horiz,
-                                  title: 'Switch Mode',
-                                  trailingText: userRole.toUpperCase(),
-                                  dark: dark,
-                                  titleColor: titleColor,
-                                  subColor: subColor,
-                                  onTap: () {
-                                    final nextIndex =
-                                        (availableRoles.indexOf(userRole) + 1) %
-                                            availableRoles.length;
-                                    final nextRole = availableRoles[nextIndex];
-                                    Navigator.pushReplacementNamed(
-                                        context, '/dashboard',
-                                        arguments: nextRole);
-                                  },
-                                  showDivider: false,
-                                ),
-                            ],
-                          ),
-                        ),
-
-                        const SizedBox(height: 32),
-
-                        // ── Sign Out Button ──
-                        SizedBox(
-                          width: double.infinity,
-                          child: ElevatedButton(
-                            onPressed: () async {
-                              await FirebaseAuth.instance.signOut();
-                              if (context.mounted) {
-                                Navigator.pushNamedAndRemoveUntil(
-                                  context,
-                                  '/login',
-                                  (route) => false,
-                                );
-                              }
-                            },
-                            style: ElevatedButton.styleFrom(
-                              backgroundColor:
-                                  dark ? signOutBgDark : signOutBgLight,
-                              foregroundColor: dark ? Colors.black : Colors.red,
-                              elevation: 0,
-                              padding: const EdgeInsets.symmetric(vertical: 16),
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(16),
-                              ),
-                            ),
-                            child: Row(
-                              mainAxisAlignment: MainAxisAlignment.center,
-                              children: [
-                                Icon(
-                                  Icons.logout,
-                                  size: 20,
-                                  color: dark ? Colors.black : Colors.red,
-                                ),
-                                const SizedBox(width: 8),
-                                Text(
-                                  'Sign Out',
-                                  style: TextStyle(
-                                    fontSize: 15,
-                                    fontWeight: FontWeight.bold,
-                                    color: dark ? Colors.black : Colors.red,
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                        ),
-                        const SizedBox(height: 40),
-                      ],
-                    ),
-                  ),
-                ],
-              ),
-            ),
+      body: content,
       bottomNavigationBar: _buildBottomNav(context, dark),
     );
   }
