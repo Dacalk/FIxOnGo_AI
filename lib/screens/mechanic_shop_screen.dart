@@ -51,7 +51,20 @@ class _MechanicShopScreenState extends State<MechanicShopScreen> {
       },
     );
 
-    if (widget.isEmbedded) return content;
+    if (widget.isEmbedded) {
+      return Scaffold(
+        backgroundColor: Colors.transparent,
+        floatingActionButton: FloatingActionButton.extended(
+          onPressed: () => Navigator.pushNamed(context, '/add-product'),
+          backgroundColor: AppColors.primaryBlue,
+          icon: const Icon(Icons.add, color: Colors.white),
+          label: const Text('Add Product',
+              style:
+                  TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+        ),
+        body: content,
+      );
+    }
 
     return Scaffold(
       backgroundColor:
@@ -90,10 +103,25 @@ class _MechanicShopScreenState extends State<MechanicShopScreen> {
                 fontWeight: FontWeight.bold,
                 color: dark ? Colors.grey[400] : Colors.grey[600]),
           ),
-          const SizedBox(height: 8),
+          const SizedBox(height: 16),
           Text(
-            'Add tools or parts to starting selling.',
+            'Add tools or parts to start selling.',
             style: TextStyle(color: Colors.grey[500]),
+          ),
+          const SizedBox(height: 24),
+          ElevatedButton.icon(
+            onPressed: () => Navigator.pushNamed(context, '/add-product'),
+            icon: const Icon(Icons.add, color: Colors.white),
+            label: const Text('Add Product',
+                style: TextStyle(fontWeight: FontWeight.bold)),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: AppColors.primaryBlue,
+              foregroundColor: Colors.white,
+              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12),
+              ),
+            ),
           ),
         ],
       ),
