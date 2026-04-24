@@ -4,7 +4,8 @@ import 'package:firebase_auth/firebase_auth.dart';
 import '../theme_provider.dart';
 
 class MechanicShopScreen extends StatefulWidget {
-  const MechanicShopScreen({super.key});
+  final bool isEmbedded;
+  const MechanicShopScreen({super.key, this.isEmbedded = false});
 
   @override
   State<MechanicShopScreen> createState() => _MechanicShopScreenState();
@@ -21,6 +22,36 @@ class _MechanicShopScreenState extends State<MechanicShopScreen> {
       return const Scaffold(body: Center(child: Text("Not logged in")));
 
     final dark = isDarkMode(context);
+
+    final content = StreamBuilder<QuerySnapshot>(
+      stream: _firestore
+          .collection('users')
+          .doc(user.uid)
+          .collection('products')
+          .orderBy('createdAt', descending: true)
+          .snapshots(),
+      builder: (context, snapshot) {
+        if (snapshot.connectionState == ConnectionState.waiting) {
+          return const Center(child: CircularProgressIndicator());
+        }
+        if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
+          return _emptyState(dark);
+        }
+
+        final docs = snapshot.data!.docs;
+        return ListView.builder(
+          padding: const EdgeInsets.all(16),
+          itemCount: docs.length,
+          itemBuilder: (context, index) {
+            final product = docs[index].data() as Map<String, dynamic>;
+            final id = docs[index].id;
+            return _productCard(id, product, dark);
+          },
+        );
+      },
+    );
+
+    if (widget.isEmbedded) return content;
 
     return Scaffold(
       backgroundColor:
@@ -40,33 +71,7 @@ class _MechanicShopScreenState extends State<MechanicShopScreen> {
         label: const Text('Add Product',
             style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
       ),
-      body: StreamBuilder<QuerySnapshot>(
-        stream: _firestore
-            .collection('users')
-            .doc(user.uid)
-            .collection('products')
-            .orderBy('createdAt', descending: true)
-            .snapshots(),
-        builder: (context, snapshot) {
-          if (snapshot.connectionState == ConnectionState.waiting) {
-            return const Center(child: CircularProgressIndicator());
-          }
-          if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
-            return _emptyState(dark);
-          }
-
-          final docs = snapshot.data!.docs;
-          return ListView.builder(
-            padding: const EdgeInsets.all(16),
-            itemCount: docs.length,
-            itemBuilder: (context, index) {
-              final product = docs[index].data() as Map<String, dynamic>;
-              final id = docs[index].id;
-              return _productCard(id, product, dark);
-            },
-          );
-        },
-      ),
+      body: content,
     );
   }
 
@@ -212,6 +217,25 @@ class _MechanicShopScreenState extends State<MechanicShopScreen> {
               child: const Text('Cancel')),
           TextButton(
             onPressed: () async {
+              if (context.mounted) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(
+                    content: Row(
+                      children: [
+                        SizedBox(
+                          width: 20,
+                          height: 20,
+                          child: CircularProgressIndicator(
+                              strokeWidth: 2, color: Colors.white),
+                        ),
+                        const SizedBox(width: 16),
+                        Text('Deleting product...'),
+                      ],
+                    ),
+                    duration: Duration(seconds: 1),
+                  ),
+                );
+              }
               await _firestore
                   .collection('users')
                   .doc(_auth.currentUser!.uid)

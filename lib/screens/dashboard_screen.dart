@@ -13,6 +13,10 @@ import '../services/location_service.dart';
 import '../services/test_service.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'dart:async';
+import 'mechanic_shop_screen.dart';
+import 'garage_screen.dart';
+import 'payment_history_screen.dart';
+import 'profile_screen.dart';
 
 /// Main dashboard screen with bottom navigation.
 /// Renders role-specific content based on the user's role.
@@ -202,6 +206,24 @@ class _DashboardScreenState extends State<DashboardScreen> {
     final user = FirebaseAuth.instance.currentUser;
     if (user == null) return;
 
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Row(
+          children: [
+            const SizedBox(
+              width: 20,
+              height: 20,
+              child: CircularProgressIndicator(
+                  strokeWidth: 2, color: Colors.white),
+            ),
+            const SizedBox(width: 16),
+            Text('Updating status to ${value ? 'Online' : 'Offline'}...'),
+          ],
+        ),
+        duration: const Duration(seconds: 1),
+      ),
+    );
+
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted) {
         setState(() => _isMechanicActive = value);
@@ -243,9 +265,19 @@ class _DashboardScreenState extends State<DashboardScreen> {
               index: _currentIndex,
               children: [
                 _buildDashboardContent(role, dark),
-                _buildPlaceholderTab('Garage', Icons.garage_rounded, dark),
-                _buildPaymentTab(dark),
-                _buildPlaceholderTab('Profile', Icons.person_rounded, dark),
+                role.toLowerCase() == 'mechanic'
+                    ? const MechanicShopScreen(isEmbedded: true)
+                    : const GarageScreen(isEmbedded: true),
+                const PaymentHistoryScreen(isEmbedded: true),
+                ProfileScreen(
+                  isEmbedded: true,
+                  role: role,
+                  userData: {
+                    'fullName': userName,
+                    'email': userEmail,
+                    'photoUrl': userPhotoUrl,
+                  },
+                ),
               ],
             ),
       bottomNavigationBar: _buildBottomNav(dark),
@@ -254,8 +286,12 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
   void _switchRole(String newRole) {
     if (newRole == currentRole) return;
+    setState(() => isLoading = true);
+
     final rd = allRoles[newRole.toLowerCase()] ?? allRoles[newRole] ?? {};
-    WidgetsBinding.instance.addPostFrameCallback((_) {
+
+    // Simulate short delay for smoothness
+    Future.delayed(const Duration(milliseconds: 600), () {
       if (mounted) {
         setState(() {
           currentRole = newRole;
@@ -263,7 +299,10 @@ class _DashboardScreenState extends State<DashboardScreen> {
           userName = rd['fullName']?.toString().isNotEmpty == true
               ? rd['fullName']
               : FirebaseAuth.instance.currentUser?.displayName ?? 'User';
+          _currentIndex = 0; // Back to dashboard
+          _isInitialized = false; // Allow loadUserData to run again
         });
+        loadUserData();
       }
     });
   }
@@ -440,26 +479,10 @@ class _DashboardScreenState extends State<DashboardScreen> {
           currentIndex: _currentIndex,
           onTap: (i) {
             WidgetsBinding.instance.addPostFrameCallback((_) {
-              if (!mounted) return;
-              switch (i) {
-                case 1:
-                  if (currentRole?.toLowerCase() == 'mechanic') {
-                    Navigator.pushReplacementNamed(context, '/mechanic-shop');
-                  } else {
-                    Navigator.pushReplacementNamed(context, '/garage');
-                  }
-                  break;
-                case 2:
-                  Navigator.pushReplacementNamed(context, '/payment-history');
-                  break;
-                case 3:
-                  Navigator.pushReplacementNamed(context, '/profile',
-                      arguments: currentRole);
-                  break;
-                default:
-                  setState(() {
-                    _currentIndex = i;
-                  });
+              if (mounted) {
+                setState(() {
+                  _currentIndex = i;
+                });
               }
             });
           },
@@ -1570,148 +1593,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
             ),
           ],
         ),
-      ),
-    );
-  }
-
-  Widget _buildPaymentTab(bool dark) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        DashboardHeader(
-          userName: isLoading ? 'Loading...' : userName,
-          role: currentRole ?? 'User',
-          photoUrl: userPhotoUrl,
-          vehicleInfo: 'Payment History',
-          availableRoles: allRoles.keys.toList(),
-          onSwitchRole: _switchRole,
-        ),
-        const SizedBox(height: 20),
-        Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 20),
-          child: Text(
-            'Transactions',
-            style: TextStyle(
-              fontSize: 22,
-              fontWeight: FontWeight.bold,
-              color: dark ? Colors.white : Colors.black87,
-            ),
-          ),
-        ),
-        const SizedBox(height: 16),
-        Expanded(
-          child: StreamBuilder<List<Map<String, dynamic>>>(
-            stream: _paymentHistoryStream,
-            builder: (context, snapshot) {
-              if (snapshot.connectionState == ConnectionState.waiting) {
-                return const Center(child: CircularProgressIndicator());
-              }
-              if (!snapshot.hasData || snapshot.data!.isEmpty) {
-                return _buildPlaceholderTab(
-                    'No payments yet', Icons.payments_rounded, dark);
-              }
-
-              final payments = snapshot.data!;
-              return ListView.builder(
-                padding: const EdgeInsets.symmetric(horizontal: 16),
-                itemCount: payments.length,
-                itemBuilder: (context, index) {
-                  final p = payments[index];
-                  return _paymentHistoryCard(p, dark);
-                },
-              );
-            },
-          ),
-        ),
-      ],
-    );
-  }
-
-  Widget _paymentHistoryCard(Map<String, dynamic> p, bool dark) {
-    final amount = p['price'] ?? 2000;
-    final mechanic = p['mechanicName'] ?? 'Service Pro';
-    final date = p['createdAt'] != null
-        ? (p['createdAt'] as Timestamp).toDate().toString().split(' ')[0]
-        : 'Recently';
-
-    return Container(
-      margin: const EdgeInsets.only(bottom: 12),
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: dark ? AppColors.darkSurface : Colors.white,
-        borderRadius: BorderRadius.circular(16),
-      ),
-      child: Row(
-        children: [
-          Container(
-            padding: const EdgeInsets.all(10),
-            decoration: BoxDecoration(
-              color: Colors.green.withValues(alpha: 0.1),
-              shape: BoxShape.circle,
-            ),
-            child: const Icon(Icons.check, color: Colors.green, size: 20),
-          ),
-          const SizedBox(width: 16),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  mechanic,
-                  style: TextStyle(
-                    fontWeight: FontWeight.bold,
-                    color: dark ? Colors.white : Colors.black87,
-                  ),
-                ),
-                Text(
-                  date,
-                  style: TextStyle(fontSize: 12, color: Colors.grey[600]),
-                ),
-              ],
-            ),
-          ),
-          Text(
-            'Rs. ${amount.toString()}',
-            style: const TextStyle(
-              fontWeight: FontWeight.bold,
-              fontSize: 16,
-              color: AppColors.primaryBlue,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  /// Placeholder tab for non-dashboard tabs
-  Widget _buildPlaceholderTab(String label, IconData icon, bool dark) {
-    return Center(
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Icon(
-            icon,
-            size: 60,
-            color: dark ? Colors.grey[700] : Colors.grey[300],
-          ),
-          const SizedBox(height: 12),
-          Text(
-            label,
-            style: TextStyle(
-              fontSize: 18,
-              fontWeight: FontWeight.w600,
-              color: dark ? Colors.grey[600] : Colors.grey[400],
-            ),
-          ),
-          const SizedBox(height: 4),
-          Text(
-            'Coming Soon',
-            style: TextStyle(
-              fontSize: 13,
-              color: dark ? Colors.grey[700] : Colors.grey[400],
-            ),
-          ),
-        ],
       ),
     );
   }
