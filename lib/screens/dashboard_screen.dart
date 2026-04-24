@@ -15,6 +15,7 @@ import 'package:flutter_map/flutter_map.dart';
 import 'dart:async';
 import 'mechanic_shop_screen.dart';
 import 'garage_screen.dart';
+import 'job_history_screen.dart';
 import 'payment_history_screen.dart';
 import 'profile_screen.dart';
 
@@ -267,7 +268,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                 _buildDashboardContent(role, dark),
                 role.toLowerCase() == 'mechanic'
                     ? const MechanicShopScreen(isEmbedded: true)
-                    : const GarageScreen(isEmbedded: true),
+                    : const JobHistoryScreen(isEmbedded: true, isMechanicView: false),
                 const PaymentHistoryScreen(isEmbedded: true),
                 ProfileScreen(
                   isEmbedded: true,
@@ -501,9 +502,9 @@ class _DashboardScreenState extends State<DashboardScreen> {
             BottomNavigationBarItem(
               icon: Icon(currentRole?.toLowerCase() == 'mechanic'
                   ? Icons.shopping_bag
-                  : Icons.garage_rounded),
+                  : Icons.history_rounded),
               label:
-                  currentRole?.toLowerCase() == 'mechanic' ? 'Shop' : 'Garage',
+                  currentRole?.toLowerCase() == 'mechanic' ? 'Shop' : 'Activities',
             ),
             BottomNavigationBarItem(
               icon: Icon(Icons.payments_rounded),

@@ -4,49 +4,63 @@ import 'package:firebase_auth/firebase_auth.dart';
 import '../theme_provider.dart';
 
 class JobHistoryScreen extends StatefulWidget {
-  const JobHistoryScreen({super.key});
+  final bool isEmbedded;
+  final bool isMechanicView;
+
+  const JobHistoryScreen({
+    super.key,
+    this.isEmbedded = false,
+    this.isMechanicView = true,
+  });
 
   @override
   State<JobHistoryScreen> createState() => _JobHistoryScreenState();
 }
 
 class _JobHistoryScreenState extends State<JobHistoryScreen> {
+  String _selectedFilter = 'All Time';
+
   Future<Map<String, dynamic>> _fetchJobHistory() async {
     final user = FirebaseAuth.instance.currentUser;
     if (user == null) return {'rating': 0.0, 'jobs': []};
 
-    // Fetch user doc for rating
-    final userDoc = await FirebaseFirestore.instance
-        .collection('users')
-        .doc(user.uid)
-        .get();
     double rating = 0.0;
-    if (userDoc.exists) {
-      final data = userDoc.data()!;
-      if (data['roles'] != null && data['roles']['mechanic'] != null) {
-        rating = (data['roles']['mechanic']['rating'] ?? 0.0).toDouble();
+
+    // Fetch user doc for rating (only relevant for mechanics)
+    if (widget.isMechanicView) {
+      final userDoc = await FirebaseFirestore.instance
+          .collection('users')
+          .doc(user.uid)
+          .get();
+      if (userDoc.exists) {
+        final data = userDoc.data()!;
+        if (data['roles'] != null && data['roles']['mechanic'] != null) {
+          rating = (data['roles']['mechanic']['rating'] ?? 0.0).toDouble();
+        }
       }
     }
 
     // Fetch all completed jobs
     final requestsSnap = await FirebaseFirestore.instance
         .collection('requests')
-        .where('mechanicId', isEqualTo: user.uid)
+        .where(widget.isMechanicView ? 'mechanicId' : 'userId', isEqualTo: user.uid)
         .where('status', isEqualTo: 'completed')
         .get();
 
-    // Fetch all reviews
-    final reviewsSnap = await FirebaseFirestore.instance
-        .collection('users')
-        .doc(user.uid)
-        .collection('reviews')
-        .get();
-
+    // Fetch all reviews (only for mechanic view)
     final reviewsMap = <String, Map<String, dynamic>>{};
-    for (var doc in reviewsSnap.docs) {
-      final data = doc.data();
-      if (data['requestId'] != null) {
-        reviewsMap[data['requestId']] = data;
+    if (widget.isMechanicView) {
+      final reviewsSnap = await FirebaseFirestore.instance
+          .collection('users')
+          .doc(user.uid)
+          .collection('reviews')
+          .get();
+
+      for (var doc in reviewsSnap.docs) {
+        final data = doc.data();
+        if (data['requestId'] != null) {
+          reviewsMap[data['requestId']] = data;
+        }
       }
     }
 
@@ -120,62 +134,68 @@ class _JobHistoryScreenState extends State<JobHistoryScreen> {
     final bannerCircle1 = dark ? const Color(0xFF98C1EA) : const Color(0xFFB3D4F3);
     final bannerCircle2 = dark ? const Color(0xFFDDEBFA) : const Color(0xFFEAF2FB);
 
-    return Scaffold(
-      backgroundColor: bgColor,
-      appBar: AppBar(
-        backgroundColor: topBarColor,
-        elevation: 0,
-        centerTitle: true,
-        title: Text(
-          'Job History',
-          style: TextStyle(
-            fontSize: 17,
-            fontWeight: FontWeight.bold,
-            color: titleColor,
-          ),
-        ),
-        leading: Padding(
-          padding: const EdgeInsets.all(8.0),
-          child: CircleAvatar(
-            backgroundColor: dark ? AppColors.darkSurface : Colors.grey[100],
-            child: IconButton(
-              icon: Icon(
-                Icons.arrow_back,
-                size: 18,
-                color: dark ? Colors.white : Colors.black,
+    Widget content = FutureBuilder<Map<String, dynamic>>(
+      future: _fetchJobHistory(),
+      builder: (context, snapshot) {
+        if (snapshot.connectionState == ConnectionState.waiting) {
+          return const Center(child: CircularProgressIndicator());
+        }
+
+        if (snapshot.hasError) {
+          return Center(child: Text("Error loading history", style: TextStyle(color: titleColor)));
+        }
+
+        final data = snapshot.data;
+        final double overallRating = data?['rating'] ?? 0.0;
+        final List<dynamic> allJobs = data?['jobs'] ?? [];
+
+        final now = DateTime.now();
+        final List<dynamic> jobs = allJobs.where((job) {
+          if (_selectedFilter == 'All Time') return true;
+          final date = _getDate(job);
+          if (_selectedFilter == 'Last 30 Days') {
+            return now.difference(date).inDays <= 30;
+          }
+          if (_selectedFilter == 'Last 6 Months') {
+            return now.difference(date).inDays <= 180;
+          }
+          if (_selectedFilter == 'This Year') {
+            return date.year == now.year;
+          }
+          return true;
+        }).toList();
+
+        return Column(
+          children: [
+            if (widget.isEmbedded)
+              Padding(
+                padding: const EdgeInsets.fromLTRB(24, 40, 24, 0),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Text(
+                      widget.isMechanicView ? 'Job History' : 'Activities',
+                      style: TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.bold,
+                        color: titleColor,
+                      ),
+                    ),
+                  ],
+                ),
               ),
-              onPressed: () => Navigator.pop(context),
-            ),
-          ),
-        ),
-      ),
-      body: FutureBuilder<Map<String, dynamic>>(
-        future: _fetchJobHistory(),
-        builder: (context, snapshot) {
-          if (snapshot.connectionState == ConnectionState.waiting) {
-            return const Center(child: CircularProgressIndicator());
-          }
-
-          if (snapshot.hasError) {
-            return Center(child: Text("Error loading job history", style: TextStyle(color: titleColor)));
-          }
-
-          final data = snapshot.data;
-          final double overallRating = data?['rating'] ?? 0.0;
-          final List<dynamic> jobs = data?['jobs'] ?? [];
-
-          return Column(
-            children: [
-              Expanded(
-                child: SingleChildScrollView(
-                  padding: const EdgeInsets.fromLTRB(24, 20, 24, 24),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
+            Expanded(
+              child: SingleChildScrollView(
+                padding: const EdgeInsets.fromLTRB(24, 20, 24, 24),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    if (widget.isMechanicView)
                       // ── Performance Banner ──
                       Container(
                         width: double.infinity,
                         height: 120,
+                        margin: const EdgeInsets.only(bottom: 24),
                         decoration: BoxDecoration(
                           color: bannerBg,
                           borderRadius: BorderRadius.circular(24),
@@ -243,20 +263,68 @@ class _JobHistoryScreenState extends State<JobHistoryScreen> {
                         ),
                       ),
 
-                      const SizedBox(height: 24),
-
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: [
-                          Text(
-                            'Recent Jobs',
-                            style: TextStyle(
-                              fontSize: 14,
-                              fontWeight: FontWeight.bold,
-                              color: titleColor,
-                            ),
+                    if (!widget.isMechanicView)
+                      // ── User Activities Banner ──
+                      Container(
+                        width: double.infinity,
+                        height: 100,
+                        margin: const EdgeInsets.only(bottom: 24),
+                        decoration: BoxDecoration(
+                          color: dark ? const Color(0xFF163E2B) : const Color(0xFFD1F2DD),
+                          borderRadius: BorderRadius.circular(24),
+                        ),
+                        child: Center(
+                          child: Column(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              Text(
+                                'TOTAL COMPLETED SERVICES',
+                                style: TextStyle(
+                                  fontSize: 11,
+                                  fontWeight: FontWeight.bold,
+                                  color: dark ? const Color(0xFF4DB07B) : const Color(0xFF23A05B),
+                                  letterSpacing: 0.5,
+                                ),
+                              ),
+                              const SizedBox(height: 8),
+                              Text(
+                                '${jobs.length}',
+                                style: TextStyle(
+                                  fontSize: 28,
+                                  fontWeight: FontWeight.w800,
+                                  color: dark ? const Color(0xFF4DB07B) : const Color(0xFF23A05B),
+                                ),
+                              ),
+                            ],
                           ),
-                          Container(
+                        ),
+                      ),
+
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Text(
+                          widget.isMechanicView ? 'Recent Jobs' : 'Recent Services',
+                          style: TextStyle(
+                            fontSize: 14,
+                            fontWeight: FontWeight.bold,
+                            color: titleColor,
+                          ),
+                        ),
+                        PopupMenuButton<String>(
+                          initialValue: _selectedFilter,
+                          onSelected: (val) {
+                            setState(() {
+                              _selectedFilter = val;
+                            });
+                          },
+                          itemBuilder: (context) => [
+                            const PopupMenuItem(value: 'All Time', child: Text('All Time')),
+                            const PopupMenuItem(value: 'Last 30 Days', child: Text('Last 30 Days')),
+                            const PopupMenuItem(value: 'Last 6 Months', child: Text('Last 6 Months')),
+                            const PopupMenuItem(value: 'This Year', child: Text('This Year')),
+                          ],
+                          child: Container(
                             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                             decoration: BoxDecoration(
                               color: dark ? AppColors.brandYellow : Colors.grey[300],
@@ -266,7 +334,7 @@ class _JobHistoryScreenState extends State<JobHistoryScreen> {
                               mainAxisSize: MainAxisSize.min,
                               children: [
                                 Text(
-                                  'All Time',
+                                  _selectedFilter,
                                   style: TextStyle(
                                     fontSize: 11,
                                     fontWeight: FontWeight.bold,
@@ -278,33 +346,72 @@ class _JobHistoryScreenState extends State<JobHistoryScreen> {
                               ],
                             ),
                           ),
-                        ],
-                      ),
+                        ),
+                      ],
+                    ),
 
-                      const SizedBox(height: 16),
+                    const SizedBox(height: 16),
 
-                      if (jobs.isEmpty)
-                        Padding(
-                          padding: const EdgeInsets.only(top: 40.0),
-                          child: Center(
-                            child: Text(
-                              "No completed jobs yet.",
-                              style: TextStyle(color: subColor, fontSize: 16),
-                            ),
+                    if (jobs.isEmpty)
+                      Padding(
+                        padding: const EdgeInsets.only(top: 40.0),
+                        child: Center(
+                          child: Text(
+                            "No history found.",
+                            style: TextStyle(color: subColor, fontSize: 16),
                           ),
-                        )
-                      else
-                        ..._buildJobList(jobs, dark, cardBg, titleColor, subColor),
+                        ),
+                      )
+                    else
+                      ..._buildJobList(jobs, dark, cardBg, titleColor, subColor),
 
-                      const SizedBox(height: 40),
-                    ],
-                  ),
+                    const SizedBox(height: 100), // padding for bottom nav
+                  ],
                 ),
               ),
-            ],
-          );
-        }
+            ),
+          ],
+        );
+      }
+    );
+
+    if (widget.isEmbedded) {
+      return Container(
+        color: bgColor,
+        child: content,
+      );
+    }
+
+    return Scaffold(
+      backgroundColor: bgColor,
+      appBar: AppBar(
+        backgroundColor: topBarColor,
+        elevation: 0,
+        centerTitle: true,
+        title: Text(
+          widget.isMechanicView ? 'Job History' : 'Activities',
+          style: TextStyle(
+            fontSize: 17,
+            fontWeight: FontWeight.bold,
+            color: titleColor,
+          ),
+        ),
+        leading: Padding(
+          padding: const EdgeInsets.all(8.0),
+          child: CircleAvatar(
+            backgroundColor: dark ? AppColors.darkSurface : Colors.grey[100],
+            child: IconButton(
+              icon: Icon(
+                Icons.arrow_back,
+                size: 18,
+                color: dark ? Colors.white : Colors.black,
+              ),
+              onPressed: () => Navigator.pop(context),
+            ),
+          ),
+        ),
       ),
+      body: content,
     );
   }
 
@@ -322,14 +429,23 @@ class _JobHistoryScreenState extends State<JobHistoryScreen> {
       }
 
       final review = job['review'];
-      final clientName = job['userName'] ?? 'Unknown Client';
+      
+      // For user view, display mechanic name if available.
+      // For mechanic view, display user name.
+      String personName = 'Unknown';
+      if (widget.isMechanicView) {
+        personName = job['userName'] ?? 'Unknown Client';
+      } else {
+        personName = job['mechanicName'] ?? 'Mechanic';
+      }
+
       final serviceType = job['serviceType'] ?? 'General Service';
       final rating = (review?['rating'] ?? 0.0).toDouble();
       final comment = review?['comment'] ?? 'No feedback provided.';
 
       list.add(
         _buildJobCard(
-          clientName: clientName,
+          personName: personName,
           date: _formatDate(date),
           vehicle: serviceType,
           rating: rating,
@@ -361,7 +477,7 @@ class _JobHistoryScreenState extends State<JobHistoryScreen> {
   }
 
   Widget _buildJobCard({
-    required String clientName,
+    required String personName,
     required String date,
     required String vehicle,
     required double rating,
@@ -397,7 +513,7 @@ class _JobHistoryScreenState extends State<JobHistoryScreen> {
                 radius: 20,
                 backgroundColor: AppColors.primaryBlue.withValues(alpha: 0.2),
                 child: Text(
-                  clientName.isNotEmpty ? clientName[0].toUpperCase() : 'U',
+                  personName.isNotEmpty ? personName[0].toUpperCase() : 'U',
                   style: const TextStyle(
                     color: AppColors.primaryBlue,
                     fontWeight: FontWeight.bold,
@@ -411,7 +527,7 @@ class _JobHistoryScreenState extends State<JobHistoryScreen> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      clientName,
+                      personName,
                       style: TextStyle(
                         fontSize: 15,
                         fontWeight: FontWeight.bold,
@@ -430,7 +546,7 @@ class _JobHistoryScreenState extends State<JobHistoryScreen> {
                   ],
                 ),
               ),
-              if (rating > 0)
+              if (rating > 0 && widget.isMechanicView) // Usually users don't need to see the rating they left prominently, or they can
                 Row(
                   children: List.generate(5, (index) {
                     return Icon(
@@ -465,7 +581,7 @@ class _JobHistoryScreenState extends State<JobHistoryScreen> {
               ],
             ),
           ),
-          if (rating > 0) ...[
+          if (rating > 0 && widget.isMechanicView) ...[
             const SizedBox(height: 12),
             Text(
               '"$review"',
