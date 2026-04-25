@@ -30,27 +30,47 @@ class _VerificationScreenState extends State<VerificationScreen> {
     final rawPhone = args['phone'] ?? '';
     final phone = rawPhone.startsWith('0') ? rawPhone.substring(1) : rawPhone;
 
-    await FirebaseAuth.instance.verifyPhoneNumber(
-      phoneNumber: '+94$phone',
-      verificationCompleted: (PhoneAuthCredential credential) async {
-        await FirebaseAuth.instance.signInWithCredential(credential);
-      },
-      verificationFailed: (FirebaseAuthException e) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(e.message ?? "Verification failed")),
-        );
-      },
-      codeSent: (String verificationId, int? resendToken) {
-        setState(() {
-          _verificationId = verificationId;
-        });
+    try {
+      setState(() => _isLoading = true); // 🔥 loading start
 
-        print("Verification ID: $verificationId");
-      },
-      codeAutoRetrievalTimeout: (String verificationId) {
-        _verificationId = verificationId;
-      },
-    );
+      await FirebaseAuth.instance.verifyPhoneNumber(
+        phoneNumber: '+94$phone',
+        timeout: const Duration(seconds: 60),
+        verificationCompleted: (PhoneAuthCredential credential) async {
+          print("AUTO VERIFIED");
+          await FirebaseAuth.instance.signInWithCredential(credential);
+        },
+        verificationFailed: (FirebaseAuthException e) {
+          print("OTP ERROR CODE: ${e.code}");
+          print("OTP ERROR MESSAGE: ${e.message}");
+
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(content: Text(e.message ?? "Verification failed")),
+            );
+          }
+        },
+        codeSent: (String verificationId, int? resendToken) {
+          print("OTP SENT SUCCESS");
+
+          if (mounted) {
+            setState(() {
+              _verificationId = verificationId;
+            });
+          }
+        },
+        codeAutoRetrievalTimeout: (String verificationId) {
+          print("AUTO RETRIEVAL TIMEOUT");
+          _verificationId = verificationId;
+        },
+      );
+    } catch (e) {
+      print("GENERAL ERROR: $e");
+    } finally {
+      if (mounted) {
+        setState(() => _isLoading = false); // 🔥 loading end
+      }
+    }
   }
 
   @override
