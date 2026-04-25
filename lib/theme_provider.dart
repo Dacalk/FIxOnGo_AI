@@ -32,6 +32,7 @@ class AppColors {
   static const Color primaryBlue = Color(0xFF1A4DBE);
   static const Color brandYellow = Color(0xFFE5C94B);
   static const Color vibrantBlue = Color(0xFF2962FF);
+  static const Color emergencyRed = Color(0xFFFF4B2B);
 }
 
 /// Global theme notifier — drives light / dark switching app-wide.

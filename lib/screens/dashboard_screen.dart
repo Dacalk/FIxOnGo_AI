@@ -730,6 +730,28 @@ class _DashboardScreenState extends State<DashboardScreen> {
                     ),
                   ],
                 ),
+                const SizedBox(height: 14),
+                Row(
+                  children: [
+                    Expanded(
+                      child: QuickActionCard(
+                        icon: Icons.local_shipping_rounded,
+                        subtitle: 'EMERGENCY AID',
+                        title: 'Towing & Roadside',
+                        color: AppColors.emergencyRed,
+                        onTap: () {
+                          WidgetsBinding.instance.addPostFrameCallback((_) {
+                            if (mounted) {
+                              Navigator.pushNamed(context, '/towing-booking');
+                            }
+                          });
+                        },
+                      ),
+                    ),
+                    const SizedBox(width: 14),
+                    const Spacer(),
+                  ],
+                ),
               ],
             ),
           ),

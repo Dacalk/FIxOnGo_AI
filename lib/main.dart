@@ -33,6 +33,8 @@ import 'screens/profile_screen.dart';
 import 'screens/rate_experience_screen.dart';
 import 'screens/user_shop_view_screen.dart';
 import 'screens/job_history_screen.dart';
+import 'features/towing/towing_booking_screen.dart';
+import 'features/towing/towing_status_screen.dart';
 import 'theme_provider.dart';
 
 import 'package:flutter_dotenv/flutter_dotenv.dart';
@@ -177,6 +179,10 @@ class FixOnGoApp extends StatelessWidget {
             '/job-history': (context) =>
                 const AuthGuard(child: JobHistoryScreen()),
             '/home': (context) => const AuthGuard(child: HomeScreen()),
+            '/towing-booking': (context) =>
+                const AuthGuard(child: TowingBookingScreen()),
+            '/towing-status': (context) =>
+                const AuthGuard(child: TowingStatusScreen()),
           },
         );
       },
