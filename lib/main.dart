@@ -31,7 +31,6 @@ import 'screens/help_support_screen.dart';
 import 'screens/profile_screen.dart';
 import 'screens/rate_experience_screen.dart';
 import 'screens/user_shop_view_screen.dart';
-import 'screens/job_history_screen.dart';
 import 'theme_provider.dart';
 
 import 'package:flutter_dotenv/flutter_dotenv.dart';
@@ -171,8 +170,6 @@ class FixOnGoApp extends StatelessWidget {
                 const AuthGuard(child: UserShopViewScreen()),
             '/rate-experience': (context) =>
                 const AuthGuard(child: RateExperienceScreen()),
-            '/job-history': (context) =>
-                const AuthGuard(child: JobHistoryScreen()),
             '/home': (context) => const AuthGuard(child: HomeScreen()),
           },
         );
