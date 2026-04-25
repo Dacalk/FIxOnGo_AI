@@ -687,10 +687,19 @@ class _ProfileScreenState extends State<ProfileScreen> {
           children: [
             _navItem(context, Icons.home_rounded, 'Dashboard', false, dark,
                 '/dashboard'),
-            _navItem(context, Icons.garage_rounded, 'Garage', false, dark,
+            _navItem(
+                context,
+                userRole.toLowerCase() == 'mechanic'
+                    ? Icons.shopping_bag
+                    : Icons.history_rounded,
+                userRole.toLowerCase() == 'mechanic' ? 'Shop' : 'Activities',
+                false,
+                dark,
+                userRole.toLowerCase() == 'mechanic'
+                    ? '/mechanic-shop'
+                    : '/job-history'),
+            _navItem(context, Icons.garage_rounded, 'Vehicles', false, dark,
                 '/garage'),
-            _navItem(context, Icons.payments_rounded, 'Payment', false, dark,
-                '/payment-history'),
             _navItem(context, Icons.person_rounded, 'Profile', true, dark,
                 '/profile'),
           ],

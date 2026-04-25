@@ -468,10 +468,10 @@ class PaymentHistoryScreen extends StatelessWidget {
           children: [
             _navItem(context, Icons.home_rounded, 'Dashboard', false, dark,
                 '/dashboard'),
-            _navItem(context, Icons.garage_rounded, 'Garage', false, dark,
+            _navItem(context, Icons.history_rounded, 'Activities', false, dark,
+                '/job-history'),
+            _navItem(context, Icons.garage_rounded, 'Vehicles', false, dark,
                 '/garage'),
-            _navItem(context, Icons.payments_rounded, 'Payment', true, dark,
-                '/payment-history'),
             _navItem(context, Icons.person_rounded, 'Profile', false, dark,
                 '/profile'),
           ],

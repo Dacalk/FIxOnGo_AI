@@ -314,7 +314,7 @@ class _MechanicShopScreenState extends State<MechanicShopScreen> {
               case 1:
                 break; // Already here
               case 2:
-                Navigator.pushReplacementNamed(context, '/payment-history');
+                Navigator.pushReplacementNamed(context, '/garage');
                 break;
               case 3:
                 Navigator.pushReplacementNamed(context, '/profile',
@@ -335,7 +335,7 @@ class _MechanicShopScreenState extends State<MechanicShopScreen> {
             BottomNavigationBarItem(
                 icon: Icon(Icons.shopping_bag), label: 'Shop'),
             BottomNavigationBarItem(
-                icon: Icon(Icons.payments_rounded), label: 'Payment'),
+                icon: Icon(Icons.garage_rounded), label: 'Vehicles'),
             BottomNavigationBarItem(
                 icon: Icon(Icons.person_rounded), label: 'Profile'),
           ],

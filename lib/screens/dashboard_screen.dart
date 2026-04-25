@@ -269,7 +269,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                 role.toLowerCase() == 'mechanic'
                     ? const MechanicShopScreen(isEmbedded: true)
                     : const JobHistoryScreen(isEmbedded: true, isMechanicView: false),
-                const PaymentHistoryScreen(isEmbedded: true),
+                const GarageScreen(isEmbedded: true),
                 ProfileScreen(
                   isEmbedded: true,
                   role: role,
@@ -506,9 +506,9 @@ class _DashboardScreenState extends State<DashboardScreen> {
               label:
                   currentRole?.toLowerCase() == 'mechanic' ? 'Shop' : 'Activities',
             ),
-            BottomNavigationBarItem(
-              icon: Icon(Icons.payments_rounded),
-              label: 'Payment',
+            const BottomNavigationBarItem(
+              icon: Icon(Icons.garage_rounded),
+              label: 'Vehicles',
             ),
             BottomNavigationBarItem(
               icon: Icon(Icons.person_rounded),

@@ -1,11 +1,125 @@
 import 'package:flutter/material.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 import '../theme_provider.dart';
+import '../components/form_input.dart';
 
-/// Garage screen — manage vehicles.
-/// Linked from the Bottom Navigation Bar 'Garage' tab.
-class GarageScreen extends StatelessWidget {
+/// Vehicles screen — manage vehicles.
+/// Linked from the Bottom Navigation Bar 'Vehicles' tab.
+class GarageScreen extends StatefulWidget {
   final bool isEmbedded;
   const GarageScreen({super.key, this.isEmbedded = false});
+
+  @override
+  State<GarageScreen> createState() => _GarageScreenState();
+}
+
+class _GarageScreenState extends State<GarageScreen> {
+  Map<String, dynamic>? _vehicleData;
+  bool _isLoading = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadVehicle();
+  }
+
+  Future<void> _loadVehicle() async {
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null) {
+      if (mounted) setState(() => _isLoading = false);
+      return;
+    }
+    
+    try {
+      final doc = await FirebaseFirestore.instance.collection('users').doc(user.uid).get();
+      if (doc.exists) {
+        final roles = doc.data()?['roles'] as Map<String, dynamic>? ?? {};
+        // If there's a user role, read from it.
+        final userRole = roles['user'] as Map<String, dynamic>? ?? roles['mechanic'] as Map<String, dynamic>? ?? {};
+        
+        if (mounted) {
+          setState(() {
+            _vehicleData = {
+              'type': userRole['vehicleType'] ?? '',
+              'plate': userRole['plate'] ?? '',
+              'color': userRole['color'] ?? '',
+            };
+            _isLoading = false;
+          });
+        }
+      } else {
+        if (mounted) setState(() => _isLoading = false);
+      }
+    } catch (e) {
+      if (mounted) setState(() => _isLoading = false);
+    }
+  }
+
+  void _showEditVehicleDialog() {
+    final TextEditingController typeController = TextEditingController(text: _vehicleData?['type'] ?? '');
+    final TextEditingController plateController = TextEditingController(text: _vehicleData?['plate'] ?? '');
+    final TextEditingController colorController = TextEditingController(text: _vehicleData?['color'] ?? '');
+    final dark = isDarkMode(context);
+
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        backgroundColor: dark ? AppColors.darkSurface : Colors.white,
+        title: Text(
+          'Edit Primary Vehicle',
+          style: TextStyle(color: dark ? Colors.white : Colors.black),
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            FormInput(
+              label: 'Vehicle Type',
+              hintText: 'e.g. SUV, Sedan, Van',
+              controller: typeController,
+            ),
+            const SizedBox(height: 12),
+            FormInput(
+              label: 'Plate Number',
+              hintText: 'e.g. ABC - 1234',
+              controller: plateController,
+            ),
+            const SizedBox(height: 12),
+            FormInput(
+              label: 'Color',
+              hintText: 'e.g. Red, Black',
+              controller: colorController,
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Cancel'),
+          ),
+          ElevatedButton(
+            onPressed: () async {
+              final user = FirebaseAuth.instance.currentUser;
+              if (user != null) {
+                await FirebaseFirestore.instance.collection('users').doc(user.uid).set({
+                  'roles': {
+                    'user': {
+                      'vehicleType': typeController.text,
+                      'plate': plateController.text,
+                      'color': colorController.text,
+                    }
+                  }
+                }, SetOptions(merge: true));
+                _loadVehicle();
+                if (mounted) Navigator.pop(context);
+              }
+            },
+            child: const Text('Save'),
+          ),
+        ],
+      ),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -18,19 +132,21 @@ class GarageScreen extends StatelessWidget {
     final borderColor = dark ? Colors.transparent : Colors.grey[200]!;
 
     // Status Badge Colors
-    final activeBg = dark
-        ? const Color(0xFF88D4A8).withValues(alpha: 0.2)
-        : const Color(0xFFC8E6C9);
-    final activeText = dark ? const Color(0xFF88D4A8) : Colors.green[800]!;
     final primaryBg = dark
         ? AppColors.brandYellow.withValues(alpha: 0.2)
         : const Color(0xFFFFF9C4);
     final primaryText = dark ? AppColors.brandYellow : Colors.orange[800]!;
 
+    bool hasVehicle = _vehicleData != null && 
+                     (_vehicleData!['type']?.toString().isNotEmpty == true || 
+                      _vehicleData!['plate']?.toString().isNotEmpty == true);
+
     final content = Column(
       children: [
         Expanded(
-          child: SingleChildScrollView(
+          child: _isLoading 
+            ? const Center(child: CircularProgressIndicator())
+            : SingleChildScrollView(
             padding: const EdgeInsets.all(24),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -42,7 +158,7 @@ class GarageScreen extends StatelessWidget {
                 ),
                 const SizedBox(height: 6),
                 Text(
-                  'Total Vehicles : 02',
+                  'Total Vehicles : ${hasVehicle ? '01' : '00'}',
                   style: TextStyle(
                     fontSize: 18,
                     fontWeight: FontWeight.bold,
@@ -55,7 +171,7 @@ class GarageScreen extends StatelessWidget {
                 SizedBox(
                   width: double.infinity,
                   child: ElevatedButton(
-                    onPressed: () {},
+                    onPressed: _showEditVehicleDialog,
                     style: ElevatedButton.styleFrom(
                       backgroundColor:
                           dark ? AppColors.brandYellow : AppColors.primaryBlue,
@@ -70,13 +186,13 @@ class GarageScreen extends StatelessWidget {
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
                         Icon(
-                          Icons.add_circle_outline,
+                          hasVehicle ? Icons.edit : Icons.add_circle_outline,
                           size: 20,
                           color: dark ? Colors.black : Colors.white,
                         ),
                         const SizedBox(width: 8),
                         Text(
-                          'Add New Vehicle',
+                          hasVehicle ? 'Edit Vehicle Details' : 'Add New Vehicle',
                           style: TextStyle(
                             fontSize: 15,
                             fontWeight: FontWeight.bold,
@@ -90,47 +206,45 @@ class GarageScreen extends StatelessWidget {
                 const SizedBox(height: 32),
 
                 // ── Vehicle Cards ──
-                _buildVehicleCard(
-                  imagePath:
-                      'assets/images/placeholder_suv.png', // We'll use a placeholder colored box
-                  name: 'Toyota Highlandr\nHybrid',
-                  plate: 'CARBON - 10',
-                  statusText: 'ACTIVE',
-                  statusBgColor: activeBg,
-                  statusTextColor: activeText,
-                  dark: dark,
-                  cardBg: cardBg,
-                  borderColor: borderColor,
-                  titleColor: titleColor,
-                  subColor: subColor,
-                ),
-                const SizedBox(height: 16),
-                _buildVehicleCard(
-                  imagePath: 'assets/images/placeholder_sedan.png',
-                  name: 'BYD\'s Flagship\nHan EV',
-                  plate: 'LG73 - SDU',
-                  statusText: 'PRIMARY',
-                  statusBgColor: primaryBg,
-                  statusTextColor: primaryText,
-                  dark: dark,
-                  cardBg: cardBg,
-                  borderColor: borderColor,
-                  titleColor: titleColor,
-                  subColor: subColor,
-                ),
+                if (hasVehicle)
+                  _buildVehicleCard(
+                    imagePath: 'assets/images/placeholder_sedan.png',
+                    name: _vehicleData!['type'].toString().isEmpty ? 'Unknown Vehicle' : _vehicleData!['type'],
+                    plate: _vehicleData!['plate'].toString().isEmpty ? 'No Plate' : _vehicleData!['plate'],
+                    colorInfo: _vehicleData!['color'].toString().isEmpty ? 'No Color' : _vehicleData!['color'],
+                    statusText: 'PRIMARY',
+                    statusBgColor: primaryBg,
+                    statusTextColor: primaryText,
+                    dark: dark,
+                    cardBg: cardBg,
+                    borderColor: borderColor,
+                    titleColor: titleColor,
+                    subColor: subColor,
+                  )
+                else
+                  Center(
+                    child: Padding(
+                      padding: const EdgeInsets.all(32.0),
+                      child: Text(
+                        'No vehicles added yet.\nClick above to add your primary vehicle.',
+                        textAlign: TextAlign.center,
+                        style: TextStyle(color: subColor, fontSize: 14),
+                      ),
+                    ),
+                  ),
 
                 const SizedBox(height: 40),
               ],
             ),
           ),
         ),
-        if (!isEmbedded)
+        if (!widget.isEmbedded)
           // ── Bottom Navigation Bar ──
           _buildBottomNav(context, dark),
       ],
     );
 
-    if (isEmbedded) return content;
+    if (widget.isEmbedded) return content;
 
     return Scaffold(
       backgroundColor: bgColor,
@@ -139,7 +253,7 @@ class GarageScreen extends StatelessWidget {
         elevation: 0,
         centerTitle: true,
         title: Text(
-          'My Garage',
+          'My Vehicles',
           style: TextStyle(
             fontSize: 17,
             fontWeight: FontWeight.bold,
@@ -169,6 +283,7 @@ class GarageScreen extends StatelessWidget {
     required String imagePath,
     required String name,
     required String plate,
+    required String colorInfo,
     required String statusText,
     required Color statusBgColor,
     required Color statusTextColor,
@@ -181,7 +296,6 @@ class GarageScreen extends StatelessWidget {
     // Action button styles
     final actionBg = dark ? const Color(0xFF2A3A50) : Colors.grey[200]!;
     final actionText = dark ? Colors.white : Colors.black87;
-    final removeText = Colors.red[400]!;
 
     return Container(
       padding: const EdgeInsets.all(16),
@@ -264,7 +378,7 @@ class GarageScreen extends StatelessWidget {
                 ),
                 const SizedBox(height: 8),
                 Text(
-                  plate,
+                  '$plate • $colorInfo',
                   style: TextStyle(
                     fontSize: 12,
                     fontWeight: FontWeight.bold,
@@ -276,17 +390,14 @@ class GarageScreen extends StatelessWidget {
                 // Action Buttons
                 Row(
                   children: [
-                    _buildActionButton(
-                      icon: Icons.edit,
-                      text: 'Edit',
-                      bgColor: actionBg,
-                      textColor: actionText,
-                    ),
-                    const SizedBox(width: 12),
-                    _buildActionButton(
-                      text: 'Remove',
-                      bgColor: actionBg,
-                      textColor: removeText,
+                    GestureDetector(
+                      onTap: _showEditVehicleDialog,
+                      child: _buildActionButton(
+                        icon: Icons.edit,
+                        text: 'Edit',
+                        bgColor: actionBg,
+                        textColor: actionText,
+                      ),
                     ),
                   ],
                 ),
@@ -350,10 +461,10 @@ class GarageScreen extends StatelessWidget {
           children: [
             _navItem(context, Icons.home_rounded, 'Dashboard', false, dark,
                 '/dashboard'),
+            _navItem(context, Icons.history_rounded, 'Activities', false, dark,
+                '/job-history'),
             _navItem(
-                context, Icons.garage_rounded, 'Garage', true, dark, '/garage'),
-            _navItem(context, Icons.payments_rounded, 'Payment', false, dark,
-                '/payment-history'),
+                context, Icons.garage_rounded, 'Vehicles', true, dark, '/garage'),
             _navItem(context, Icons.person_rounded, 'Profile', false, dark,
                 '/profile'),
           ],
