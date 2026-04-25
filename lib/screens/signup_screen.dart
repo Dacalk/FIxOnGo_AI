@@ -530,11 +530,41 @@ class _SignupScreenState extends State<SignupScreen> {
     ];
   }
 
+  List<Widget> _towOwnerFields() {
+    return [
+      FormInput(
+          label: 'Full Name', hintText: 'John Doe', onChanged: (v) => fullName = v),
+      const SizedBox(height: 20),
+      FormInput(
+          label: 'NIC / ID Number',
+          hintText: '123456789V',
+          onChanged: (v) => nic = v),
+      const SizedBox(height: 20),
+      FormInput(
+          label: 'Truck Model',
+          hintText: 'Isuzu Elf / Mitsubishi Fuso',
+          onChanged: (v) => truckModel = v),
+      const SizedBox(height: 20),
+      FormInput(
+          label: 'Towing Capacity (Tons)',
+          hintText: '3.5',
+          keyboardType: TextInputType.number,
+          onChanged: (v) => towingCapacity = v),
+      const SizedBox(height: 20),
+      FormInput(
+          label: 'Vehicle Plate Number',
+          hintText: 'WP CP-1234',
+          onChanged: (v) => plate = v),
+    ];
+  }
+
 
 
   List<Widget> _buildFormFields(String role) {
     if (role == 'Mechanic') {
       return _mechanicFields();
+    } else if (role == 'Tow') {
+      return _towOwnerFields();
     }
     return _defaultUserFields();
   }

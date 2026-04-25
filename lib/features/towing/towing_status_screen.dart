@@ -2,11 +2,13 @@ import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
 import 'dart:async';
+import 'package:cloud_firestore/cloud_firestore.dart';
 import '../../../theme_provider.dart';
 import '../../../components/osm_map_widget.dart';
 
 class TowingStatusScreen extends StatefulWidget {
-  const TowingStatusScreen({super.key});
+  final String? requestId;
+  const TowingStatusScreen({super.key, this.requestId});
 
   @override
   State<TowingStatusScreen> createState() => _TowingStatusScreenState();
@@ -21,22 +23,110 @@ class _TowingStatusScreenState extends State<TowingStatusScreen> {
     "Vehicle Picked Up"
   ];
 
-  // Mock location for user and driver
-  final LatLng _userLoc = const LatLng(6.9271, 79.8612); // Colombo example
-  LatLng _driverLoc = const LatLng(6.9371, 79.8712);
+  LatLng _userLoc = const LatLng(6.9271, 79.8612); // Default
+  LatLng _driverLoc = const LatLng(6.9371, 79.8712); // Default
   
-  Timer? _statusTimer;
-  Timer? _moveTimer;
+  StreamSubscription? _requestSub;
+  StreamSubscription? _driverSub;
+  
+  String _driverName = "Searching...";
+  String _driverPlate = "";
+  String _etr = "---";
+  String _paymentStatus = 'pending';
+  num _totalAmount = 0;
 
   @override
   void initState() {
     super.initState();
-    _startMockProgress();
+    if (widget.requestId != null) {
+      _listenToRequest();
+    } else {
+      // Demo mode if no ID provided
+      _startMockProgress();
+    }
   }
 
+  void _listenToRequest() {
+    _requestSub = FirebaseFirestore.instance
+        .collection('requests')
+        .doc(widget.requestId)
+        .snapshots()
+        .listen((snap) {
+      if (snap.exists) {
+        final data = snap.data()!;
+        final status = data['status'] ?? 'pending';
+        final userLoc = data['userLocation'] as Map<String, dynamic>?;
+        final pStatus = data['paymentStatus'] ?? 'pending';
+        final amount = data['basePrice'] ?? 0;
+        
+        setState(() {
+          _paymentStatus = pStatus;
+          _totalAmount = amount;
+          if (userLoc != null) {
+            _userLoc = LatLng(userLoc['lat'], userLoc['lng']);
+          }
+          
+          switch (status) {
+            case 'pending':
+              _currentStep = 0;
+              break;
+            case 'accepted':
+              _currentStep = 1;
+              break;
+            case 'arriving':
+              _currentStep = 2;
+              break;
+            case 'picked_up':
+              _currentStep = 3;
+              break;
+            case 'completed':
+              _currentStep = 3; // Stay at last step or pop
+              break;
+          }
+
+          if (data['mechanicId'] != null) {
+            _listenToDriver(data['mechanicId']);
+            _driverName = data['mechanicName'] ?? "Driver Assigned";
+          }
+        });
+      }
+    });
+  }
+
+  void _listenToDriver(String driverId) {
+    _driverSub?.cancel();
+    _driverSub = FirebaseFirestore.instance
+        .collection('users')
+        .doc(driverId)
+        .snapshots()
+        .listen((snap) {
+      if (snap.exists) {
+        final data = snap.data()!;
+        final roles = data['roles'] as Map<String, dynamic>?;
+        final towRole = roles?['tow'] ?? roles?['mechanic']; // Fix: use 'tow' instead of 'tow owner'
+        
+        if (towRole != null) {
+          final loc = towRole['location'] as Map<String, dynamic>?;
+          setState(() {
+            if (loc != null) {
+              _driverLoc = LatLng(loc['lat'], loc['lng']);
+            }
+            _driverPlate = towRole['plate'] ?? "";
+            
+            // Calculate ETR based on distance
+            final Distance distance = const Distance();
+            final double meter = distance.as(LengthUnit.Meter, _userLoc, _driverLoc);
+            final int mins = (meter / 300).toInt(); // Approx 20km/h in traffic
+            _etr = "$mins MIN";
+          });
+        }
+      }
+    });
+  }
+
+  // Fallback Demo Logic
   void _startMockProgress() {
-    // Progress through steps every 5 seconds for demo
-    _statusTimer = Timer.periodic(const Duration(seconds: 5), (timer) {
+    Timer.periodic(const Duration(seconds: 5), (timer) {
       if (_currentStep < _statuses.length - 1) {
         setState(() {
           _currentStep++;
@@ -45,23 +135,12 @@ class _TowingStatusScreenState extends State<TowingStatusScreen> {
         timer.cancel();
       }
     });
-
-    // Move driver closer to user
-    _moveTimer = Timer.periodic(const Duration(milliseconds: 100), (timer) {
-      if (_currentStep >= 1 && _currentStep < 3) {
-        setState(() {
-          double latDiff = (_userLoc.latitude - _driverLoc.latitude) * 0.01;
-          double lngDiff = (_userLoc.longitude - _driverLoc.longitude) * 0.01;
-          _driverLoc = LatLng(_driverLoc.latitude + latDiff, _driverLoc.longitude + lngDiff);
-        });
-      }
-    });
   }
 
   @override
   void dispose() {
-    _statusTimer?.cancel();
-    _moveTimer?.cancel();
+    _requestSub?.cancel();
+    _driverSub?.cancel();
     super.dispose();
   }
 
@@ -109,7 +188,7 @@ class _TowingStatusScreenState extends State<TowingStatusScreen> {
             ),
           ),
 
-          // 3. Status Dashboard (Bottom Sheet-like)
+          // 3. Status Dashboard
           Align(
             alignment: Alignment.bottomCenter,
             child: Container(
@@ -132,26 +211,28 @@ class _TowingStatusScreenState extends State<TowingStatusScreen> {
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            "Status: ${_statuses[_currentStep]}",
-                            style: TextStyle(
-                              fontSize: 22,
-                              fontWeight: FontWeight.bold,
-                              color: dark ? Colors.white : Colors.black87,
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              "Status: ${_statuses[_currentStep]}",
+                              style: TextStyle(
+                                fontSize: 20,
+                                fontWeight: FontWeight.bold,
+                                color: dark ? Colors.white : Colors.black87,
+                              ),
                             ),
-                          ),
-                          const SizedBox(height: 4),
-                          Text(
-                            "Driver: John Doe (TOW-4502)",
-                            style: TextStyle(
-                              fontSize: 14,
-                              color: Colors.grey[500],
+                            const SizedBox(height: 4),
+                            Text(
+                              "Driver: $_driverName ${_driverPlate.isNotEmpty ? '($_driverPlate)' : ''}",
+                              style: TextStyle(
+                                fontSize: 14,
+                                color: Colors.grey[500],
+                              ),
                             ),
-                          ),
-                        ],
+                          ],
+                        ),
                       ),
                       Container(
                         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
@@ -159,9 +240,9 @@ class _TowingStatusScreenState extends State<TowingStatusScreen> {
                           color: AppColors.emergencyRed.withValues(alpha: 0.1),
                           borderRadius: BorderRadius.circular(12),
                         ),
-                        child: const Text(
-                          "ETR: 8 MIN",
-                          style: TextStyle(
+                        child: Text(
+                          "ETR: $_etr",
+                          style: const TextStyle(
                             color: AppColors.emergencyRed,
                             fontWeight: FontWeight.bold,
                           ),
@@ -223,12 +304,60 @@ class _TowingStatusScreenState extends State<TowingStatusScreen> {
                   ),
 
                   // Actions
+                  if (_currentStep == 2 && _paymentStatus == 'pending')
+                    Padding(
+                      padding: const EdgeInsets.only(bottom: 16),
+                      child: ElevatedButton.icon(
+                        onPressed: () async {
+                          if (widget.requestId != null) {
+                            await FirebaseFirestore.instance
+                                .collection('requests')
+                                .doc(widget.requestId)
+                                .update({'paymentStatus': 'paid'});
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(content: Text("Payment Successful!")),
+                            );
+                          }
+                        },
+                        icon: const Icon(Icons.payment),
+                        label: Text("PAY Rs. $_totalAmount"),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: Colors.green,
+                          foregroundColor: Colors.white,
+                          padding: const EdgeInsets.symmetric(vertical: 16),
+                          minimumSize: const Size(double.infinity, 50),
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                        ),
+                      ),
+                    ),
+                  
+                  if (_paymentStatus == 'paid')
+                     Padding(
+                      padding: const EdgeInsets.only(bottom: 16),
+                      child: Container(
+                        width: double.infinity,
+                        padding: const EdgeInsets.all(12),
+                        decoration: BoxDecoration(
+                          color: Colors.green.withValues(alpha: 0.1),
+                          borderRadius: BorderRadius.circular(12),
+                          border: Border.all(color: Colors.green),
+                        ),
+                        child: const Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Icon(Icons.check_circle, color: Colors.green),
+                            SizedBox(width: 8),
+                            Text("Payment Confirmed", style: TextStyle(color: Colors.green, fontWeight: FontWeight.bold)),
+                          ],
+                        ),
+                      ),
+                    ),
+
                   Row(
                     children: [
                       Expanded(
                         child: OutlinedButton.icon(
                           onPressed: () {
-                            // Mock contact
                             ScaffoldMessenger.of(context).showSnackBar(
                               const SnackBar(content: Text("Calling driver...")),
                             );
@@ -243,23 +372,31 @@ class _TowingStatusScreenState extends State<TowingStatusScreen> {
                           ),
                         ),
                       ),
-                      const SizedBox(width: 16),
-                      Expanded(
-                        child: ElevatedButton.icon(
-                          onPressed: () {
-                            Navigator.pop(context);
-                          },
-                          icon: const Icon(Icons.close),
-                          label: const Text("CANCEL"),
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: Colors.grey[200],
-                            foregroundColor: Colors.black87,
-                            elevation: 0,
-                            padding: const EdgeInsets.symmetric(vertical: 16),
-                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                      if (_paymentStatus == 'pending') ...[
+                        const SizedBox(width: 16),
+                        Expanded(
+                          child: ElevatedButton.icon(
+                            onPressed: () {
+                              if (widget.requestId != null) {
+                                FirebaseFirestore.instance
+                                    .collection('requests')
+                                    .doc(widget.requestId)
+                                    .update({'status': 'cancelled'});
+                              }
+                              Navigator.pop(context);
+                            },
+                            icon: const Icon(Icons.close),
+                            label: const Text("CANCEL"),
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: Colors.grey[200],
+                              foregroundColor: Colors.black87,
+                              elevation: 0,
+                              padding: const EdgeInsets.symmetric(vertical: 16),
+                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                            ),
                           ),
                         ),
-                      ),
+                      ],
                     ],
                   ),
                 ],

@@ -47,6 +47,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
   LatLng? _userLocation;
 
   StreamSubscription? _requestSubscription;
+  StreamSubscription? _towRequestSubscription; // Separate sub for towing
   Timer? _posTimer;
   String? _lastDialogRequestId;
   bool _isNavigating = false;
@@ -58,6 +59,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
   Stream<List<Map<String, dynamic>>>? _paymentHistoryStream;
   bool _isMechanicActive = true;
   Stream<List<Map<String, dynamic>>>? _mechanicIncomingRequestsStream;
+  Stream<List<Map<String, dynamic>>>? _towIncomingRequestsStream;
+  Stream<List<Map<String, dynamic>>>? _towPaymentHistoryStream;
 
   @override
   void initState() {
@@ -100,6 +103,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
       if (doc.exists) {
         final data = doc.data();
         final rolesMap = data?['roles'] as Map<String, dynamic>? ?? {};
+        final towRole = rolesMap['tow'] ?? rolesMap['mechanic']; // Fix: use 'tow' instead of 'tow owner'
 
         // 🧠 DYNAMIC ROLE RESOLUTION
         // If we were passed "User" (the default) but the user has other roles,
@@ -159,6 +163,13 @@ class _DashboardScreenState extends State<DashboardScreen> {
               }
               _initMechanicServices(user.uid);
               _initMechanicDataStreams(user.uid);
+            }
+
+            // 🚛 START TOWING SERVICES IF ROLE EXISTS
+            final isTowOwner = rolesMap.containsKey('tow');
+            if (isTowOwner) {
+              _initTowServices(user.uid);
+              _initTowDataStreams(user.uid);
             }
           }
         });
@@ -343,6 +354,60 @@ class _DashboardScreenState extends State<DashboardScreen> {
     });
   }
 
+  void _initTowServices(String uid) {
+    // 1. Update location periodically for Tow role
+    _posTimer?.cancel();
+    _posTimer = Timer.periodic(const Duration(seconds: 30), (timer) async {
+      final loc = await LocationService.instance.getCurrentLatLng();
+      await FirebaseFirestore.instance.collection('users').doc(uid).update({
+        'roles.tow.location': {'lat': loc.latitude, 'lng': loc.longitude},
+        'roles.tow.lastSeen': FieldValue.serverTimestamp(),
+      });
+    });
+
+    // 2. Listen for Towing Requests (Broadcasts: mechanicId == null)
+    _towRequestSubscription?.cancel();
+    _towRequestSubscription = FirebaseFirestore.instance
+        .collection('requests')
+        .where('type', isEqualTo: 'towing')
+        .where('status', isEqualTo: 'pending')
+        .where('mechanicId', isNull: true)
+        .snapshots()
+        .listen((snap) {
+      if (snap.docs.isNotEmpty) {
+        final req = snap.docs.first.data();
+        final reqId = snap.docs.first.id;
+
+        if (_lastDialogRequestId != reqId && !_isOverlayShown) {
+          _lastDialogRequestId = reqId;
+          req['id'] = reqId;
+          _showNewRequestDialog(req);
+        }
+      }
+    });
+  }
+
+  void _initTowDataStreams(String uid) {
+    // Incoming Broadcast Requests for Tow: status == pending, type == towing, mechanicId == null
+    _towIncomingRequestsStream = FirebaseFirestore.instance
+        .collection('requests')
+        .where('type', isEqualTo: 'towing')
+        .where('status', isEqualTo: 'pending')
+        .where('mechanicId', isNull: true)
+        .snapshots()
+        .map((snap) =>
+            snap.docs.map((doc) => {'id': doc.id, ...doc.data()}).toList());
+
+    // Payment History for Tow
+    _towPaymentHistoryStream = FirebaseFirestore.instance
+        .collection('payments')
+        .where('mechanicId', isEqualTo: uid)
+        .orderBy('createdAt', descending: true)
+        .snapshots()
+        .map((snap) =>
+            snap.docs.map((doc) => {'id': doc.id, ...doc.data()}).toList());
+  }
+
   void _initUserDataStreams(String uid) {
     // Ongoing Requests: pending, accepted, arriving
     _ongoingRequestsStream = FirebaseFirestore.instance
@@ -408,27 +473,36 @@ class _DashboardScreenState extends State<DashboardScreen> {
           }
         },
         onAccept: () async {
+          final user = FirebaseAuth.instance.currentUser;
+          if (user == null) return;
+
+          // If it's a broadcast request, claim it!
           await FirebaseFirestore.instance
               .collection('requests')
               .doc(req['id'])
               .update({
+            'mechanicId': user.uid,
+            'mechanicName': userName,
             'status': 'accepted',
             'acceptedAt': FieldValue.serverTimestamp(),
           });
           _requestSubscription?.cancel();
+          _towRequestSubscription?.cancel(); // Cancel both on accept
           _lastDialogRequestId = null;
 
           if (mounted) {
             Navigator.pop(context);
           }
-          // Navigate to mechanic tracking screen
+          // Navigate to tracking screen
           if (mounted) {
             WidgetsBinding.instance.addPostFrameCallback((_) {
               if (mounted) {
                 if (_isNavigating) return;
                 _isNavigating = true;
-                Navigator.pushNamed(context, '/mechanic-nav-to-user',
-                    arguments: req['id']);
+                final targetRoute = req['type'] == 'towing' 
+                    ? '/tow-nav-to-user' 
+                    : '/mechanic-nav-to-user';
+                Navigator.pushNamed(context, targetRoute, arguments: req['id']);
               }
             });
           }
@@ -937,30 +1011,39 @@ class _DashboardScreenState extends State<DashboardScreen> {
           // Stats row
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 16),
-            child: Row(
-              children: [
-                StatCard(
-                  icon: Icons.local_shipping,
-                  value: '3',
-                  label: 'Active Tows',
-                  accentColor: Colors.orange,
-                ),
-                const SizedBox(width: 12),
-                StatCard(
-                  icon: Icons.route,
-                  value: '48 km',
-                  label: 'Distance',
-                  accentColor: Colors.blue,
-                ),
-                const SizedBox(width: 12),
-                StatCard(
-                  icon: Icons.account_balance_wallet,
-                  value: 'LKR 18K',
-                  label: 'Earnings',
-                  accentColor: Colors.green,
-                ),
-              ],
-            ),
+            child: StreamBuilder<List<Map<String, dynamic>>>(
+                stream: _towPaymentHistoryStream,
+                builder: (context, snapshot) {
+                  final payments = snapshot.data ?? [];
+                  final totalEarnings = payments.fold<num>(
+                      0, (sum, p) => sum + (p['amount'] ?? 0));
+                  final jobCount = payments.length;
+
+                  return Row(
+                    children: [
+                      StatCard(
+                        icon: Icons.local_shipping,
+                        value: jobCount.toString(),
+                        label: 'Total Tows',
+                        accentColor: Colors.orange,
+                      ),
+                      const SizedBox(width: 12),
+                      StatCard(
+                        icon: Icons.route,
+                        value: '---', // Calculate if distance data available
+                        label: 'Distance',
+                        accentColor: Colors.blue,
+                      ),
+                      const SizedBox(width: 12),
+                      StatCard(
+                        icon: Icons.account_balance_wallet,
+                        value: 'Rs. ${totalEarnings ~/ 1000}K',
+                        label: 'Earnings',
+                        accentColor: Colors.green,
+                      ),
+                    ],
+                  );
+                }),
           ),
           const SizedBox(height: 24),
 
@@ -1005,19 +1088,38 @@ class _DashboardScreenState extends State<DashboardScreen> {
           _sectionTitle('Pending Tow Requests', dark),
           const SizedBox(height: 12),
 
-          _jobRequestCard(
-            'Vehicle Breakdown',
-            'Colombo 07 • Sedan • 4.2 km',
-            Icons.car_crash,
-            Colors.red,
-            dark,
-          ),
-          _jobRequestCard(
-            'Accident Recovery',
-            'Nugegoda • SUV • 6.1 km',
-            Icons.warning_amber,
-            Colors.orange,
-            dark,
+          StreamBuilder<List<Map<String, dynamic>>>(
+            stream: _towIncomingRequestsStream,
+            builder: (context, snapshot) {
+              if (snapshot.hasError) {
+                return Center(child: Text("Error: ${snapshot.error}"));
+              }
+              if (!snapshot.hasData || snapshot.data!.isEmpty) {
+                return Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 20, horizontal: 24),
+                  child: Text(
+                    "No pending tow requests nearby.",
+                    style: TextStyle(color: Colors.grey[500]),
+                  ),
+                );
+              }
+              final requests = snapshot.data!;
+              return Column(
+                children: requests.map((req) {
+                  final vehicle = req['vehicleDetails'] as Map<String, dynamic>?;
+                  final makeModel = vehicle?['makeModel'] ?? 'Unknown Vehicle';
+                  final distance = req['estimatedDistance'] ?? '?.?';
+                  
+                  return _jobRequestCard(
+                    req['serviceType'] ?? 'Towing Request',
+                    '$makeModel • $distance km away',
+                    Icons.car_crash,
+                    Colors.red,
+                    dark,
+                  );
+                }).toList(),
+              );
+            },
           ),
           const SizedBox(height: 20),
 

@@ -5,6 +5,10 @@ import '../../../theme_provider.dart';
 import 'models/towing_service.dart';
 import 'widgets/service_card.dart';
 import 'towing_status_screen.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+import 'dart:async';
+import '../../services/map_service.dart';
 
 class TowingBookingScreen extends StatefulWidget {
   const TowingBookingScreen({super.key});
@@ -16,7 +20,8 @@ class TowingBookingScreen extends StatefulWidget {
 class _TowingBookingScreenState extends State<TowingBookingScreen> {
   final List<TowingService> _services = TowingService.getMockServices();
   String _selectedServiceId = 'emergency_tow';
-  
+  bool _isSubmitting = false;
+
   final TextEditingController _pickupController = TextEditingController(text: "Fetching current location...");
   final TextEditingController _destinationController = TextEditingController();
   final TextEditingController _makeModelController = TextEditingController();
@@ -27,6 +32,10 @@ class _TowingBookingScreenState extends State<TowingBookingScreen> {
   LatLng? _pickupCoords;
   LatLng? _destinationCoords;
   double? _estimatedDistance;
+  
+  List<GeocodedPlace> _suggestions = [];
+  Timer? _debounce;
+  bool _isSearching = false;
 
   @override
   void initState() {
@@ -67,16 +76,48 @@ class _TowingBookingScreenState extends State<TowingBookingScreen> {
     }
   }
 
-  // Mock destination search
-  void _setMockDestination() {
-    // Just pick a point ~5km away for demo
-    if (_pickupCoords != null) {
-      setState(() {
-        _destinationCoords = LatLng(_pickupCoords!.latitude + 0.04, _pickupCoords!.longitude + 0.04);
-        _destinationController.text = "Mock Repair Shop (5.6 km away)";
-        _calculateDistance();
-      });
-    }
+  // Real-time destination search
+  void _onDestinationChanged(String query) {
+    if (_debounce?.isActive ?? false) _debounce?.cancel();
+    _debounce = Timer(const Duration(milliseconds: 500), () async {
+      if (query.length < 3) {
+        setState(() => _suggestions = []);
+        return;
+      }
+
+      setState(() => _isSearching = true);
+      try {
+        final results = await MapService.instance.geocodeAddress(query);
+        setState(() {
+          _suggestions = results;
+          _isSearching = false;
+        });
+      } catch (e) {
+        setState(() => _isSearching = false);
+      }
+    });
+  }
+
+  void _selectSuggestion(GeocodedPlace place) {
+    setState(() {
+      _destinationCoords = place.latLng;
+      _destinationController.text = place.displayName;
+      _suggestions = [];
+      _calculateDistance();
+    });
+    FocusScope.of(context).unfocus();
+  }
+
+  @override
+  void dispose() {
+    _debounce?.cancel();
+    _pickupController.dispose();
+    _destinationController.dispose();
+    _makeModelController.dispose();
+    _colorController.dispose();
+    _plateController.dispose();
+    _notesController.dispose();
+    super.dispose();
   }
 
   @override
@@ -140,8 +181,26 @@ class _TowingBookingScreenState extends State<TowingBookingScreen> {
               icon: Icons.location_on,
               hint: "Where to? (e.g. Home, Repair Shop)",
               dark: dark,
-              onTap: _setMockDestination, // Mock behavior for demo
+              onChanged: _onDestinationChanged,
             ),
+            
+            // Suggestions List
+            if (_suggestions.isNotEmpty)
+              Container(
+                margin: const EdgeInsets.only(top: 4),
+                decoration: BoxDecoration(
+                  color: dark ? AppColors.darkSurface : Colors.white,
+                  borderRadius: BorderRadius.circular(16),
+                  boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.1), blurRadius: 10)],
+                ),
+                child: Column(
+                  children: _suggestions.map((p) => ListTile(
+                    leading: const Icon(Icons.place, color: AppColors.emergencyRed, size: 20),
+                    title: Text(p.displayName, style: TextStyle(fontSize: 14, color: dark ? Colors.white : Colors.black87)),
+                    onTap: () => _selectSuggestion(p),
+                  )).toList(),
+                ),
+              ),
             if (_estimatedDistance != null)
               Padding(
                 padding: const EdgeInsets.only(top: 8, left: 12),
@@ -197,14 +256,58 @@ class _TowingBookingScreenState extends State<TowingBookingScreen> {
               width: double.infinity,
               height: 64,
               child: ElevatedButton(
-                onPressed: () {
-                  // In a real app, we'd validate and save to DB
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      builder: (context) => const TowingStatusScreen(),
-                    ),
-                  );
+                onPressed: () async {
+                  final user = FirebaseAuth.instance.currentUser;
+                  if (user == null) return;
+
+                  setState(() => _isSubmitting = true);
+
+                  try {
+                    final ref = await FirebaseFirestore.instance.collection('requests').add({
+                      'userId': user.uid,
+                      'userName': user.displayName ?? 'User',
+                      'type': 'towing',
+                      'serviceType': _services.firstWhere((s) => s.id == _selectedServiceId).title,
+                      'status': 'pending',
+                      'userLocation': {
+                        'lat': _pickupCoords?.latitude ?? 0,
+                        'lng': _pickupCoords?.longitude ?? 0,
+                      },
+                      'userAddress': _pickupController.text,
+                      'destination': {
+                        'lat': _destinationCoords?.latitude ?? 0,
+                        'lng': _destinationCoords?.longitude ?? 0,
+                        'address': _destinationController.text,
+                      },
+                      'vehicleDetails': {
+                        'makeModel': _makeModelController.text,
+                        'color': _colorController.text,
+                        'plate': _plateController.text,
+                      },
+                      'notes': _notesController.text,
+                      'estimatedDistance': _estimatedDistance ?? 0,
+                      'basePrice': _services.firstWhere((s) => s.id == _selectedServiceId).basePrice,
+                      'createdAt': FieldValue.serverTimestamp(),
+                      'mechanicId': null, // Explicitly null for broadcast
+                    });
+
+                    if (mounted) {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (context) => TowingStatusScreen(requestId: ref.id),
+                        ),
+                      );
+                    }
+                  } catch (e) {
+                    if (mounted) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(content: Text("Error: $e")),
+                      );
+                    }
+                  } finally {
+                    if (mounted) setState(() => _isSubmitting = false);
+                  }
                 },
                 style: ElevatedButton.styleFrom(
                   backgroundColor: AppColors.emergencyRed,
@@ -215,14 +318,16 @@ class _TowingBookingScreenState extends State<TowingBookingScreen> {
                   elevation: 8,
                   shadowColor: AppColors.emergencyRed.withValues(alpha: 0.4),
                 ),
-                child: const Text(
-                  "CONFIRM BOOKING",
-                  style: TextStyle(
-                    fontSize: 18,
-                    fontWeight: FontWeight.bold,
-                    letterSpacing: 1.2,
-                  ),
-                ),
+                child: _isSubmitting 
+                  ? const CircularProgressIndicator(color: Colors.white)
+                  : const Text(
+                      "CONFIRM BOOKING",
+                      style: TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.bold,
+                        letterSpacing: 1.2,
+                      ),
+                    ),
               ),
             ),
             const SizedBox(height: 40),
@@ -251,6 +356,7 @@ class _TowingBookingScreenState extends State<TowingBookingScreen> {
     bool isReadOnly = false,
     required bool dark,
     VoidCallback? onTap,
+    ValueChanged<String>? onChanged,
   }) {
     return Container(
       decoration: BoxDecoration(
@@ -262,12 +368,19 @@ class _TowingBookingScreenState extends State<TowingBookingScreen> {
         controller: controller,
         readOnly: isReadOnly,
         onTap: onTap,
+        onChanged: onChanged,
         style: TextStyle(color: dark ? Colors.white : Colors.black87, fontSize: 16),
         decoration: InputDecoration(
           labelText: label,
           labelStyle: TextStyle(color: Colors.grey[500]),
           hintText: hint,
           prefixIcon: Icon(icon, color: AppColors.emergencyRed),
+          suffixIcon: (label == "Drop-off Location" && _isSearching) 
+            ? const Padding(
+                padding: EdgeInsets.all(12),
+                child: SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2, color: AppColors.emergencyRed)),
+              )
+            : null,
           border: InputBorder.none,
           contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
         ),
