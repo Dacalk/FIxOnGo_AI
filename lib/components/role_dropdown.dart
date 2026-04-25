@@ -30,6 +30,8 @@ class _RoleDropdownState extends State<RoleDropdown> {
   static const List<String> _roles = [
     'User',
     'Mechanic',
+    'Seller',
+    'Tow Trucker',
   ];
 
   @override

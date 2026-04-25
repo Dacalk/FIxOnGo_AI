@@ -241,45 +241,42 @@ class DashboardHeader extends StatelessWidget {
   }
 
   IconData _roleIcon() {
-    switch (role) {
-      case 'Mechanic':
+    switch (role.toLowerCase()) {
+      case 'mechanic':
         return Icons.build_circle;
-      case 'Tow':
+      case 'tow':
+      case 'tow trucker':
         return Icons.local_shipping;
-      case 'Seller':
+      case 'seller':
         return Icons.storefront;
-      case 'Driver':
-        return Icons.delivery_dining;
       default:
         return Icons.person;
     }
   }
 
   String _defaultStatus() {
-    switch (role) {
-      case 'Mechanic':
+    switch (role.toLowerCase()) {
+      case 'mechanic':
         return 'Ready to help drivers today.';
-      case 'Tow':
+      case 'tow':
+      case 'tow trucker':
         return 'Your truck is ready for action.';
-      case 'Seller':
+      case 'seller':
         return 'Your shop is open and active.';
-      case 'Driver':
-        return 'Ready for deliveries today.';
       default:
         return 'Stay safe on the road today.\nYour current status is';
     }
   }
 
   String _badgeEmoji() {
-    switch (role) {
-      case 'Mechanic':
+    switch (role.toLowerCase()) {
+      case 'mechanic':
         return '🔧';
-      case 'Tow':
+      case 'tow':
+      case 'tow trucker':
         return '🚛';
-      case 'Seller':
+      case 'seller':
         return '🏪';
-      case 'Driver':
-        return '🚚';
       default:
         return '🚗';
     }

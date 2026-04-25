@@ -49,4 +49,4 @@ flutter:
     - lib/assets/google.png
     - lib/assets/facebook.png
     - lib/assets/image.jpg
-    - .env
+    - lib/assets/env

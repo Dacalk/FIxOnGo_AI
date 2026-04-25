@@ -532,10 +532,58 @@ class _SignupScreenState extends State<SignupScreen> {
 
 
 
+  List<Widget> _towFields() {
+    return [
+      FormInput(
+          label: 'Truck Model',
+          hintText: 'Isuzu Elf',
+          onChanged: (v) => truckModel = v),
+      const SizedBox(height: 20),
+      FormInput(
+          label: 'Towing Capacity (Tons)',
+          hintText: '3.5',
+          onChanged: (v) => towingCapacity = v),
+    ];
+  }
+
+
+  List<Widget> _sellerFields() {
+    return [
+      FormInput(
+          label: 'Shop Name',
+          hintText: 'FixMate Auto Parts',
+          onChanged: (v) => shopName = v),
+      const SizedBox(height: 20),
+      FormDropdown(
+        label: 'Business Category',
+        hintText: 'Select Category',
+        items: [
+          'Spare Parts',
+          'Accessories',
+          'Tires & Wheels',
+          'Tools',
+          'Lubricants'
+        ],
+        onChanged: (v) => category = v ?? '',
+      ),
+      const SizedBox(height: 20),
+      FormInput(
+          label: 'Shop Address',
+          hintText: '123 Main St, Colombo',
+          onChanged: (v) => address = v),
+    ];
+  }
+
   List<Widget> _buildFormFields(String role) {
-    if (role == 'Mechanic') {
-      return _mechanicFields();
+    switch (role) {
+      case 'Mechanic':
+        return _mechanicFields();
+      case 'Tow Trucker':
+        return _towFields();
+      case 'Seller':
+        return _sellerFields();
+      default:
+        return _defaultUserFields();
     }
-    return _defaultUserFields();
   }
 }

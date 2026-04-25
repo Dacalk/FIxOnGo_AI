@@ -1,6 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:image_picker/image_picker.dart';
+import 'dart:io';
+import 'dart:convert';
+import 'dart:typed_data';
 import '../theme_provider.dart';
 import '../components/primary_button.dart';
 
@@ -20,6 +24,20 @@ class _AddProductScreenState extends State<AddProductScreen> {
   String _category = 'Tools';
   String? _productId;
   bool _isLoading = false;
+  File? _imageFile;
+  bool _isInStock = true;
+  String? _existingImageUrl;
+  Uint8List? _imageBytes;
+
+  Uint8List? _base64ToBytes(String str) {
+    if (str.isEmpty) return null;
+    try {
+      final b64 = str.contains(',') ? str.split(',')[1] : str;
+      return base64Decode(b64);
+    } catch (_) {
+      return null;
+    }
+  }
 
   @override
   void didChangeDependencies() {
@@ -33,6 +51,20 @@ class _AddProductScreenState extends State<AddProductScreen> {
       _descController.text = args['description'] ?? '';
       _category = args['category'] ?? 'Tools';
       _stockController.text = (args['stockCount'] ?? 1).toString();
+      _isInStock = args['inStock'] ?? true;
+      _existingImageUrl = args['imageUrl'];
+    }
+  }
+
+  Future<void> _pickImage() async {
+    final picker = ImagePicker();
+    final pickedFile = await picker.pickImage(source: ImageSource.gallery);
+    if (pickedFile != null) {
+      final bytes = await pickedFile.readAsBytes();
+      setState(() {
+        _imageFile = File(pickedFile.path);
+        _imageBytes = bytes;
+      });
     }
   }
 
@@ -44,12 +76,19 @@ class _AddProductScreenState extends State<AddProductScreen> {
     });
     final user = FirebaseAuth.instance.currentUser;
 
+    String imageUrlToSave = _existingImageUrl ?? '';
+    if (_imageBytes != null) {
+      imageUrlToSave = 'data:image/png;base64,${base64Encode(_imageBytes!)}';
+    }
+
     final data = {
       'name': _nameController.text.trim(),
       'price': double.tryParse(_priceController.text) ?? 0.0,
       'description': _descController.text.trim(),
       'category': _category,
       'stockCount': int.tryParse(_stockController.text) ?? 1,
+      'inStock': _isInStock,
+      'imageUrl': imageUrlToSave,
       'updatedAt': FieldValue.serverTimestamp(),
     };
 
@@ -173,6 +212,75 @@ class _AddProductScreenState extends State<AddProductScreen> {
                 maxLines: 4,
                 decoration:
                     _inputDeco('Enter details about the product...', dark),
+              ),
+              const SizedBox(height: 20),
+
+              // Stock Status Toggle
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  _fieldTitle('Availability Status', dark),
+                  Switch(
+                    value: _isInStock,
+                    onChanged: (v) => setState(() => _isInStock = v),
+                    activeColor: Colors.green,
+                  ),
+                ],
+              ),
+              Text(
+                _isInStock ? 'In Stock' : 'Out of Stock',
+                style: TextStyle(
+                  fontSize: 12,
+                  color: _isInStock ? Colors.green : Colors.red,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+              const SizedBox(height: 20),
+
+              // Image Picker
+              _fieldTitle('Product Photo', dark),
+              GestureDetector(
+                onTap: _pickImage,
+                child: Container(
+                  height: 180,
+                  width: double.infinity,
+                  decoration: BoxDecoration(
+                    color: dark ? AppColors.darkSurface : Colors.grey[100],
+                    borderRadius: BorderRadius.circular(16),
+                    border: Border.all(
+                      color: dark ? Colors.grey[800]! : Colors.grey[300]!,
+                      style: BorderStyle.solid,
+                    ),
+                  ),
+                  child: _imageBytes != null
+                      ? ClipRRect(
+                          borderRadius: BorderRadius.circular(16),
+                          child: Image.memory(_imageBytes!, fit: BoxFit.cover),
+                        )
+                      : (_existingImageUrl != null &&
+                              _existingImageUrl!.isNotEmpty)
+                          ? ClipRRect(
+                              borderRadius: BorderRadius.circular(16),
+                              child: _base64ToBytes(_existingImageUrl!) != null
+                                  ? Image.memory(
+                                      _base64ToBytes(_existingImageUrl!)!,
+                                      fit: BoxFit.cover)
+                                  : Image.network(_existingImageUrl!,
+                                      fit: BoxFit.cover),
+                            )
+                          : Column(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                Icon(Icons.add_a_photo,
+                                    size: 40, color: Colors.grey[400]),
+                                const SizedBox(height: 10),
+                                Text(
+                                  'Tap to upload product photo',
+                                  style: TextStyle(color: Colors.grey[500]),
+                                ),
+                              ],
+                            ),
+                ),
               ),
               const SizedBox(height: 40),
               PrimaryButton(

@@ -47,7 +47,11 @@ import 'components/auth_guard.dart'; // Import AuthGuard
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
-  await dotenv.load(fileName: ".env");
+  try {
+    await dotenv.load(fileName: "lib/assets/env");
+  } catch (e) {
+    debugPrint("Warning: Could not load lib/assets/env: $e");
+  }
 
   if (Firebase.apps.isEmpty) {
     await Firebase.initializeApp(
@@ -166,16 +170,22 @@ class FixOnGoApp extends StatelessWidget {
             '/garage': (context) => const AuthGuard(child: GarageScreen()),
             '/mechanic-shop': (context) =>
                 const AuthGuard(child: MechanicShopScreen()),
-            '/payment-history': (context) =>
-                const AuthGuard(child: PaymentHistoryScreen()),
+            '/payment-history': (context) {
+              final role =
+                  ModalRoute.of(context)?.settings.arguments as String?;
+              return AuthGuard(child: PaymentHistoryScreen(role: role));
+            },
             '/help-support': (context) =>
                 const AuthGuard(child: HelpSupportScreen()),
             '/user-shop-view': (context) =>
                 const AuthGuard(child: UserShopViewScreen()),
             '/rate-experience': (context) =>
                 const AuthGuard(child: RateExperienceScreen()),
-            '/job-history': (context) =>
-                const AuthGuard(child: JobHistoryScreen()),
+            '/job-history': (context) {
+              final role =
+                  ModalRoute.of(context)?.settings.arguments as String?;
+              return AuthGuard(child: JobHistoryScreen(role: role));
+            },
             '/home': (context) => const AuthGuard(child: HomeScreen()),
           },
         );

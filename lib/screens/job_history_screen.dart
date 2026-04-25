@@ -6,11 +6,13 @@ import '../theme_provider.dart';
 class JobHistoryScreen extends StatefulWidget {
   final bool isEmbedded;
   final bool isMechanicView;
+  final String? role;
 
   const JobHistoryScreen({
     super.key,
     this.isEmbedded = false,
     this.isMechanicView = true,
+    this.role,
   });
 
   @override
@@ -365,11 +367,13 @@ class _JobHistoryScreenState extends State<JobHistoryScreen> {
                     else
                       ..._buildJobList(jobs, dark, cardBg, titleColor, subColor),
 
-                    const SizedBox(height: 100), // padding for bottom nav
+                    const SizedBox(height: 10), // less padding when bottom nav acts as safe area
                   ],
                 ),
               ),
             ),
+            if (!widget.isEmbedded)
+              _buildBottomNav(context, dark),
           ],
         );
       }
@@ -593,6 +597,94 @@ class _JobHistoryScreenState extends State<JobHistoryScreen> {
               ),
             ),
           ],
+        ],
+      ),
+    );
+  }
+
+  Widget _buildBottomNav(BuildContext context, bool dark) {
+    return Container(
+      padding: const EdgeInsets.symmetric(vertical: 12),
+      decoration: BoxDecoration(
+        color: dark ? const Color(0xFF1A2432) : Colors.white,
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.05),
+            blurRadius: 10,
+            offset: const Offset(0, -5),
+          ),
+        ],
+      ),
+      child: SafeArea(
+        top: false,
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.spaceAround,
+          children: [
+            _navItem(context, Icons.home_rounded, 'Dashboard', false, dark,
+                '/dashboard'),
+            _navItem(
+                context,
+                widget.role?.toLowerCase() == 'mechanic' ||
+                        widget.role?.toLowerCase() == 'seller'
+                    ? Icons.shopping_bag
+                    : Icons.history_rounded,
+                widget.role?.toLowerCase() == 'mechanic' ||
+                        widget.role?.toLowerCase() == 'seller'
+                    ? 'Shop'
+                    : 'Activities',
+                true,
+                dark,
+                widget.role?.toLowerCase() == 'mechanic' ||
+                        widget.role?.toLowerCase() == 'seller'
+                    ? '/mechanic-shop'
+                    : '/job-history'),
+            if (widget.role?.toLowerCase() != 'seller')
+              _navItem(context, Icons.garage_rounded, 'Vehicles', false, dark,
+                  '/garage'),
+            _navItem(context, Icons.person_rounded, 'Profile', false, dark,
+                '/profile'),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _navItem(
+    BuildContext context,
+    IconData icon,
+    String label,
+    bool isActive,
+    bool dark,
+    String routeName,
+  ) {
+    final color = isActive
+        ? AppColors.primaryBlue
+        : (dark ? Colors.grey[500]! : Colors.grey[400]!);
+
+    return GestureDetector(
+      onTap: () {
+        if (!isActive) {
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            if (context.mounted) {
+              Navigator.pushReplacementNamed(context, routeName);
+            }
+          });
+        }
+      },
+      behavior: HitTestBehavior.opaque,
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, color: color, size: 24),
+          const SizedBox(height: 4),
+          Text(
+            label,
+            style: TextStyle(
+              fontSize: 10,
+              fontWeight: isActive ? FontWeight.bold : FontWeight.normal,
+              color: color,
+            ),
+          ),
         ],
       ),
     );

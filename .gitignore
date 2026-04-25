@@ -47,4 +47,5 @@ app.*.map.json
 .fake
 
 # env
+lib/assets/env
 .env

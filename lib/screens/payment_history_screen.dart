@@ -5,7 +5,8 @@ import '../theme_provider.dart';
 /// Linked from the Bottom Navigation Bar 'Payment' tab.
 class PaymentHistoryScreen extends StatelessWidget {
   final bool isEmbedded;
-  const PaymentHistoryScreen({super.key, this.isEmbedded = false});
+  final String? role;
+  const PaymentHistoryScreen({super.key, this.isEmbedded = false, this.role});
 
   @override
   Widget build(BuildContext context) {
@@ -77,7 +78,9 @@ class PaymentHistoryScreen extends StatelessWidget {
                           mainAxisAlignment: MainAxisAlignment.center,
                           children: [
                             Text(
-                              'TOTAL SPENT THIS MONTH',
+                              (role?.toLowerCase() == 'seller' || role?.toLowerCase() == 'mechanic' || role?.toLowerCase() == 'tow trucker' || role?.toLowerCase() == 'tow') 
+                                  ? 'TOTAL EARNED THIS MONTH' 
+                                  : 'TOTAL SPENT THIS MONTH',
                               style: TextStyle(
                                 fontSize: 11,
                                 fontWeight: FontWeight.bold,
@@ -152,11 +155,11 @@ class PaymentHistoryScreen extends StatelessWidget {
                 // ── Group: February 2026 ──
                 _buildMonthHeader('February 2026', titleColor),
                 _buildTransactionCard(
-                  icon: Icons.build,
-                  title: 'Mechanic Request',
+                  icon: (role?.toLowerCase() == 'seller') ? Icons.shopping_cart : Icons.build,
+                  title: (role?.toLowerCase() == 'seller') ? 'Product Sale' : ((role?.toLowerCase() == 'mechanic' || role?.toLowerCase() == 'tow') ? 'Service Payment' : 'Mechanic Request'),
                   date: '12 Feb, 10.30 AM',
-                  vehicle: 'TOYOTA HYBRID',
-                  amount: 'RS.2,500',
+                  vehicle: (role?.toLowerCase() == 'seller') ? 'Parts/Tools' : 'TOYOTA HYBRID',
+                  amount: (role?.toLowerCase() == 'seller' || role?.toLowerCase() == 'mechanic' || role?.toLowerCase() == 'tow') ? '+ RS.2,500' : '- RS.2,500',
                   status: 'COMPLETED',
                   cardLogo: 'VISA',
                   cardTail: 'Ending in 4587',
@@ -171,11 +174,11 @@ class PaymentHistoryScreen extends StatelessWidget {
                 // ── Group: November 2025 ──
                 _buildMonthHeader('November 2025', titleColor),
                 _buildTransactionCard(
-                  icon: Icons.car_repair,
-                  title: 'Tool Request',
+                  icon: (role?.toLowerCase() == 'seller') ? Icons.shopping_basket : Icons.car_repair,
+                  title: (role?.toLowerCase() == 'seller') ? 'Bulk Order' : 'Tool Request',
                   date: '12 Nov, 12 PM',
-                  vehicle: 'BYD Vehicle',
-                  amount: 'RS.1,500',
+                  vehicle: (role?.toLowerCase() == 'seller') ? 'Accessories' : 'BYD Vehicle',
+                  amount: (role?.toLowerCase() == 'seller' || role?.toLowerCase() == 'mechanic' || role?.toLowerCase() == 'tow') ? '+ RS.1,500' : '- RS.1,500',
                   status: 'COMPLETED',
                   cardLogo: 'VISA',
                   cardTail: 'Ending in 4587',
@@ -190,11 +193,11 @@ class PaymentHistoryScreen extends StatelessWidget {
                 // ── Group: October 2025 ──
                 _buildMonthHeader('October 2025', titleColor),
                 _buildTransactionCard(
-                  icon: Icons.build,
-                  title: 'Mechanic Request',
+                  icon: (role?.toLowerCase() == 'seller') ? Icons.inventory : Icons.build,
+                  title: (role?.toLowerCase() == 'seller') ? 'Parts Sale' : 'Mechanic Request',
                   date: '12 OCT, 11.30 AM',
-                  vehicle: 'TOYOTA HYBRID',
-                  amount: 'RS.1,500',
+                  vehicle: (role?.toLowerCase() == 'seller') ? 'Engine Oil' : 'TOYOTA HYBRID',
+                  amount: (role?.toLowerCase() == 'seller' || role?.toLowerCase() == 'mechanic' || role?.toLowerCase() == 'tow') ? '+ RS.1,500' : '- RS.1,500',
                   status: 'COMPLETED',
                   cardLogo: 'VISA',
                   cardTail: 'Ending in 4587',
@@ -468,10 +471,25 @@ class PaymentHistoryScreen extends StatelessWidget {
           children: [
             _navItem(context, Icons.home_rounded, 'Dashboard', false, dark,
                 '/dashboard'),
-            _navItem(context, Icons.history_rounded, 'Activities', false, dark,
-                '/job-history'),
-            _navItem(context, Icons.garage_rounded, 'Vehicles', false, dark,
-                '/garage'),
+            _navItem(
+                context,
+                role?.toLowerCase() == 'mechanic' ||
+                        role?.toLowerCase() == 'seller'
+                    ? Icons.shopping_bag
+                    : Icons.history_rounded,
+                role?.toLowerCase() == 'mechanic' ||
+                        role?.toLowerCase() == 'seller'
+                    ? 'Shop'
+                    : 'Activities',
+                false,
+                dark,
+                role?.toLowerCase() == 'mechanic' ||
+                        role?.toLowerCase() == 'seller'
+                    ? '/mechanic-shop'
+                    : '/job-history'),
+            if (role?.toLowerCase() != 'seller')
+              _navItem(context, Icons.garage_rounded, 'Vehicles', false, dark,
+                  '/garage'),
             _navItem(context, Icons.person_rounded, 'Profile', false, dark,
                 '/profile'),
           ],
