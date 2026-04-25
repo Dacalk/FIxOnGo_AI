@@ -233,7 +233,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
       // Build role-specific updates
       final Map<String, dynamic> roleUpdates = {
         'fullName': name,
-        'updatedAt': FieldValue.serverTimestamp(),
+        'updatedAt': Timestamp.now(),
       };
       
       // Add dynamic fields

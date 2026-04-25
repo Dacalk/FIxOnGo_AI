@@ -154,7 +154,7 @@ class _SignupScreenState extends State<SignupScreen> {
           'shopName': shopName,
           'category': category,
           'address': address,
-          'updatedAt': FieldValue.serverTimestamp(),
+          'updatedAt': Timestamp.now(),
         }
       }
     }, SetOptions(merge: true));
