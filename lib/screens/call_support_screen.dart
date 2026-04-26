@@ -272,6 +272,8 @@ class CallSupportScreen extends StatelessWidget {
 
             const SizedBox(height: 32),
 
+                        // ── AI Assistant Card (Hide for Providers) ──
+            if (!(['tow', 'mechanic'].contains(ModalRoute.of(context)?.settings.arguments?.toString().toLowerCase())))
             // ── AI Assistant Card ──
             Container(
               width: double.infinity,

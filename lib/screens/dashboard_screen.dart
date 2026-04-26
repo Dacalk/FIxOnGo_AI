@@ -280,7 +280,14 @@ class _DashboardScreenState extends State<DashboardScreen> {
                 role.toLowerCase() == 'mechanic'
                     ? const MechanicShopScreen(isEmbedded: true)
                     : const JobHistoryScreen(isEmbedded: true, isMechanicView: false),
-                const PaymentHistoryScreen(isEmbedded: true),
+                PaymentHistoryScreen(
+                  isEmbedded: true,
+                  isProviderView:
+                      role.toLowerCase() == 'mechanic' || role.toLowerCase() == 'tow',
+                  filterType: role.toLowerCase() == 'tow'
+                      ? 'towing'
+                      : (role.toLowerCase() == 'mechanic' ? 'mechanic' : null),
+                ),
                 ProfileScreen(
                   isEmbedded: true,
                   role: role,
@@ -288,6 +295,11 @@ class _DashboardScreenState extends State<DashboardScreen> {
                     'fullName': userName,
                     'email': userEmail,
                     'photoUrl': userPhotoUrl,
+                  },
+                  onSwitchTab: (tabIndex) {
+                    if (mounted) {
+                      setState(() => _currentIndex = tabIndex);
+                    }
                   },
                 ),
               ],
@@ -326,6 +338,9 @@ class _DashboardScreenState extends State<DashboardScreen> {
     _posTimer?.cancel();
     _posTimer = Timer.periodic(const Duration(seconds: 30), (timer) async {
       final loc = await LocationService.instance.getCurrentLatLng();
+      if (mounted) {
+        setState(() => _userLocation = loc);
+      }
       // Use dot notation to avoid overwriting the whole role map
       await FirebaseFirestore.instance.collection('users').doc(uid).update({
         'roles.mechanic.location': {'lat': loc.latitude, 'lng': loc.longitude},
@@ -359,6 +374,9 @@ class _DashboardScreenState extends State<DashboardScreen> {
     _posTimer?.cancel();
     _posTimer = Timer.periodic(const Duration(seconds: 30), (timer) async {
       final loc = await LocationService.instance.getCurrentLatLng();
+      if (mounted) {
+        setState(() => _userLocation = loc);
+      }
       await FirebaseFirestore.instance.collection('users').doc(uid).update({
         'roles.tow.location': {'lat': loc.latitude, 'lng': loc.longitude},
         'roles.tow.lastSeen': FieldValue.serverTimestamp(),
@@ -893,6 +911,15 @@ class _DashboardScreenState extends State<DashboardScreen> {
                 }),
           ),
           const SizedBox(height: 24),
+          _buildLiveTrackingMap(
+            dark, 
+            _towIncomingRequestsStream, 
+            Icons.local_shipping, 
+            Icons.car_crash, 
+            Colors.red
+          ),
+          const SizedBox(height: 24),
+          const SizedBox(height: 24),
 
           // Availability toggle
           Padding(
@@ -939,10 +966,17 @@ class _DashboardScreenState extends State<DashboardScreen> {
             ),
           ),
           const SizedBox(height: 24),
+          _buildLiveTrackingMap(
+            dark, 
+            _mechanicIncomingRequestsStream, 
+            Icons.engineering, 
+            Icons.build_circle, 
+            Colors.orange
+          ),
+          const SizedBox(height: 24),
 
           // Section header
           _sectionTitle('Incoming Requests', dark),
-          const SizedBox(height: 12),
 
           // Real-time Incoming Requests List
           _mechanicRequestsSection(dark),
@@ -1030,7 +1064,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                       const SizedBox(width: 12),
                       StatCard(
                         icon: Icons.route,
-                        value: '---', // Calculate if distance data available
+                        value: '---', 
                         label: 'Distance',
                         accentColor: Colors.blue,
                       ),
@@ -1047,40 +1081,13 @@ class _DashboardScreenState extends State<DashboardScreen> {
           ),
           const SizedBox(height: 24),
 
-          // Map placeholder
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16),
-            child: Container(
-              height: 180,
-              decoration: BoxDecoration(
-                color: dark ? AppColors.darkSurface : Colors.grey[200],
-                borderRadius: BorderRadius.circular(20),
-                border: Border.all(
-                  color: dark ? Colors.grey[800]! : Colors.grey[300]!,
-                ),
-              ),
-              child: Center(
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Icon(
-                      Icons.gps_fixed,
-                      size: 40,
-                      color: dark ? Colors.grey[600] : Colors.grey[400],
-                    ),
-                    const SizedBox(height: 8),
-                    Text(
-                      'Live Tracking Map',
-                      style: TextStyle(
-                        color: dark ? Colors.grey[500] : Colors.grey[500],
-                        fontSize: 14,
-                        fontWeight: FontWeight.w500,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ),
+          // Live Tracking Map
+          _buildLiveTrackingMap(
+            dark, 
+            _towIncomingRequestsStream, 
+            Icons.local_shipping, 
+            Icons.car_crash, 
+            Colors.red
           ),
           const SizedBox(height: 24),
 
@@ -1931,6 +1938,80 @@ class _DashboardScreenState extends State<DashboardScreen> {
           ),
           child: const Text('View',
               style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
+        ),
+      ),
+    );
+  }
+
+  // ─── LIVE TRACKING MAP WIDGET ──────────────────────────────────
+  Widget _buildLiveTrackingMap(bool dark, Stream<List<Map<String, dynamic>>>? stream, IconData providerIcon, IconData jobIcon, Color jobColor) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16),
+      child: Container(
+        height: 220,
+        decoration: BoxDecoration(
+          color: dark ? AppColors.darkSurface : Colors.grey[200],
+          borderRadius: BorderRadius.circular(24),
+          border: Border.all(
+            color: dark ? Colors.grey[800]! : Colors.grey[300]!,
+          ),
+          boxShadow: [
+            if (!dark)
+              BoxShadow(
+                color: Colors.black.withValues(alpha: 0.05),
+                blurRadius: 10,
+                offset: const Offset(0, 4),
+              ),
+          ],
+        ),
+        child: ClipRRect(
+          borderRadius: BorderRadius.circular(24),
+          child: _userLocation == null
+              ? const Center(child: CircularProgressIndicator())
+              : StreamBuilder<List<Map<String, dynamic>>>(
+                  stream: stream,
+                  builder: (context, snapshot) {
+                    final pendingRequests = snapshot.data ?? [];
+                    final markers = pendingRequests.map((req) {
+                      final loc = req['userLocation'] as Map<String, dynamic>?;
+                      if (loc == null) return null;
+                      return Marker(
+                        point: LatLng(loc['lat'], loc['lng']),
+                        width: 35,
+                        height: 35,
+                        child: Container(
+                          decoration: BoxDecoration(
+                            color: jobColor.withValues(alpha: 0.2),
+                            shape: BoxShape.circle,
+                            border: Border.all(color: jobColor, width: 2),
+                          ),
+                          child: Icon(jobIcon, color: jobColor, size: 18),
+                        ),
+                      );
+                    }).whereType<Marker>().toList();
+
+                    return OsmMapWidget(
+                      center: _userLocation!,
+                      zoom: 13,
+                      markers: [
+                        Marker(
+                          point: _userLocation!,
+                          width: 45,
+                          height: 45,
+                          child: Container(
+                            decoration: BoxDecoration(
+                              color: AppColors.primaryBlue.withValues(alpha: 0.2),
+                              shape: BoxShape.circle,
+                              border: Border.all(color: AppColors.primaryBlue, width: 2),
+                            ),
+                            child: Icon(providerIcon, color: AppColors.primaryBlue, size: 24),
+                          ),
+                        ),
+                        ...markers,
+                      ],
+                    );
+                  },
+                ),
         ),
       ),
     );

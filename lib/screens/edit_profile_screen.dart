@@ -67,7 +67,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
       _controllers['truckModel'] = TextEditingController(text: data['truckModel'] ?? '');
       _controllers['plate'] = TextEditingController(text: data['plate'] ?? '');
       _controllers['workshop'] = TextEditingController(text: data['workshop'] ?? '');
-      _dropdownValues['towingCapacity'] = data['towingCapacity'] ?? '';
+      _controllers['towingCapacity'] = TextEditingController(text: data['towingCapacity'] ?? '');
     } else if (widget.role.toLowerCase() == 'driver') {
       _controllers['plate'] = TextEditingController(text: data['plate'] ?? '');
       _controllers['nic'] = TextEditingController(text: data['nic'] ?? '');
@@ -520,7 +520,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
     } else if (role == 'tow') {
       return [
         _buildField(label: 'Tow Truck Model', controller: _controllers['truckModel']!, icon: Icons.local_shipping_outlined, dark: dark, titleColor: titleColor, subColor: subColor),
-        _buildDropdown(label: 'Towing Capacity', field: 'towingCapacity', items: ['1-2', '2-5', '5-10', '10-20', '20+'], dark: dark, titleColor: titleColor, subColor: subColor),
+        _buildField(label: 'Towing Capacity', controller: _controllers['towingCapacity']!, icon: Icons.straighten, dark: dark, titleColor: titleColor, subColor: subColor),
         _buildField(label: 'Vehicle Plate Number', controller: _controllers['plate']!, icon: Icons.numbers_outlined, dark: dark, titleColor: titleColor, subColor: subColor),
         _buildField(label: 'Workshop Name', controller: _controllers['workshop']!, icon: Icons.storefront_outlined, dark: dark, titleColor: titleColor, subColor: subColor, showDivider: false),
       ];
@@ -640,7 +640,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                   children: [
                     Text(label, style: TextStyle(fontSize: 11, color: subColor, fontWeight: FontWeight.w500)),
                     DropdownButton<String>(
-                      value: _dropdownValues[field]?.isNotEmpty == true ? _dropdownValues[field] : null,
+                      value: (items.contains(_dropdownValues[field])) ? _dropdownValues[field] : null,
                       isExpanded: true,
                       underline: const SizedBox(),
                       icon: Icon(Icons.keyboard_arrow_down, size: 18, color: subColor),
