@@ -6,7 +6,7 @@ plugins {
 }
 
 android {
-    namespace = "com.example.project_1"
+    namespace = "com.fixongo.v1"
 
     //  FIXED (IMPORTANT)
     compileSdk = 36
@@ -23,7 +23,7 @@ android {
     }
 
     defaultConfig {
-        applicationId = "com.example.project_1"
+        applicationId = "com.fixongo.v1"
 
         //  FIXED VALUES
         minSdk = flutter.minSdkVersion

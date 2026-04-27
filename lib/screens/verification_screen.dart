@@ -30,33 +30,48 @@ class _VerificationScreenState extends State<VerificationScreen> {
     final rawPhone = args['phone'] ?? '';
     final phone = rawPhone.startsWith('0') ? rawPhone.substring(1) : rawPhone;
 
-    await FirebaseAuth.instance.verifyPhoneNumber(
-      phoneNumber: '+94$phone',
-      verificationCompleted: (PhoneAuthCredential credential) async {
-        await FirebaseAuth.instance.signInWithCredential(credential);
-      },
-      verificationFailed: (FirebaseAuthException e) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(e.message ?? "Verification failed")),
-        );
-      },
-      codeSent: (String verificationId, int? resendToken) {
-        setState(() {
-          _verificationId = verificationId;
-        });
+    try {
+      if (mounted) setState(() => _isLoading = true);
 
-        print("Verification ID: $verificationId");
-      },
-      codeAutoRetrievalTimeout: (String verificationId) {
-        _verificationId = verificationId;
-      },
-    );
+      await FirebaseAuth.instance.verifyPhoneNumber(
+        phoneNumber: '+94$phone',
+        timeout: const Duration(seconds: 60),
+        verificationCompleted: (PhoneAuthCredential credential) async {
+          print("AUTO VERIFIED");
+          await FirebaseAuth.instance.signInWithCredential(credential);
+        },
+        verificationFailed: (FirebaseAuthException e) {
+          print("OTP ERROR: ${e.code} - ${e.message}");
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(content: Text(e.message ?? "Verification failed")),
+            );
+          }
+        },
+        codeSent: (String verificationId, int? resendToken) {
+          print("OTP SENT SUCCESS");
+          if (mounted) {
+            setState(() {
+              _verificationId = verificationId;
+            });
+          }
+        },
+        codeAutoRetrievalTimeout: (String verificationId) {
+          _verificationId = verificationId;
+        },
+      );
+    } catch (e) {
+      print("GENERAL ERROR: $e");
+    } finally {
+      if (mounted) {
+        setState(() => _isLoading = false);
+      }
+    }
   }
 
   @override
   void initState() {
     super.initState();
-
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _sendOtp();
     });
@@ -68,7 +83,7 @@ class _VerificationScreenState extends State<VerificationScreen> {
         ModalRoute.of(context)?.settings.arguments as Map<String, String>? ??
             {};
 
-    final role = args['role']; // Nullable
+    final role = args['role'];
     final phone = args['phone'] ?? '7X XXX XXXX';
 
     final dark = isDarkMode(context);
@@ -192,14 +207,12 @@ class _VerificationScreenState extends State<VerificationScreen> {
                       smsCode: _enteredOtp,
                     );
 
-                    // ✅ LOGIN ONCE
-                    await FirebaseAuth.instance
+                    final userCredential = await FirebaseAuth.instance
                         .signInWithCredential(credential);
 
-                    final user = FirebaseAuth.instance.currentUser;
+                    final user = userCredential.user;
                     if (user == null) return;
 
-                    //  CHECK FIRESTORE
                     var doc = await FirebaseFirestore.instance
                         .collection('users')
                         .doc(user.uid)
@@ -210,7 +223,6 @@ class _VerificationScreenState extends State<VerificationScreen> {
                       Map roles = data?['roles'] ?? {};
 
                       if (roles.isNotEmpty) {
-                        // Use pre-selected role if provided and exists, else pick first
                         String matchedRole = (role != null &&
                                 roles.containsKey(role.toLowerCase()))
                             ? role.toLowerCase()
@@ -226,7 +238,6 @@ class _VerificationScreenState extends State<VerificationScreen> {
                           );
                         }
                       } else {
-                        // No roles found -> Signup
                         if (mounted) {
                           Navigator.pushReplacement(
                             context,
@@ -240,7 +251,6 @@ class _VerificationScreenState extends State<VerificationScreen> {
                         }
                       }
                     } else {
-                      // Doc doesn't exist -> Signup
                       if (mounted) {
                         Navigator.pushReplacement(
                           context,
@@ -259,7 +269,7 @@ class _VerificationScreenState extends State<VerificationScreen> {
                     );
                   }
 
-                  setState(() => _isLoading = false);
+                  if (mounted) setState(() => _isLoading = false);
                 },
                 borderRadius: 15,
               ),
