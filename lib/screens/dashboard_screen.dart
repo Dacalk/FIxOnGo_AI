@@ -103,7 +103,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
       if (doc.exists) {
         final data = doc.data();
         final rolesMap = data?['roles'] as Map<String, dynamic>? ?? {};
-        final towRole = rolesMap['tow'] ?? rolesMap['mechanic']; // Fix: use 'tow' instead of 'tow owner'
+        final towRole = rolesMap['tow'] ??
+            rolesMap['mechanic']; // Fix: use 'tow' instead of 'tow owner'
 
         // 🧠 DYNAMIC ROLE RESOLUTION
         // If we were passed "User" (the default) but the user has other roles,
@@ -279,11 +280,12 @@ class _DashboardScreenState extends State<DashboardScreen> {
                 _buildDashboardContent(role, dark),
                 role.toLowerCase() == 'mechanic'
                     ? const MechanicShopScreen(isEmbedded: true)
-                    : const JobHistoryScreen(isEmbedded: true, isMechanicView: false),
+                    : const JobHistoryScreen(
+                        isEmbedded: true, isMechanicView: false),
                 PaymentHistoryScreen(
                   isEmbedded: true,
-                  isProviderView:
-                      role.toLowerCase() == 'mechanic' || role.toLowerCase() == 'tow',
+                  isProviderView: role.toLowerCase() == 'mechanic' ||
+                      role.toLowerCase() == 'tow',
                   filterType: role.toLowerCase() == 'tow'
                       ? 'towing'
                       : (role.toLowerCase() == 'mechanic' ? 'mechanic' : null),
@@ -517,8 +519,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
               if (mounted) {
                 if (_isNavigating) return;
                 _isNavigating = true;
-                final targetRoute = req['type'] == 'towing' 
-                    ? '/tow-nav-to-user' 
+                final targetRoute = req['type'] == 'towing'
+                    ? '/tow-nav-to-user'
                     : '/mechanic-nav-to-user';
                 Navigator.pushNamed(context, targetRoute, arguments: req['id']);
               }
@@ -595,8 +597,9 @@ class _DashboardScreenState extends State<DashboardScreen> {
               icon: Icon(currentRole?.toLowerCase() == 'mechanic'
                   ? Icons.shopping_bag
                   : Icons.history_rounded),
-              label:
-                  currentRole?.toLowerCase() == 'mechanic' ? 'Shop' : 'Activities',
+              label: currentRole?.toLowerCase() == 'mechanic'
+                  ? 'Shop'
+                  : 'Activities',
             ),
             BottomNavigationBarItem(
               icon: Icon(Icons.payments_rounded),
@@ -911,13 +914,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
                 }),
           ),
           const SizedBox(height: 24),
-          _buildLiveTrackingMap(
-            dark, 
-            _towIncomingRequestsStream, 
-            Icons.local_shipping, 
-            Icons.car_crash, 
-            Colors.red
-          ),
+          _buildLiveTrackingMap(dark, _towIncomingRequestsStream,
+              Icons.local_shipping, Icons.car_crash, Colors.red),
           const SizedBox(height: 24),
           const SizedBox(height: 24),
 
@@ -966,13 +964,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
             ),
           ),
           const SizedBox(height: 24),
-          _buildLiveTrackingMap(
-            dark, 
-            _mechanicIncomingRequestsStream, 
-            Icons.engineering, 
-            Icons.build_circle, 
-            Colors.orange
-          ),
+          _buildLiveTrackingMap(dark, _mechanicIncomingRequestsStream,
+              Icons.engineering, Icons.build_circle, Colors.orange),
           const SizedBox(height: 24),
 
           // Section header
@@ -1064,7 +1057,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                       const SizedBox(width: 12),
                       StatCard(
                         icon: Icons.route,
-                        value: '---', 
+                        value: '---',
                         label: 'Distance',
                         accentColor: Colors.blue,
                       ),
@@ -1082,13 +1075,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
           const SizedBox(height: 24),
 
           // Live Tracking Map
-          _buildLiveTrackingMap(
-            dark, 
-            _towIncomingRequestsStream, 
-            Icons.local_shipping, 
-            Icons.car_crash, 
-            Colors.red
-          ),
+          _buildLiveTrackingMap(dark, _towIncomingRequestsStream,
+              Icons.local_shipping, Icons.car_crash, Colors.red),
           const SizedBox(height: 24),
 
           // Pending requests
@@ -1103,7 +1091,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
               }
               if (!snapshot.hasData || snapshot.data!.isEmpty) {
                 return Padding(
-                  padding: const EdgeInsets.symmetric(vertical: 20, horizontal: 24),
+                  padding:
+                      const EdgeInsets.symmetric(vertical: 20, horizontal: 24),
                   child: Text(
                     "No pending tow requests nearby.",
                     style: TextStyle(color: Colors.grey[500]),
@@ -1113,10 +1102,11 @@ class _DashboardScreenState extends State<DashboardScreen> {
               final requests = snapshot.data!;
               return Column(
                 children: requests.map((req) {
-                  final vehicle = req['vehicleDetails'] as Map<String, dynamic>?;
+                  final vehicle =
+                      req['vehicleDetails'] as Map<String, dynamic>?;
                   final makeModel = vehicle?['makeModel'] ?? 'Unknown Vehicle';
                   final distance = req['estimatedDistance'] ?? '?.?';
-                  
+
                   return _jobRequestCard(
                     req['serviceType'] ?? 'Towing Request',
                     '$makeModel • $distance km away',
@@ -1141,11 +1131,12 @@ class _DashboardScreenState extends State<DashboardScreen> {
                   child: QuickActionCard(
                     icon: Icons.play_circle_fill,
                     subtitle: 'NAVIGATE',
-                    title: 'Start Tow',
+                    title: 'My Tow Truck',
                     color: const Color(0xFFE65100),
                     onTap: () {
                       WidgetsBinding.instance.addPostFrameCallback((_) {
-                        if (mounted) Navigator.pushNamed(context, '/location');
+                        if (mounted)
+                          Navigator.pushNamed(context, '/tow-vehicle');
                       });
                     },
                   ),
@@ -1944,7 +1935,12 @@ class _DashboardScreenState extends State<DashboardScreen> {
   }
 
   // ─── LIVE TRACKING MAP WIDGET ──────────────────────────────────
-  Widget _buildLiveTrackingMap(bool dark, Stream<List<Map<String, dynamic>>>? stream, IconData providerIcon, IconData jobIcon, Color jobColor) {
+  Widget _buildLiveTrackingMap(
+      bool dark,
+      Stream<List<Map<String, dynamic>>>? stream,
+      IconData providerIcon,
+      IconData jobIcon,
+      Color jobColor) {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 16),
       child: Container(
@@ -1972,23 +1968,27 @@ class _DashboardScreenState extends State<DashboardScreen> {
                   stream: stream,
                   builder: (context, snapshot) {
                     final pendingRequests = snapshot.data ?? [];
-                    final markers = pendingRequests.map((req) {
-                      final loc = req['userLocation'] as Map<String, dynamic>?;
-                      if (loc == null) return null;
-                      return Marker(
-                        point: LatLng(loc['lat'], loc['lng']),
-                        width: 35,
-                        height: 35,
-                        child: Container(
-                          decoration: BoxDecoration(
-                            color: jobColor.withValues(alpha: 0.2),
-                            shape: BoxShape.circle,
-                            border: Border.all(color: jobColor, width: 2),
-                          ),
-                          child: Icon(jobIcon, color: jobColor, size: 18),
-                        ),
-                      );
-                    }).whereType<Marker>().toList();
+                    final markers = pendingRequests
+                        .map((req) {
+                          final loc =
+                              req['userLocation'] as Map<String, dynamic>?;
+                          if (loc == null) return null;
+                          return Marker(
+                            point: LatLng(loc['lat'], loc['lng']),
+                            width: 35,
+                            height: 35,
+                            child: Container(
+                              decoration: BoxDecoration(
+                                color: jobColor.withValues(alpha: 0.2),
+                                shape: BoxShape.circle,
+                                border: Border.all(color: jobColor, width: 2),
+                              ),
+                              child: Icon(jobIcon, color: jobColor, size: 18),
+                            ),
+                          );
+                        })
+                        .whereType<Marker>()
+                        .toList();
 
                     return OsmMapWidget(
                       center: _userLocation!,
@@ -2000,11 +2000,14 @@ class _DashboardScreenState extends State<DashboardScreen> {
                           height: 45,
                           child: Container(
                             decoration: BoxDecoration(
-                              color: AppColors.primaryBlue.withValues(alpha: 0.2),
+                              color:
+                                  AppColors.primaryBlue.withValues(alpha: 0.2),
                               shape: BoxShape.circle,
-                              border: Border.all(color: AppColors.primaryBlue, width: 2),
+                              border: Border.all(
+                                  color: AppColors.primaryBlue, width: 2),
                             ),
-                            child: Icon(providerIcon, color: AppColors.primaryBlue, size: 24),
+                            child: Icon(providerIcon,
+                                color: AppColors.primaryBlue, size: 24),
                           ),
                         ),
                         ...markers,
