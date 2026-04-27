@@ -1,22 +1,26 @@
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:google_sign_in/google_sign_in.dart';
-import 'package:flutter/foundation.dart' show kIsWeb;
+import 'package:flutter/foundation.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 
 class GoogleAuthService {
   final FirebaseAuth _auth = FirebaseAuth.instance;
-  final GoogleSignIn _googleSignIn = GoogleSignIn(
-    clientId: kIsWeb ? dotenv.env['GOOGLE_WEB_CLIENT_ID'] : null,
-  );
+
+  // Use a getter for GoogleSignIn to ensure it uses the latest dotenv values
+  GoogleSignIn get _googleSignIn => GoogleSignIn(
+        clientId: kIsWeb ? dotenv.env['GOOGLE_WEB_CLIENT_ID'] : null,
+      );
 
   Future<User?> signInWithGoogle() async {
     try {
-      if (kIsWeb &&
-          (dotenv.env['GOOGLE_WEB_CLIENT_ID'] == null ||
-              dotenv.env['GOOGLE_WEB_CLIENT_ID']!.isEmpty)) {
-        throw Exception(
-            "Web Client ID missing. Please add GOOGLE_WEB_CLIENT_ID to your .env file.");
+      if (kIsWeb) {
+        final clientId = dotenv.env['GOOGLE_WEB_CLIENT_ID'];
+        if (clientId == null || clientId.isEmpty) {
+          throw Exception(
+              "Web Client ID missing. Please add GOOGLE_WEB_CLIENT_ID to your .env file.");
+        }
       }
+
       final GoogleSignInAccount? googleUser = await _googleSignIn.signIn();
 
       if (googleUser == null) {
@@ -48,13 +52,19 @@ class GoogleAuthService {
 
       return user;
     } catch (e) {
-      print("Google Sign-In Error: $e");
+      debugPrint("Google Sign-In Error: $e");
       return null;
     }
   }
 
   Future<void> signOut() async {
-    await _googleSignIn.signOut();
+    try {
+      if (await _googleSignIn.isSignedIn()) {
+        await _googleSignIn.signOut();
+      }
+    } catch (e) {
+      debugPrint("Google Sign-Out Error: $e");
+    }
     await _auth.signOut();
   }
 }

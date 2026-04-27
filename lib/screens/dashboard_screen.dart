@@ -18,6 +18,8 @@ import 'garage_screen.dart';
 import 'job_history_screen.dart';
 import 'payment_history_screen.dart';
 import 'profile_screen.dart';
+import 'wallet_screen.dart';
+import 'seller_inbox_screen.dart';
 
 /// Main dashboard screen with bottom navigation.
 /// Renders role-specific content based on the user's role.
@@ -124,9 +126,18 @@ class _DashboardScreenState extends State<DashboardScreen> {
               allRoles = rolesMap;
               // Update the localized role if we changed it
               currentRole = role;
-              userName = rd['fullName']?.toString().isNotEmpty == true
-                  ? rd['fullName']
-                  : user.displayName ?? 'User';
+              final fbName = (data?['displayName']?.toString().isNotEmpty == true)
+                  ? data!['displayName'].toString()
+                  : null;
+
+              if (currentRole?.toLowerCase() == 'seller' &&
+                  rd['shopName']?.toString().isNotEmpty == true) {
+                userName = rd['shopName'];
+              } else {
+                userName = rd['fullName']?.toString().isNotEmpty == true
+                    ? rd['fullName']
+                    : fbName ?? user.displayName ?? 'User';
+              }
               userEmail = data?['email']?.toString().isNotEmpty == true
                   ? data!['email']
                   : user.email ?? '';
@@ -262,25 +273,28 @@ class _DashboardScreenState extends State<DashboardScreen> {
       backgroundColor: bgColor,
       body: isLoading
           ? const Center(child: CircularProgressIndicator())
-          : IndexedStack(
-              index: _currentIndex,
-              children: [
-                _buildDashboardContent(role, dark),
-                role.toLowerCase() == 'mechanic'
-                    ? const MechanicShopScreen(isEmbedded: true)
-                    : const JobHistoryScreen(isEmbedded: true, isMechanicView: false),
-                const GarageScreen(isEmbedded: true),
-                ProfileScreen(
-                  isEmbedded: true,
-                  role: role,
-                  userData: {
-                    'fullName': userName,
-                    'email': userEmail,
-                    'photoUrl': userPhotoUrl,
-                  },
-                ),
-              ],
-            ),
+            : IndexedStack(
+                index: _currentIndex,
+                children: [
+                  _buildDashboardContent(role, dark),
+                  role.toLowerCase() == 'mechanic' ||
+                          role.toLowerCase() == 'seller'
+                      ? MechanicShopScreen(isEmbedded: true, role: role)
+                      : const JobHistoryScreen(
+                          isEmbedded: true, isMechanicView: false),
+                  if (role.toLowerCase() != 'seller')
+                    const GarageScreen(isEmbedded: true),
+                  ProfileScreen(
+                    isEmbedded: true,
+                    role: role,
+                    userData: {
+                      'fullName': userName,
+                      'email': userEmail,
+                      'photoUrl': userPhotoUrl,
+                    },
+                  ),
+                ],
+              ),
       bottomNavigationBar: _buildBottomNav(dark),
     );
   }
@@ -500,17 +514,21 @@ class _DashboardScreenState extends State<DashboardScreen> {
               label: 'Dashboard',
             ),
             BottomNavigationBarItem(
-              icon: Icon(currentRole?.toLowerCase() == 'mechanic'
+              icon: Icon(currentRole?.toLowerCase() == 'mechanic' ||
+                      currentRole?.toLowerCase() == 'seller'
                   ? Icons.shopping_bag
                   : Icons.history_rounded),
-              label:
-                  currentRole?.toLowerCase() == 'mechanic' ? 'Shop' : 'Activities',
+              label: currentRole?.toLowerCase() == 'mechanic' ||
+                      currentRole?.toLowerCase() == 'seller'
+                  ? 'Shop'
+                  : 'Activities',
             ),
+            if (currentRole?.toLowerCase() != 'seller')
+              const BottomNavigationBarItem(
+                icon: Icon(Icons.garage_rounded),
+                label: 'Vehicles',
+              ),
             const BottomNavigationBarItem(
-              icon: Icon(Icons.garage_rounded),
-              label: 'Vehicles',
-            ),
-            BottomNavigationBarItem(
               icon: Icon(Icons.person_rounded),
               label: 'Profile',
             ),
@@ -528,11 +546,10 @@ class _DashboardScreenState extends State<DashboardScreen> {
       case 'mechanic':
         return _mechanicDashboard(role, dark);
       case 'tow':
+      case 'tow trucker':
         return _towDashboard(role, dark);
       case 'seller':
         return _sellerDashboard(role, dark);
-      case 'driver':
-        return _driverDashboard(role, dark);
       default:
         return _userDashboard(role, dark);
     }
@@ -1047,6 +1064,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
   //  4. SELLER DASHBOARD
   // ═════════════════════════════════════════════
   Widget _sellerDashboard(String role, bool dark) {
+    final user = FirebaseAuth.instance.currentUser;
     return SingleChildScrollView(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -1066,25 +1084,61 @@ class _DashboardScreenState extends State<DashboardScreen> {
             padding: const EdgeInsets.symmetric(horizontal: 16),
             child: Row(
               children: [
-                StatCard(
-                  icon: Icons.shopping_bag,
-                  value: '12',
-                  label: "Today's Orders",
-                  accentColor: Colors.orange,
+                StreamBuilder<QuerySnapshot>(
+                  stream: FirebaseFirestore.instance
+                      .collection('orders')
+                      .where('sellerId', isEqualTo: user?.uid)
+                      .snapshots(),
+                  builder: (context, snapshot) {
+                    final count = snapshot.data?.docs.length ?? 0;
+                    return Expanded(
+                      child: StatCard(
+                        icon: Icons.shopping_bag,
+                        value: count.toString(),
+                        label: "All Orders",
+                        accentColor: Colors.orange,
+                      ),
+                    );
+                  },
                 ),
                 const SizedBox(width: 12),
-                StatCard(
-                  icon: Icons.inventory_2,
-                  value: '156',
-                  label: 'Products',
-                  accentColor: Colors.blue,
+                StreamBuilder<QuerySnapshot>(
+                  stream: FirebaseFirestore.instance
+                      .collection('users')
+                      .doc(user?.uid)
+                      .collection('products')
+                      .snapshots(),
+                  builder: (context, snapshot) {
+                    final count = snapshot.data?.docs.length ?? 0;
+                    return Expanded(
+                      child: StatCard(
+                        icon: Icons.inventory_2,
+                        value: count.toString(),
+                        label: 'Products',
+                        accentColor: Colors.blue,
+                      ),
+                    );
+                  },
                 ),
                 const SizedBox(width: 12),
-                StatCard(
-                  icon: Icons.trending_up,
-                  value: 'LKR 45K',
-                  label: 'Revenue',
-                  accentColor: Colors.green,
+                StreamBuilder<QuerySnapshot>(
+                  stream: FirebaseFirestore.instance
+                      .collection('payments')
+                      .where('sellerId', isEqualTo: user?.uid)
+                      .snapshots(),
+                  builder: (context, snapshot) {
+                    final double revenue = snapshot.data?.docs.fold(
+                            0.0, (sum, doc) => sum! + (doc['amount'] ?? 0.0)) ??
+                        0.0;
+                    return Expanded(
+                      child: StatCard(
+                        icon: Icons.trending_up,
+                        value: 'Rs. ${(revenue / 1000).toStringAsFixed(1)}K',
+                        label: 'Revenue',
+                        accentColor: Colors.green,
+                      ),
+                    );
+                  },
                 ),
               ],
             ),
@@ -1095,26 +1149,36 @@ class _DashboardScreenState extends State<DashboardScreen> {
           _sectionTitle('Recent Orders', dark),
           const SizedBox(height: 12),
 
-          _orderCard(
-            'Brake Pads Set',
-            'Order #1042 • Colombo 05',
-            'Processing',
-            Colors.orange,
-            dark,
-          ),
-          _orderCard(
-            'Engine Oil 5W-30',
-            'Order #1041 • Dehiwala',
-            'Shipped',
-            Colors.blue,
-            dark,
-          ),
-          _orderCard(
-            'Air Filter – Toyota',
-            'Order #1040 • Kandy',
-            'Delivered',
-            Colors.green,
-            dark,
+          StreamBuilder<QuerySnapshot>(
+            stream: FirebaseFirestore.instance
+                .collection('orders')
+                .where('sellerId', isEqualTo: user?.uid)
+                .orderBy('createdAt', descending: true)
+                .limit(3)
+                .snapshots(),
+            builder: (context, snapshot) {
+              final docs = snapshot.data?.docs ?? [];
+              if (docs.isEmpty) {
+                return Padding(
+                  padding: const EdgeInsets.all(24.0),
+                  child: Center(
+                      child: Text("No orders yet",
+                          style: TextStyle(color: Colors.grey[500]))),
+                );
+              }
+              return Column(
+                children: docs.map((doc) {
+                  final data = doc.data() as Map<String, dynamic>;
+                  return _orderCard(
+                    data['productName'] ?? 'Product',
+                    'Order #${doc.id.substring(0, 5).toUpperCase()} • ${data['customerName'] ?? 'Customer'}',
+                    data['status'] ?? 'Pending',
+                    data['status'] == 'Delivered' ? Colors.green : Colors.blue,
+                    dark,
+                  );
+                }).toList(),
+              );
+            },
           ),
           const SizedBox(height: 20),
 
@@ -1134,10 +1198,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                         title: 'Add Product',
                         color: const Color(0xFF2E7D32),
                         onTap: () {
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(
-                                content: Text("Add product coming soon...")),
-                          );
+                          Navigator.pushNamed(context, '/add-product');
                         },
                       ),
                     ),
@@ -1149,10 +1210,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                         title: 'View Orders',
                         color: const Color(0xFF1565C0),
                         onTap: () {
-                          WidgetsBinding.instance.addPostFrameCallback((_) {
-                            if (mounted)
-                              Navigator.pushNamed(context, '/order-tracking');
-                          });
+                          Navigator.pushNamed(context, '/job-history');
                         },
                       ),
                     ),
@@ -1163,14 +1221,16 @@ class _DashboardScreenState extends State<DashboardScreen> {
                   children: [
                     Expanded(
                       child: QuickActionCard(
-                        icon: Icons.analytics,
-                        subtitle: 'INSIGHTS',
-                        title: 'Analytics',
+                        icon: Icons.account_balance_wallet,
+                        subtitle: 'EARNINGS',
+                        title: 'My Wallet',
                         color: const Color(0xFF6A1B9A),
                         onTap: () {
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(
-                                content: Text("Analytics coming soon...")),
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (_) => WalletScreen(role: role),
+                            ),
                           );
                         },
                       ),
@@ -1183,10 +1243,12 @@ class _DashboardScreenState extends State<DashboardScreen> {
                         title: 'Messages',
                         color: const Color(0xFFE65100),
                         onTap: () {
-                          WidgetsBinding.instance.addPostFrameCallback((_) {
-                            if (mounted)
-                              Navigator.pushNamed(context, '/mechanic-chat');
-                          });
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (_) => const SellerInboxScreen(),
+                            ),
+                          );
                         },
                       ),
                     ),
@@ -1201,210 +1263,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
     );
   }
 
-  // ═════════════════════════════════════════════
-  //  5. DRIVER DASHBOARD
-  // ═════════════════════════════════════════════
-  Widget _driverDashboard(String role, bool dark) {
-    return SingleChildScrollView(
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          DashboardHeader(
-            userName: isLoading ? 'Loading...' : userName,
-            role: role,
-            photoUrl: userPhotoUrl,
-            vehicleInfo: _rd('deliveryArea', 'My Area'),
-            availableRoles: allRoles.keys.toList(),
-            onSwitchRole: _switchRole,
-          ),
-          const SizedBox(height: 20),
-
-          // Stats row
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16),
-            child: Row(
-              children: [
-                StatCard(
-                  icon: Icons.delivery_dining,
-                  value: '8',
-                  label: 'Deliveries',
-                  accentColor: Colors.orange,
-                ),
-                const SizedBox(width: 12),
-                StatCard(
-                  icon: Icons.route,
-                  value: '32 km',
-                  label: 'Distance',
-                  accentColor: Colors.blue,
-                ),
-                const SizedBox(width: 12),
-                StatCard(
-                  icon: Icons.account_balance_wallet,
-                  value: 'LKR 8K',
-                  label: 'Earnings',
-                  accentColor: Colors.green,
-                ),
-              ],
-            ),
-          ),
-          const SizedBox(height: 24),
-
-          // Current delivery
-          _sectionTitle('Active Delivery', dark),
-          const SizedBox(height: 12),
-
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16),
-            child: Container(
-              padding: const EdgeInsets.all(18),
-              decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  colors: dark
-                      ? [const Color(0xFF1E3A5F), const Color(0xFF15294A)]
-                      : [const Color(0xFFE3F2FD), const Color(0xFFBBDEFB)],
-                ),
-                borderRadius: BorderRadius.circular(20),
-                border: Border.all(
-                  color: dark
-                      ? Colors.blue.withValues(alpha: 0.3)
-                      : Colors.blue.withValues(alpha: 0.2),
-                ),
-              ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    children: [
-                      Container(
-                        padding: const EdgeInsets.all(8),
-                        decoration: BoxDecoration(
-                          color: Colors.blue.withValues(alpha: 0.15),
-                          borderRadius: BorderRadius.circular(10),
-                        ),
-                        child: const Icon(
-                          Icons.local_shipping,
-                          color: Colors.blue,
-                          size: 22,
-                        ),
-                      ),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              'Brake Pads – Toyota',
-                              style: TextStyle(
-                                fontSize: 16,
-                                fontWeight: FontWeight.bold,
-                                color: dark ? Colors.white : Colors.black87,
-                              ),
-                            ),
-                            const SizedBox(height: 2),
-                            Text(
-                              'Deliver to: Colombo 07 • 3.2 km',
-                              style: TextStyle(
-                                color:
-                                    dark ? Colors.grey[400] : Colors.grey[600],
-                                fontSize: 12,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 14),
-                  // Progress bar
-                  ClipRRect(
-                    borderRadius: BorderRadius.circular(8),
-                    child: LinearProgressIndicator(
-                      value: 0.65,
-                      minHeight: 6,
-                      backgroundColor: dark
-                          ? Colors.grey[800]
-                          : Colors.blue.withValues(alpha: 0.1),
-                      valueColor: const AlwaysStoppedAnimation(Colors.blue),
-                    ),
-                  ),
-                  const SizedBox(height: 8),
-                  Text(
-                    'En Route • ETA 12 min',
-                    style: TextStyle(
-                      fontSize: 12,
-                      fontWeight: FontWeight.w500,
-                      color: Colors.blue[300],
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ),
-          const SizedBox(height: 24),
-
-          // Pending deliveries
-          _sectionTitle('Pending Deliveries', dark),
-          const SizedBox(height: 12),
-
-          _jobRequestCard(
-            'Engine Oil 5W-30',
-            'Dehiwala • 5.4 km away',
-            Icons.oil_barrel,
-            Colors.amber,
-            dark,
-          ),
-          _jobRequestCard(
-            'Air Filter Set',
-            'Mount Lavinia • 8.1 km away',
-            Icons.filter_alt,
-            Colors.teal,
-            dark,
-          ),
-          const SizedBox(height: 20),
-
-          // Quick actions
-          _sectionTitle('Quick Actions', dark),
-          const SizedBox(height: 12),
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16),
-            child: Row(
-              children: [
-                Expanded(
-                  child: QuickActionCard(
-                    icon: Icons.check_circle,
-                    subtitle: 'ACCEPT',
-                    title: 'New Delivery',
-                    color: const Color(0xFF2E7D32),
-                    onTap: () {
-                      WidgetsBinding.instance.addPostFrameCallback((_) {
-                        if (mounted)
-                          Navigator.pushNamed(context, '/order-tracking');
-                      });
-                    },
-                  ),
-                ),
-                const SizedBox(width: 14),
-                Expanded(
-                  child: QuickActionCard(
-                    icon: Icons.map,
-                    subtitle: 'NAVIGATE',
-                    title: 'View Route',
-                    color: const Color(0xFF1565C0),
-                    onTap: () {
-                      WidgetsBinding.instance.addPostFrameCallback((_) {
-                        if (mounted) Navigator.pushNamed(context, '/location');
-                      });
-                    },
-                  ),
-                ),
-              ],
-            ),
-          ),
-          const SizedBox(height: 24),
-        ],
-      ),
-    );
-  }
 
   // ═════════════════════════════════════════════
   //  SHARED HELPER WIDGETS

@@ -1,11 +1,14 @@
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'dart:convert';
 import '../theme_provider.dart';
+import '../components/seller_bottom_nav.dart';
 
 class MechanicShopScreen extends StatefulWidget {
   final bool isEmbedded;
-  const MechanicShopScreen({super.key, this.isEmbedded = false});
+  final String? role;
+  const MechanicShopScreen({super.key, this.isEmbedded = false, this.role});
 
   @override
   State<MechanicShopScreen> createState() => _MechanicShopScreenState();
@@ -159,7 +162,18 @@ class _MechanicShopScreenState extends State<MechanicShopScreen> {
                   height: 100,
                   color: dark ? Colors.grey[800] : Colors.grey[100],
                   child: image != null && image.isNotEmpty
-                      ? Image.network(image, fit: BoxFit.cover)
+                      ? Builder(
+                          builder: (context) {
+                            try {
+                              if (image.contains('base64,')) {
+                                final b64 = image.split(',')[1];
+                                final bytes = base64Decode(b64);
+                                return Image.memory(bytes, fit: BoxFit.cover);
+                              }
+                            } catch (_) {}
+                            return Image.network(image, fit: BoxFit.cover);
+                          },
+                        )
                       : Icon(Icons.handyman_outlined,
                           color: Colors.grey[400], size: 40),
                 ),
@@ -280,9 +294,17 @@ class _MechanicShopScreenState extends State<MechanicShopScreen> {
   }
 
   // ─────────────────────────────────────────────
-  //  BOTTOM NAVIGATION BAR (Synchronized with Dashboard)
+  //  BOTTOM NAVIGATION BAR
+  //  For Seller: uses the shared SellerBottomNav.
+  //  For Mechanic and others: uses the custom 3-tab nav.
   // ─────────────────────────────────────────────
   Widget _bottomNav(bool dark) {
+    // Sellers use the shared 4-tab component
+    if (widget.role?.toLowerCase() == 'seller') {
+      return SellerBottomNav(currentIndex: 1, role: widget.role);
+    }
+
+    // Mechanic / other roles: 3-tab nav (Dashboard, Shop, Vehicles, Profile)
     return Container(
       decoration: BoxDecoration(
         color: dark ? const Color(0xFF111D35) : Colors.white,
@@ -304,21 +326,21 @@ class _MechanicShopScreenState extends State<MechanicShopScreen> {
           topRight: Radius.circular(24),
         ),
         child: BottomNavigationBar(
-          currentIndex: 1, // Shop is index 1
+          currentIndex: 1, // Shop is active
           onTap: (i) {
             switch (i) {
               case 0:
                 Navigator.pushReplacementNamed(context, '/dashboard',
-                    arguments: 'Mechanic');
+                    arguments: widget.role ?? 'Mechanic');
                 break;
               case 1:
-                break; // Already here
+                break; // already here
               case 2:
                 Navigator.pushReplacementNamed(context, '/garage');
                 break;
               case 3:
                 Navigator.pushReplacementNamed(context, '/profile',
-                    arguments: 'Mechanic');
+                    arguments: widget.role ?? 'Mechanic');
                 break;
             }
           },

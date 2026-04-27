@@ -233,7 +233,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
       // Build role-specific updates
       final Map<String, dynamic> roleUpdates = {
         'fullName': name,
-        'updatedAt': FieldValue.serverTimestamp(),
+        'updatedAt': Timestamp.now(),
       };
       
       // Add dynamic fields
@@ -622,6 +622,12 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
   }
 
   Widget _buildDropdown({required String label, required String field, required List<String> items, required bool dark, required Color titleColor, required Color subColor, bool showDivider = true}) {
+    List<String> displayItems = List.from(items);
+    final currentValue = _dropdownValues[field];
+    if (currentValue != null && currentValue.isNotEmpty && !displayItems.contains(currentValue)) {
+      displayItems.insert(0, currentValue);
+    }
+
     return Column(
       children: [
         Padding(
@@ -640,11 +646,11 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                   children: [
                     Text(label, style: TextStyle(fontSize: 11, color: subColor, fontWeight: FontWeight.w500)),
                     DropdownButton<String>(
-                      value: _dropdownValues[field]?.isNotEmpty == true ? _dropdownValues[field] : null,
+                      value: currentValue?.isNotEmpty == true && displayItems.contains(currentValue) ? currentValue : null,
                       isExpanded: true,
                       underline: const SizedBox(),
                       icon: Icon(Icons.keyboard_arrow_down, size: 18, color: subColor),
-                      items: items.map((String value) => DropdownMenuItem<String>(value: value, child: Text(value, style: TextStyle(fontSize: 15, fontWeight: FontWeight.w600, color: titleColor)))).toList(),
+                      items: displayItems.map((String value) => DropdownMenuItem<String>(value: value, child: Text(value, style: TextStyle(fontSize: 15, fontWeight: FontWeight.w600, color: titleColor)))).toList(),
                       onChanged: (v) => setState(() => _dropdownValues[field] = v ?? ''),
                     ),
                   ],

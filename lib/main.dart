@@ -16,6 +16,8 @@ import 'screens/add_product_screen.dart';
 import 'screens/video_call_screen.dart';
 import 'screens/voice_call_screen.dart';
 import 'screens/mechanic_chat_screen.dart';
+import 'screens/seller_inbox_screen.dart';
+import 'screens/seller_chat_screen.dart';
 import 'screens/ai_chat_history_screen.dart';
 import 'screens/arrival_confirmation_screen.dart';
 import 'screens/dashboard_screen.dart';
@@ -47,7 +49,11 @@ import 'components/auth_guard.dart'; // Import AuthGuard
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
-  await dotenv.load(fileName: ".env");
+  try {
+    await dotenv.load(fileName: ".env");
+  } catch (e) {
+    debugPrint("Warning: Could not load .env: $e");
+  }
 
   if (Firebase.apps.isEmpty) {
     await Firebase.initializeApp(
@@ -145,8 +151,34 @@ class FixOnGoApp extends StatelessWidget {
                 const AuthGuard(child: VideoCallScreen()),
             '/voice-call': (context) =>
                 const AuthGuard(child: VoiceCallScreen()),
-            '/mechanic-chat': (context) =>
-                const AuthGuard(child: MechanicChatScreen()),
+            '/mechanic-chat': (context) {
+              final args = ModalRoute.of(context)?.settings.arguments;
+              if (args is Map<String, dynamic>) {
+                return AuthGuard(
+                  child: MechanicChatScreen(
+                    conversationId: args['conversationId'] as String?,
+                    otherUserId: args['otherUserId'] as String?,
+                    otherUserName: args['otherUserName'] as String?,
+                    otherUserRole: args['otherUserRole'] as String?,
+                  ),
+                );
+              }
+              return const AuthGuard(child: MechanicChatScreen());
+            },
+            '/seller-inbox': (context) =>
+                const AuthGuard(child: SellerInboxScreen()),
+            '/seller-chat': (context) {
+              final args = ModalRoute.of(context)?.settings.arguments
+                      as Map<String, dynamic>? ??
+                  {};
+              return AuthGuard(
+                child: SellerChatScreen(
+                  conversationId: args['conversationId'] as String? ?? '',
+                  otherUserId: args['otherUserId'] as String? ?? '',
+                  otherUserName: args['otherUserName'] as String? ?? 'Customer',
+                ),
+              );
+            },
             '/arrival-confirmation': (context) =>
                 const AuthGuard(child: ArrivalConfirmationScreen()),
             '/dashboard': (context) =>
@@ -166,16 +198,22 @@ class FixOnGoApp extends StatelessWidget {
             '/garage': (context) => const AuthGuard(child: GarageScreen()),
             '/mechanic-shop': (context) =>
                 const AuthGuard(child: MechanicShopScreen()),
-            '/payment-history': (context) =>
-                const AuthGuard(child: PaymentHistoryScreen()),
+            '/payment-history': (context) {
+              final role =
+                  ModalRoute.of(context)?.settings.arguments as String?;
+              return AuthGuard(child: PaymentHistoryScreen(role: role));
+            },
             '/help-support': (context) =>
                 const AuthGuard(child: HelpSupportScreen()),
             '/user-shop-view': (context) =>
                 const AuthGuard(child: UserShopViewScreen()),
             '/rate-experience': (context) =>
                 const AuthGuard(child: RateExperienceScreen()),
-            '/job-history': (context) =>
-                const AuthGuard(child: JobHistoryScreen()),
+            '/job-history': (context) {
+              final role =
+                  ModalRoute.of(context)?.settings.arguments as String?;
+              return AuthGuard(child: JobHistoryScreen(role: role));
+            },
             '/home': (context) => const AuthGuard(child: HomeScreen()),
           },
         );

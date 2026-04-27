@@ -2,15 +2,18 @@ import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import '../theme_provider.dart';
+import '../components/seller_bottom_nav.dart';
 
 class JobHistoryScreen extends StatefulWidget {
   final bool isEmbedded;
   final bool isMechanicView;
+  final String? role;
 
   const JobHistoryScreen({
     super.key,
     this.isEmbedded = false,
     this.isMechanicView = true,
+    this.role,
   });
 
   @override
@@ -26,62 +29,74 @@ class _JobHistoryScreenState extends State<JobHistoryScreen> {
 
     double rating = 0.0;
 
-    // Fetch user doc for rating (only relevant for mechanics)
-    if (widget.isMechanicView) {
-      final userDoc = await FirebaseFirestore.instance
-          .collection('users')
-          .doc(user.uid)
-          .get();
-      if (userDoc.exists) {
-        final data = userDoc.data()!;
-        if (data['roles'] != null && data['roles']['mechanic'] != null) {
-          rating = (data['roles']['mechanic']['rating'] ?? 0.0).toDouble();
+    try {
+      // Fetch user doc for rating (only relevant for mechanics)
+      if (widget.isMechanicView) {
+        final userDoc = await FirebaseFirestore.instance
+            .collection('users')
+            .doc(user.uid)
+            .get();
+        if (userDoc.exists) {
+          final data = userDoc.data()!;
+          if (data['roles'] != null && data['roles']['mechanic'] != null) {
+            rating = (data['roles']['mechanic']['rating'] ?? 0.0).toDouble();
+          }
         }
       }
-    }
 
-    // Fetch all completed jobs
-    final requestsSnap = await FirebaseFirestore.instance
-        .collection('requests')
-        .where(widget.isMechanicView ? 'mechanicId' : 'userId', isEqualTo: user.uid)
-        .where('status', isEqualTo: 'completed')
-        .get();
-
-    // Fetch all reviews (only for mechanic view)
-    final reviewsMap = <String, Map<String, dynamic>>{};
-    if (widget.isMechanicView) {
-      final reviewsSnap = await FirebaseFirestore.instance
-          .collection('users')
-          .doc(user.uid)
-          .collection('reviews')
+      // Fetch jobs — single where clause to avoid needing a composite index,
+      // then filter for 'completed' status client-side.
+      final requestsSnap = await FirebaseFirestore.instance
+          .collection('requests')
+          .where(
+            widget.isMechanicView ? 'mechanicId' : 'userId',
+            isEqualTo: user.uid,
+          )
           .get();
 
-      for (var doc in reviewsSnap.docs) {
-        final data = doc.data();
-        if (data['requestId'] != null) {
-          reviewsMap[data['requestId']] = data;
+      // Filter completed client-side
+      final completedDocs = requestsSnap.docs
+          .where((d) => (d.data()['status'] ?? '') == 'completed')
+          .toList();
+
+      // Fetch all reviews (only for mechanic view)
+      final reviewsMap = <String, Map<String, dynamic>>{};
+      if (widget.isMechanicView) {
+        final reviewsSnap = await FirebaseFirestore.instance
+            .collection('users')
+            .doc(user.uid)
+            .collection('reviews')
+            .get();
+
+        for (var doc in reviewsSnap.docs) {
+          final data = doc.data();
+          if (data['requestId'] != null) {
+            reviewsMap[data['requestId']] = data;
+          }
         }
       }
+
+      final jobs = completedDocs.map((doc) {
+        final req = doc.data();
+        req['id'] = doc.id;
+        final review = reviewsMap[doc.id];
+        if (review != null) {
+          req['review'] = review;
+        }
+        return req;
+      }).toList();
+
+      // Sort jobs by date
+      jobs.sort((a, b) {
+        final dateA = _getDate(a);
+        final dateB = _getDate(b);
+        return dateB.compareTo(dateA); // Descending
+      });
+
+      return {'rating': rating, 'jobs': jobs};
+    } catch (e) {
+      return {'rating': rating, 'jobs': [], 'error': e.toString()};
     }
-
-    final jobs = requestsSnap.docs.map((doc) {
-      final req = doc.data();
-      req['id'] = doc.id;
-      final review = reviewsMap[doc.id];
-      if (review != null) {
-        req['review'] = review;
-      }
-      return req;
-    }).toList();
-
-    // Sort jobs by date
-    jobs.sort((a, b) {
-      final dateA = _getDate(a);
-      final dateB = _getDate(b);
-      return dateB.compareTo(dateA); // Descending
-    });
-
-    return {'rating': rating, 'jobs': jobs};
   }
 
   DateTime _getDate(Map<String, dynamic> req) {
@@ -141,8 +156,17 @@ class _JobHistoryScreenState extends State<JobHistoryScreen> {
           return const Center(child: CircularProgressIndicator());
         }
 
-        if (snapshot.hasError) {
-          return Center(child: Text("Error loading history", style: TextStyle(color: titleColor)));
+        if (snapshot.hasError || snapshot.data?['error'] != null) {
+          return Center(
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Icon(Icons.history_toggle_off, size: 64, color: Colors.grey[500]),
+                const SizedBox(height: 16),
+                Text("No history found.", style: TextStyle(color: subColor, fontSize: 16)),
+              ],
+            ),
+          );
         }
 
         final data = snapshot.data;
@@ -365,11 +389,13 @@ class _JobHistoryScreenState extends State<JobHistoryScreen> {
                     else
                       ..._buildJobList(jobs, dark, cardBg, titleColor, subColor),
 
-                    const SizedBox(height: 100), // padding for bottom nav
+                    const SizedBox(height: 10), // less padding when bottom nav acts as safe area
                   ],
                 ),
               ),
             ),
+            if (!widget.isEmbedded)
+              _buildBottomNav(context, dark),
           ],
         );
       }
@@ -593,6 +619,96 @@ class _JobHistoryScreenState extends State<JobHistoryScreen> {
               ),
             ),
           ],
+        ],
+      ),
+    );
+  }
+
+  Widget _buildBottomNav(BuildContext context, bool dark) {
+    // Seller: use the shared 4-tab nav
+    if (widget.role?.toLowerCase() == 'seller') {
+      return SellerBottomNav(currentIndex: -1, role: widget.role);
+    }
+
+    // Other roles
+    return Container(
+      padding: const EdgeInsets.symmetric(vertical: 12),
+      decoration: BoxDecoration(
+        color: dark ? const Color(0xFF1A2432) : Colors.white,
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.05),
+            blurRadius: 10,
+            offset: const Offset(0, -5),
+          ),
+        ],
+      ),
+      child: SafeArea(
+        top: false,
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.spaceAround,
+          children: [
+            _navItem(context, Icons.home_rounded, 'Dashboard', false, dark,
+                '/dashboard'),
+            _navItem(
+                context,
+                widget.role?.toLowerCase() == 'mechanic'
+                    ? Icons.shopping_bag
+                    : Icons.history_rounded,
+                widget.role?.toLowerCase() == 'mechanic'
+                    ? 'Shop'
+                    : 'Activities',
+                true,
+                dark,
+                widget.role?.toLowerCase() == 'mechanic'
+                    ? '/mechanic-shop'
+                    : '/job-history'),
+            _navItem(context, Icons.garage_rounded, 'Vehicles', false, dark,
+                '/garage'),
+            _navItem(context, Icons.person_rounded, 'Profile', false, dark,
+                '/profile'),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _navItem(
+    BuildContext context,
+    IconData icon,
+    String label,
+    bool isActive,
+    bool dark,
+    String routeName,
+  ) {
+    final color = isActive
+        ? AppColors.primaryBlue
+        : (dark ? Colors.grey[500]! : Colors.grey[400]!);
+
+    return GestureDetector(
+      onTap: () {
+        if (!isActive) {
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            if (context.mounted) {
+              Navigator.pushReplacementNamed(context, routeName);
+            }
+          });
+        }
+      },
+      behavior: HitTestBehavior.opaque,
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, color: color, size: 24),
+          const SizedBox(height: 4),
+          Text(
+            label,
+            style: TextStyle(
+              fontSize: 10,
+              fontWeight: isActive ? FontWeight.bold : FontWeight.normal,
+              color: color,
+            ),
+          ),
         ],
       ),
     );

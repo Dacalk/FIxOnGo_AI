@@ -1,9 +1,11 @@
 import 'dart:typed_data';
 import 'package:flutter/material.dart';
+import '../services/google_auth_service.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import '../theme_provider.dart';
 import '../components/form_input.dart';
+import '../components/seller_bottom_nav.dart';
 import 'payment_screen.dart';
 import 'edit_profile_screen.dart';
 
@@ -77,10 +79,19 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 roles[effectiveRole] as Map<String, dynamic>? ??
                 (roles.isNotEmpty ? roles.values.first : {});
 
+        final fbName = (data?['displayName']?.toString().isNotEmpty == true)
+            ? data!['displayName'].toString()
+            : null;
+
         setState(() {
-          userName = rd['fullName']?.toString().isNotEmpty == true
-              ? rd['fullName']
-              : user.displayName ?? 'User';
+          if (effectiveRole.toLowerCase() == 'seller' &&
+              rd['shopName']?.toString().isNotEmpty == true) {
+            userName = rd['shopName'];
+          } else {
+            userName = rd['fullName']?.toString().isNotEmpty == true
+                ? rd['fullName']
+                : fbName ?? user.displayName ?? 'User';
+          }
           userEmail = data?['email']?.toString().isNotEmpty == true
               ? data!['email']
               : user.email ?? '';
@@ -346,6 +357,60 @@ class _ProfileScreenState extends State<ProfileScreen> {
             ),
           ),
 
+          // ── Seller Shop Info ──
+          if (userRole.toLowerCase() == 'seller')
+            Container(
+              margin: const EdgeInsets.symmetric(horizontal: 24, vertical: 10),
+              padding: const EdgeInsets.all(20),
+              decoration: BoxDecoration(
+                color: cardBg,
+                borderRadius: BorderRadius.circular(20),
+                border: Border.all(
+                  color: dark ? Colors.grey[800]! : Colors.grey[200]!,
+                ),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.all(8),
+                        decoration: BoxDecoration(
+                          color: AppColors.primaryBlue.withValues(alpha: 0.1),
+                          shape: BoxShape.circle,
+                        ),
+                        child: const Icon(Icons.store,
+                            color: AppColors.primaryBlue, size: 20),
+                      ),
+                      const SizedBox(width: 12),
+                      Text(
+                        'Shop Details',
+                        style: TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.bold,
+                          color: titleColor,
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 16),
+                  _shopInfoRow('Shop Name', roleData['shopName'] ?? 'No Name',
+                      Icons.business, subColor, titleColor),
+                  const Divider(height: 24),
+                  _shopInfoRow(
+                      'Category',
+                      roleData['category'] ?? 'No Category',
+                      Icons.category,
+                      subColor,
+                      titleColor),
+                  const Divider(height: 24),
+                  _shopInfoRow('Address', roleData['address'] ?? 'No Address',
+                      Icons.location_on, subColor, titleColor),
+                ],
+              ),
+            ),
+
           // ── Menu List ──
           Padding(
             padding: const EdgeInsets.all(24),
@@ -381,14 +446,15 @@ class _ProfileScreenState extends State<ProfileScreen> {
                           if (updated == true) _loadProfile();
                         },
                       ),
-                      _buildMenuItem(
-                        icon: Icons.directions_car_outlined,
-                        title: 'My Vehicles',
-                        dark: dark,
-                        titleColor: titleColor,
-                        subColor: subColor,
-                        onTap: () => Navigator.pushNamed(context, '/garage'),
-                      ),
+                      if (userRole.toLowerCase() != 'seller')
+                        _buildMenuItem(
+                          icon: Icons.directions_car_outlined,
+                          title: 'My Vehicles',
+                          dark: dark,
+                          titleColor: titleColor,
+                          subColor: subColor,
+                          onTap: () => Navigator.pushNamed(context, '/garage'),
+                        ),
                       _buildMenuItem(
                         icon: Icons.credit_card_outlined,
                         title: 'Payment Methods',
@@ -403,15 +469,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
                             ),
                           );
                         },
-                      ),
-                      _buildMenuItem(
-                        icon: Icons.history,
-                        title: 'Payment History',
-                        dark: dark,
-                        titleColor: titleColor,
-                        subColor: subColor,
-                        onTap: () =>
-                            Navigator.pushNamed(context, '/payment-history'),
                       ),
                       _buildMenuItem(
                         icon: Icons.security,
@@ -471,7 +528,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   width: double.infinity,
                   child: ElevatedButton(
                     onPressed: () async {
-                      await FirebaseAuth.instance.signOut();
+                      await GoogleAuthService().signOut();
                       if (context.mounted) {
                         Navigator.pushNamedAndRemoveUntil(
                           context,
@@ -668,6 +725,12 @@ class _ProfileScreenState extends State<ProfileScreen> {
   }
 
   Widget _buildBottomNav(BuildContext context, bool dark) {
+    // Seller: use the shared 4-tab nav, Profile = index 3
+    if (userRole.toLowerCase() == 'seller') {
+      return SellerBottomNav(currentIndex: 3, role: userRole);
+    }
+
+    // Other roles: custom row-based nav
     return Container(
       padding: const EdgeInsets.symmetric(vertical: 12),
       decoration: BoxDecoration(
@@ -750,6 +813,30 @@ class _ProfileScreenState extends State<ProfileScreen> {
           ),
         ],
       ),
+    );
+  }
+
+  Widget _shopInfoRow(String label, String value, IconData icon, Color subColor,
+      Color titleColor) {
+    return Row(
+      children: [
+        Icon(icon, size: 18, color: subColor),
+        const SizedBox(width: 12),
+        Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(label, style: TextStyle(fontSize: 11, color: subColor)),
+            Text(
+              value,
+              style: TextStyle(
+                fontSize: 14,
+                fontWeight: FontWeight.w600,
+                color: titleColor,
+              ),
+            ),
+          ],
+        ),
+      ],
     );
   }
 }
