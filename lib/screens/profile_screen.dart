@@ -14,14 +14,18 @@ import 'edit_profile_screen.dart';
 class ProfileScreen extends StatefulWidget {
   final Map<String, dynamic>? userData;
   final String? role;
-
   final bool isEmbedded;
+
+  /// Called when the user taps a nav item that should switch the parent Dashboard tab.
+  /// Only used when [isEmbedded] is true.
+  final void Function(int tabIndex)? onSwitchTab;
 
   const ProfileScreen({
     super.key,
     this.userData,
     this.role,
     this.isEmbedded = false,
+    this.onSwitchTab,
   });
 
   @override
@@ -448,12 +452,22 @@ class _ProfileScreenState extends State<ProfileScreen> {
                       ),
                       if (userRole.toLowerCase() != 'seller')
                         _buildMenuItem(
-                          icon: Icons.directions_car_outlined,
-                          title: 'My Vehicles',
+                          icon: userRole.toLowerCase() == 'tow'
+                              ? Icons.local_shipping_outlined
+                              : Icons.directions_car_outlined,
+                          title: userRole.toLowerCase() == 'tow'
+                              ? 'My Tow Truck'
+                              : 'My Vehicles',
                           dark: dark,
                           titleColor: titleColor,
                           subColor: subColor,
-                          onTap: () => Navigator.pushNamed(context, '/garage'),
+                          onTap: () {
+                            if (userRole.toLowerCase() == 'tow') {
+                              Navigator.pushNamed(context, '/tow-vehicle');
+                            } else {
+                              Navigator.pushNamed(context, '/garage');
+                            }
+                          },
                         ),
                       _buildMenuItem(
                         icon: Icons.credit_card_outlined,
@@ -471,6 +485,34 @@ class _ProfileScreenState extends State<ProfileScreen> {
                         },
                       ),
                       _buildMenuItem(
+                        icon: Icons.history,
+                        title: 'Payment History',
+                        dark: dark,
+                        titleColor: titleColor,
+                        subColor: subColor,
+                        onTap: () {
+                          if (widget.isEmbedded && widget.onSwitchTab != null) {
+                            // Switch to Payment tab (index 2) within the Dashboard
+                            widget.onSwitchTab!(2);
+                          } else {
+                            Navigator.pushNamed(
+                              context,
+                              '/payment-history',
+                              arguments: {
+                                'isProviderView':
+                                    userRole.toLowerCase() == 'mechanic' ||
+                                        userRole.toLowerCase() == 'tow',
+                                'filterType': userRole.toLowerCase() == 'tow'
+                                    ? 'towing'
+                                    : (userRole.toLowerCase() == 'mechanic'
+                                        ? 'mechanic'
+                                        : null),
+                              },
+                            );
+                          }
+                        },
+                      ),
+                      _buildMenuItem(
                         icon: Icons.security,
                         title: 'Account Security',
                         trailingText: hasPassword ? 'Protected' : 'Incomplete',
@@ -485,8 +527,11 @@ class _ProfileScreenState extends State<ProfileScreen> {
                         dark: dark,
                         titleColor: titleColor,
                         subColor: subColor,
-                        onTap: () =>
-                            Navigator.pushNamed(context, '/call-support'),
+                        onTap: () => Navigator.pushNamed(
+                          context,
+                          '/call-support',
+                          arguments: userRole,
+                        ),
                       ),
                       _buildMenuItem(
                         icon: Icons.help_outline,
@@ -761,8 +806,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 userRole.toLowerCase() == 'mechanic'
                     ? '/mechanic-shop'
                     : '/job-history'),
-            _navItem(context, Icons.garage_rounded, 'Vehicles', false, dark,
-                '/garage'),
+            _navItem(context, Icons.payments_rounded, 'Payment', false, dark,
+                '/payment-history'),
             _navItem(context, Icons.person_rounded, 'Profile', true, dark,
                 '/profile'),
           ],
@@ -793,7 +838,23 @@ class _ProfileScreenState extends State<ProfileScreen> {
               arguments: userRole,
             );
           } else if (routeName != null) {
-            Navigator.pushReplacementNamed(context, routeName);
+            if (routeName == '/payment-history') {
+              Navigator.pushReplacementNamed(
+                context,
+                routeName,
+                arguments: {
+                  'isProviderView': userRole.toLowerCase() == 'mechanic' ||
+                      userRole.toLowerCase() == 'tow',
+                  'filterType': userRole.toLowerCase() == 'tow'
+                      ? 'towing'
+                      : (userRole.toLowerCase() == 'mechanic'
+                          ? 'mechanic'
+                          : null),
+                },
+              );
+            } else {
+              Navigator.pushReplacementNamed(context, routeName);
+            }
           }
         }
       },

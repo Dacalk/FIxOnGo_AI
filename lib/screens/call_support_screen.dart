@@ -20,6 +20,13 @@ class CallSupportScreen extends StatelessWidget {
     final cardBg = dark ? const Color(0xFF1E2836) : Colors.white;
     final badgeBg = dark ? const Color(0xFF1E2836) : Colors.white;
 
+    final aiCardGradient = LinearGradient(
+      colors: dark
+          ? [const Color(0xFF1E3A8A), const Color(0xFF2563EB)]
+          : [const Color(0xFFD4E6F8), const Color(0xFFEAF2FB)],
+      begin: Alignment.topLeft,
+      end: Alignment.bottomRight,
+    );
 
     return Scaffold(
       backgroundColor: bgColor,
@@ -129,7 +136,8 @@ class CallSupportScreen extends StatelessWidget {
                       ),
                       // Core button
                       GestureDetector(
-                        onTap: () => _makeCall('1234'), // Example support number
+                        onTap: () =>
+                            _makeCall('1234'), // Example support number
                         child: Container(
                           width: 110,
                           height: 110,
@@ -259,7 +267,100 @@ class CallSupportScreen extends StatelessWidget {
               subColor: subColor,
             ),
 
-            const SizedBox(height: 16),
+            const SizedBox(height: 32),
+
+            // ── AI Assistant Card (Hide for Providers) ──
+            if (!(['tow', 'mechanic'].contains(ModalRoute.of(context)
+                ?.settings
+                .arguments
+                ?.toString()
+                .toLowerCase())))
+              // ── AI Assistant Card ──
+              Container(
+                width: double.infinity,
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 20, vertical: 24),
+                decoration: BoxDecoration(
+                  gradient: aiCardGradient,
+                  borderRadius: BorderRadius.circular(24),
+                ),
+                child: Row(
+                  children: [
+                    // Robot Icon Bubble
+                    Container(
+                      width: 50,
+                      height: 50,
+                      decoration: BoxDecoration(
+                        color: dark ? Colors.white24 : Colors.black12,
+                        shape: BoxShape.circle,
+                      ),
+                      child: Icon(
+                        Icons.smart_toy,
+                        color: dark ? AppColors.primaryBlue : Colors.blue[700],
+                        size: 24,
+                      ),
+                    ),
+                    const SizedBox(width: 16),
+
+                    // Text Content
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'Not an Emergency ?',
+                            style: TextStyle(
+                              fontSize: 15,
+                              fontWeight: FontWeight.bold,
+                              color: titleColor,
+                            ),
+                          ),
+                          const SizedBox(height: 6),
+                          Text(
+                            'Use our AI assistant to troubleshoot minor issues or find nearby repair shops',
+                            style: TextStyle(
+                              fontSize: 12,
+                              color: dark ? Colors.white70 : Colors.grey[600],
+                              height: 1.3,
+                            ),
+                          ),
+                          const SizedBox(height: 8),
+                          GestureDetector(
+                            onTap: () {
+                              Navigator.pushNamed(context, '/ai-chat');
+                            },
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Text(
+                                  'Start AI Chat',
+                                  style: TextStyle(
+                                    fontSize: 13,
+                                    fontWeight: FontWeight.bold,
+                                    color: dark
+                                        ? AppColors.brandYellow
+                                        : Colors.orange[500],
+                                  ),
+                                ),
+                                const SizedBox(width: 4),
+                                Icon(
+                                  Icons.arrow_forward,
+                                  size: 16,
+                                  color: dark
+                                      ? AppColors.brandYellow
+                                      : Colors.orange[500],
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+
+            const SizedBox(height: 32),
           ],
         ),
       ),
@@ -294,78 +395,79 @@ class CallSupportScreen extends StatelessWidget {
       onTap: onTap,
       borderRadius: BorderRadius.circular(20),
       child: Container(
-      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
-      decoration: BoxDecoration(
-        color: cardBg,
-        borderRadius: BorderRadius.circular(20),
-        boxShadow: dark
-            ? null
-            : [
-                BoxShadow(
-                  color: Colors.black.withValues(alpha: 0.03),
-                  blurRadius: 15,
-                ),
-              ],
-      ),
-      child: Row(
-        children: [
-          // Icon Box
-          Container(
-            width: 48,
-            height: 48,
-            decoration: BoxDecoration(
-              color: dark
-                  ? iconBgColor.withValues(alpha: 0.2)
-                  : iconBgColor.withValues(alpha: 0.1),
-              shape: BoxShape.circle,
-            ),
-            child: Icon(
-              icon,
-              color: dark ? iconBgColor : iconBgColor,
-              size: 24,
-            ),
-          ),
-          const SizedBox(width: 16),
-          // Title & Subtitle
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  title,
-                  style: TextStyle(
-                    fontSize: 15,
-                    fontWeight: FontWeight.bold,
-                    color: titleColor,
+        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+        decoration: BoxDecoration(
+          color: cardBg,
+          borderRadius: BorderRadius.circular(20),
+          boxShadow: dark
+              ? null
+              : [
+                  BoxShadow(
+                    color: Colors.black.withValues(alpha: 0.03),
+                    blurRadius: 15,
                   ),
-                ),
-                const SizedBox(height: 4),
-                Text(subtitle, style: TextStyle(fontSize: 12, color: subColor)),
-              ],
-            ),
-          ),
-          // Trailing text or Icon
-          if (trailing != null)
-            Text(
-              trailing,
-              style: TextStyle(
-                fontSize: 16,
-                fontWeight: FontWeight.bold,
-                color: titleColor,
-              ),
-            ),
-          if (trailingIcon != null)
+                ],
+        ),
+        child: Row(
+          children: [
+            // Icon Box
             Container(
-              padding: const EdgeInsets.all(8),
+              width: 48,
+              height: 48,
               decoration: BoxDecoration(
-                color: dark ? Colors.white10 : Colors.grey[100],
+                color: dark
+                    ? iconBgColor.withValues(alpha: 0.2)
+                    : iconBgColor.withValues(alpha: 0.1),
                 shape: BoxShape.circle,
               ),
-              child: Icon(trailingIcon, color: subColor, size: 20),
+              child: Icon(
+                icon,
+                color: dark ? iconBgColor : iconBgColor,
+                size: 24,
+              ),
             ),
-        ],
+            const SizedBox(width: 16),
+            // Title & Subtitle
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    title,
+                    style: TextStyle(
+                      fontSize: 15,
+                      fontWeight: FontWeight.bold,
+                      color: titleColor,
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(subtitle,
+                      style: TextStyle(fontSize: 12, color: subColor)),
+                ],
+              ),
+            ),
+            // Trailing text or Icon
+            if (trailing != null)
+              Text(
+                trailing,
+                style: TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.bold,
+                  color: titleColor,
+                ),
+              ),
+            if (trailingIcon != null)
+              Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: dark ? Colors.white10 : Colors.grey[100],
+                  shape: BoxShape.circle,
+                ),
+                child: Icon(trailingIcon, color: subColor, size: 20),
+              ),
+          ],
+        ),
       ),
-    ),
-  );
-}
+    );
+  }
 }

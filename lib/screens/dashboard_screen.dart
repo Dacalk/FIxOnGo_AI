@@ -14,7 +14,6 @@ import '../services/test_service.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'dart:async';
 import 'mechanic_shop_screen.dart';
-import 'garage_screen.dart';
 import 'job_history_screen.dart';
 import 'payment_history_screen.dart';
 import 'profile_screen.dart';
@@ -49,6 +48,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
   LatLng? _userLocation;
 
   StreamSubscription? _requestSubscription;
+  StreamSubscription? _towRequestSubscription; // Separate sub for towing
   Timer? _posTimer;
   String? _lastDialogRequestId;
   bool _isNavigating = false;
@@ -60,6 +60,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
   Stream<List<Map<String, dynamic>>>? _paymentHistoryStream;
   bool _isMechanicActive = true;
   Stream<List<Map<String, dynamic>>>? _mechanicIncomingRequestsStream;
+  Stream<List<Map<String, dynamic>>>? _towIncomingRequestsStream;
+  Stream<List<Map<String, dynamic>>>? _towPaymentHistoryStream;
 
   @override
   void initState() {
@@ -102,6 +104,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
       if (doc.exists) {
         final data = doc.data();
         final rolesMap = data?['roles'] as Map<String, dynamic>? ?? {};
+        final towRole = rolesMap['tow'] ??
+            rolesMap['mechanic']; // Fix: use 'tow' instead of 'tow owner'
 
         // 🧠 DYNAMIC ROLE RESOLUTION
         // If we were passed "User" (the default) but the user has other roles,
@@ -126,9 +130,10 @@ class _DashboardScreenState extends State<DashboardScreen> {
               allRoles = rolesMap;
               // Update the localized role if we changed it
               currentRole = role;
-              final fbName = (data?['displayName']?.toString().isNotEmpty == true)
-                  ? data!['displayName'].toString()
-                  : null;
+              final fbName =
+                  (data?['displayName']?.toString().isNotEmpty == true)
+                      ? data!['displayName'].toString()
+                      : null;
 
               if (currentRole?.toLowerCase() == 'seller' &&
                   rd['shopName']?.toString().isNotEmpty == true) {
@@ -170,6 +175,13 @@ class _DashboardScreenState extends State<DashboardScreen> {
               }
               _initMechanicServices(user.uid);
               _initMechanicDataStreams(user.uid);
+            }
+
+            // 🚛 START TOWING SERVICES IF ROLE EXISTS
+            final isTowOwner = rolesMap.containsKey('tow');
+            if (isTowOwner) {
+              _initTowServices(user.uid);
+              _initTowDataStreams(user.uid);
             }
           }
         });
@@ -273,28 +285,39 @@ class _DashboardScreenState extends State<DashboardScreen> {
       backgroundColor: bgColor,
       body: isLoading
           ? const Center(child: CircularProgressIndicator())
-            : IndexedStack(
-                index: _currentIndex,
-                children: [
-                  _buildDashboardContent(role, dark),
-                  role.toLowerCase() == 'mechanic' ||
-                          role.toLowerCase() == 'seller'
-                      ? MechanicShopScreen(isEmbedded: true, role: role)
-                      : const JobHistoryScreen(
-                          isEmbedded: true, isMechanicView: false),
-                  if (role.toLowerCase() != 'seller')
-                    const GarageScreen(isEmbedded: true),
-                  ProfileScreen(
-                    isEmbedded: true,
-                    role: role,
-                    userData: {
-                      'fullName': userName,
-                      'email': userEmail,
-                      'photoUrl': userPhotoUrl,
-                    },
-                  ),
-                ],
-              ),
+          : IndexedStack(
+              index: _currentIndex,
+              children: [
+                _buildDashboardContent(role, dark),
+                role.toLowerCase() == 'mechanic' ||
+                        role.toLowerCase() == 'seller'
+                    ? MechanicShopScreen(isEmbedded: true, role: role)
+                    : const JobHistoryScreen(
+                        isEmbedded: true, isMechanicView: false),
+                PaymentHistoryScreen(
+                  isEmbedded: true,
+                  isProviderView: role.toLowerCase() == 'mechanic' ||
+                      role.toLowerCase() == 'tow',
+                  filterType: role.toLowerCase() == 'tow'
+                      ? 'towing'
+                      : (role.toLowerCase() == 'mechanic' ? 'mechanic' : null),
+                ),
+                ProfileScreen(
+                  isEmbedded: true,
+                  role: role,
+                  userData: {
+                    'fullName': userName,
+                    'email': userEmail,
+                    'photoUrl': userPhotoUrl,
+                  },
+                  onSwitchTab: (tabIndex) {
+                    if (mounted) {
+                      setState(() => _currentIndex = tabIndex);
+                    }
+                  },
+                ),
+              ],
+            ),
       bottomNavigationBar: _buildBottomNav(dark),
     );
   }
@@ -329,6 +352,9 @@ class _DashboardScreenState extends State<DashboardScreen> {
     _posTimer?.cancel();
     _posTimer = Timer.periodic(const Duration(seconds: 30), (timer) async {
       final loc = await LocationService.instance.getCurrentLatLng();
+      if (mounted) {
+        setState(() => _userLocation = loc);
+      }
       // Use dot notation to avoid overwriting the whole role map
       await FirebaseFirestore.instance.collection('users').doc(uid).update({
         'roles.mechanic.location': {'lat': loc.latitude, 'lng': loc.longitude},
@@ -355,6 +381,63 @@ class _DashboardScreenState extends State<DashboardScreen> {
         }
       }
     });
+  }
+
+  void _initTowServices(String uid) {
+    // 1. Update location periodically for Tow role
+    _posTimer?.cancel();
+    _posTimer = Timer.periodic(const Duration(seconds: 30), (timer) async {
+      final loc = await LocationService.instance.getCurrentLatLng();
+      if (mounted) {
+        setState(() => _userLocation = loc);
+      }
+      await FirebaseFirestore.instance.collection('users').doc(uid).update({
+        'roles.tow.location': {'lat': loc.latitude, 'lng': loc.longitude},
+        'roles.tow.lastSeen': FieldValue.serverTimestamp(),
+      });
+    });
+
+    // 2. Listen for Towing Requests (Broadcasts: mechanicId == null)
+    _towRequestSubscription?.cancel();
+    _towRequestSubscription = FirebaseFirestore.instance
+        .collection('requests')
+        .where('type', isEqualTo: 'towing')
+        .where('status', isEqualTo: 'pending')
+        .where('mechanicId', isNull: true)
+        .snapshots()
+        .listen((snap) {
+      if (snap.docs.isNotEmpty) {
+        final req = snap.docs.first.data();
+        final reqId = snap.docs.first.id;
+
+        if (_lastDialogRequestId != reqId && !_isOverlayShown) {
+          _lastDialogRequestId = reqId;
+          req['id'] = reqId;
+          _showNewRequestDialog(req);
+        }
+      }
+    });
+  }
+
+  void _initTowDataStreams(String uid) {
+    // Incoming Broadcast Requests for Tow: status == pending, type == towing, mechanicId == null
+    _towIncomingRequestsStream = FirebaseFirestore.instance
+        .collection('requests')
+        .where('type', isEqualTo: 'towing')
+        .where('status', isEqualTo: 'pending')
+        .where('mechanicId', isNull: true)
+        .snapshots()
+        .map((snap) =>
+            snap.docs.map((doc) => {'id': doc.id, ...doc.data()}).toList());
+
+    // Payment History for Tow
+    _towPaymentHistoryStream = FirebaseFirestore.instance
+        .collection('payments')
+        .where('mechanicId', isEqualTo: uid)
+        .orderBy('createdAt', descending: true)
+        .snapshots()
+        .map((snap) =>
+            snap.docs.map((doc) => {'id': doc.id, ...doc.data()}).toList());
   }
 
   void _initUserDataStreams(String uid) {
@@ -422,27 +505,36 @@ class _DashboardScreenState extends State<DashboardScreen> {
           }
         },
         onAccept: () async {
+          final user = FirebaseAuth.instance.currentUser;
+          if (user == null) return;
+
+          // If it's a broadcast request, claim it!
           await FirebaseFirestore.instance
               .collection('requests')
               .doc(req['id'])
               .update({
+            'mechanicId': user.uid,
+            'mechanicName': userName,
             'status': 'accepted',
             'acceptedAt': FieldValue.serverTimestamp(),
           });
           _requestSubscription?.cancel();
+          _towRequestSubscription?.cancel(); // Cancel both on accept
           _lastDialogRequestId = null;
 
           if (mounted) {
             Navigator.pop(context);
           }
-          // Navigate to mechanic tracking screen
+          // Navigate to tracking screen
           if (mounted) {
             WidgetsBinding.instance.addPostFrameCallback((_) {
               if (mounted) {
                 if (_isNavigating) return;
                 _isNavigating = true;
-                Navigator.pushNamed(context, '/mechanic-nav-to-user',
-                    arguments: req['id']);
+                final targetRoute = req['type'] == 'towing'
+                    ? '/tow-nav-to-user'
+                    : '/mechanic-nav-to-user';
+                Navigator.pushNamed(context, targetRoute, arguments: req['id']);
               }
             });
           }
@@ -523,11 +615,10 @@ class _DashboardScreenState extends State<DashboardScreen> {
                   ? 'Shop'
                   : 'Activities',
             ),
-            if (currentRole?.toLowerCase() != 'seller')
-              const BottomNavigationBarItem(
-                icon: Icon(Icons.garage_rounded),
-                label: 'Vehicles',
-              ),
+            BottomNavigationBarItem(
+              icon: const Icon(Icons.payments_rounded),
+              label: 'Payments',
+            ),
             const BottomNavigationBarItem(
               icon: Icon(Icons.person_rounded),
               label: 'Profile',
@@ -747,6 +838,28 @@ class _DashboardScreenState extends State<DashboardScreen> {
                     ),
                   ],
                 ),
+                const SizedBox(height: 14),
+                Row(
+                  children: [
+                    Expanded(
+                      child: QuickActionCard(
+                        icon: Icons.local_shipping_rounded,
+                        subtitle: 'EMERGENCY AID',
+                        title: 'Towing & Roadside',
+                        color: AppColors.emergencyRed,
+                        onTap: () {
+                          WidgetsBinding.instance.addPostFrameCallback((_) {
+                            if (mounted) {
+                              Navigator.pushNamed(context, '/towing-booking');
+                            }
+                          });
+                        },
+                      ),
+                    ),
+                    const SizedBox(width: 14),
+                    const Spacer(),
+                  ],
+                ),
               ],
             ),
           ),
@@ -814,6 +927,10 @@ class _DashboardScreenState extends State<DashboardScreen> {
                 }),
           ),
           const SizedBox(height: 24),
+          _buildLiveTrackingMap(dark, _towIncomingRequestsStream,
+              Icons.local_shipping, Icons.car_crash, Colors.red),
+          const SizedBox(height: 24),
+          const SizedBox(height: 24),
 
           // Availability toggle
           Padding(
@@ -860,10 +977,12 @@ class _DashboardScreenState extends State<DashboardScreen> {
             ),
           ),
           const SizedBox(height: 24),
+          _buildLiveTrackingMap(dark, _mechanicIncomingRequestsStream,
+              Icons.engineering, Icons.build_circle, Colors.orange),
+          const SizedBox(height: 24),
 
           // Section header
           _sectionTitle('Incoming Requests', dark),
-          const SizedBox(height: 12),
 
           // Real-time Incoming Requests List
           _mechanicRequestsSection(dark),
@@ -932,87 +1051,85 @@ class _DashboardScreenState extends State<DashboardScreen> {
           // Stats row
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 16),
-            child: Row(
-              children: [
-                StatCard(
-                  icon: Icons.local_shipping,
-                  value: '3',
-                  label: 'Active Tows',
-                  accentColor: Colors.orange,
-                ),
-                const SizedBox(width: 12),
-                StatCard(
-                  icon: Icons.route,
-                  value: '48 km',
-                  label: 'Distance',
-                  accentColor: Colors.blue,
-                ),
-                const SizedBox(width: 12),
-                StatCard(
-                  icon: Icons.account_balance_wallet,
-                  value: 'LKR 18K',
-                  label: 'Earnings',
-                  accentColor: Colors.green,
-                ),
-              ],
-            ),
+            child: StreamBuilder<List<Map<String, dynamic>>>(
+                stream: _towPaymentHistoryStream,
+                builder: (context, snapshot) {
+                  final payments = snapshot.data ?? [];
+                  final totalEarnings = payments.fold<num>(
+                      0, (sum, p) => sum + (p['amount'] ?? 0));
+                  final jobCount = payments.length;
+
+                  return Row(
+                    children: [
+                      StatCard(
+                        icon: Icons.local_shipping,
+                        value: jobCount.toString(),
+                        label: 'Total Tows',
+                        accentColor: Colors.orange,
+                      ),
+                      const SizedBox(width: 12),
+                      StatCard(
+                        icon: Icons.route,
+                        value: '---',
+                        label: 'Distance',
+                        accentColor: Colors.blue,
+                      ),
+                      const SizedBox(width: 12),
+                      StatCard(
+                        icon: Icons.account_balance_wallet,
+                        value: 'Rs. ${totalEarnings ~/ 1000}K',
+                        label: 'Earnings',
+                        accentColor: Colors.green,
+                      ),
+                    ],
+                  );
+                }),
           ),
           const SizedBox(height: 24),
 
-          // Map placeholder
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16),
-            child: Container(
-              height: 180,
-              decoration: BoxDecoration(
-                color: dark ? AppColors.darkSurface : Colors.grey[200],
-                borderRadius: BorderRadius.circular(20),
-                border: Border.all(
-                  color: dark ? Colors.grey[800]! : Colors.grey[300]!,
-                ),
-              ),
-              child: Center(
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Icon(
-                      Icons.gps_fixed,
-                      size: 40,
-                      color: dark ? Colors.grey[600] : Colors.grey[400],
-                    ),
-                    const SizedBox(height: 8),
-                    Text(
-                      'Live Tracking Map',
-                      style: TextStyle(
-                        color: dark ? Colors.grey[500] : Colors.grey[500],
-                        fontSize: 14,
-                        fontWeight: FontWeight.w500,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-          ),
+          // Live Tracking Map
+          _buildLiveTrackingMap(dark, _towIncomingRequestsStream,
+              Icons.local_shipping, Icons.car_crash, Colors.red),
           const SizedBox(height: 24),
 
           // Pending requests
           _sectionTitle('Pending Tow Requests', dark),
           const SizedBox(height: 12),
 
-          _jobRequestCard(
-            'Vehicle Breakdown',
-            'Colombo 07 • Sedan • 4.2 km',
-            Icons.car_crash,
-            Colors.red,
-            dark,
-          ),
-          _jobRequestCard(
-            'Accident Recovery',
-            'Nugegoda • SUV • 6.1 km',
-            Icons.warning_amber,
-            Colors.orange,
-            dark,
+          StreamBuilder<List<Map<String, dynamic>>>(
+            stream: _towIncomingRequestsStream,
+            builder: (context, snapshot) {
+              if (snapshot.hasError) {
+                return Center(child: Text("Error: ${snapshot.error}"));
+              }
+              if (!snapshot.hasData || snapshot.data!.isEmpty) {
+                return Padding(
+                  padding:
+                      const EdgeInsets.symmetric(vertical: 20, horizontal: 24),
+                  child: Text(
+                    "No pending tow requests nearby.",
+                    style: TextStyle(color: Colors.grey[500]),
+                  ),
+                );
+              }
+              final requests = snapshot.data!;
+              return Column(
+                children: requests.map((req) {
+                  final vehicle =
+                      req['vehicleDetails'] as Map<String, dynamic>?;
+                  final makeModel = vehicle?['makeModel'] ?? 'Unknown Vehicle';
+                  final distance = req['estimatedDistance'] ?? '?.?';
+
+                  return _jobRequestCard(
+                    req['serviceType'] ?? 'Towing Request',
+                    '$makeModel • $distance km away',
+                    Icons.car_crash,
+                    Colors.red,
+                    dark,
+                  );
+                }).toList(),
+              );
+            },
           ),
           const SizedBox(height: 20),
 
@@ -1027,11 +1144,12 @@ class _DashboardScreenState extends State<DashboardScreen> {
                   child: QuickActionCard(
                     icon: Icons.play_circle_fill,
                     subtitle: 'NAVIGATE',
-                    title: 'Start Tow',
+                    title: 'My Tow Truck',
                     color: const Color(0xFFE65100),
                     onTap: () {
                       WidgetsBinding.instance.addPostFrameCallback((_) {
-                        if (mounted) Navigator.pushNamed(context, '/location');
+                        if (mounted)
+                          Navigator.pushNamed(context, '/tow-vehicle');
                       });
                     },
                   ),
@@ -1262,7 +1380,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
       ),
     );
   }
-
 
   // ═════════════════════════════════════════════
   //  SHARED HELPER WIDGETS
@@ -1665,6 +1782,92 @@ class _DashboardScreenState extends State<DashboardScreen> {
           ),
           child: const Text('View',
               style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
+        ),
+      ),
+    );
+  }
+
+  // ─── LIVE TRACKING MAP WIDGET ──────────────────────────────────
+  Widget _buildLiveTrackingMap(
+      bool dark,
+      Stream<List<Map<String, dynamic>>>? stream,
+      IconData providerIcon,
+      IconData jobIcon,
+      Color jobColor) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16),
+      child: Container(
+        height: 220,
+        decoration: BoxDecoration(
+          color: dark ? AppColors.darkSurface : Colors.grey[200],
+          borderRadius: BorderRadius.circular(24),
+          border: Border.all(
+            color: dark ? Colors.grey[800]! : Colors.grey[300]!,
+          ),
+          boxShadow: [
+            if (!dark)
+              BoxShadow(
+                color: Colors.black.withValues(alpha: 0.05),
+                blurRadius: 10,
+                offset: const Offset(0, 4),
+              ),
+          ],
+        ),
+        child: ClipRRect(
+          borderRadius: BorderRadius.circular(24),
+          child: _userLocation == null
+              ? const Center(child: CircularProgressIndicator())
+              : StreamBuilder<List<Map<String, dynamic>>>(
+                  stream: stream,
+                  builder: (context, snapshot) {
+                    final pendingRequests = snapshot.data ?? [];
+                    final markers = pendingRequests
+                        .map((req) {
+                          final loc =
+                              req['userLocation'] as Map<String, dynamic>?;
+                          if (loc == null) return null;
+                          return Marker(
+                            point: LatLng(loc['lat'], loc['lng']),
+                            width: 35,
+                            height: 35,
+                            child: Container(
+                              decoration: BoxDecoration(
+                                color: jobColor.withValues(alpha: 0.2),
+                                shape: BoxShape.circle,
+                                border: Border.all(color: jobColor, width: 2),
+                              ),
+                              child: Icon(jobIcon, color: jobColor, size: 18),
+                            ),
+                          );
+                        })
+                        .whereType<Marker>()
+                        .toList();
+
+                    return OsmMapWidget(
+                      center: _userLocation!,
+                      zoom: 13,
+                      markers: [
+                        Marker(
+                          point: _userLocation!,
+                          width: 45,
+                          height: 45,
+                          child: Container(
+                            decoration: BoxDecoration(
+                              color:
+                                  AppColors.primaryBlue.withValues(alpha: 0.2),
+                              shape: BoxShape.circle,
+                              border: Border.all(
+                                  color: AppColors.primaryBlue, width: 2),
+                            ),
+                            child: Icon(providerIcon,
+                                color: AppColors.primaryBlue, size: 24),
+                          ),
+                        ),
+                        ...markers,
+                      ],
+                    );
+                  },
+                ),
         ),
       ),
     );

@@ -43,42 +43,53 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
   @override
   void initState() {
     super.initState();
-    _nameController = TextEditingController(text: widget.roleData['fullName'] ?? '');
+    _nameController =
+        TextEditingController(text: widget.roleData['fullName'] ?? '');
     _phoneController = TextEditingController(text: widget.phone);
-    
+
     _initRoleControllers();
   }
 
   void _initRoleControllers() {
     final data = widget.roleData;
-    
+
     // Define fields for each role to initialize controllers/values
     if (widget.role.toLowerCase() == 'mechanic') {
       _controllers['nic'] = TextEditingController(text: data['nic'] ?? '');
-      _controllers['workshop'] = TextEditingController(text: data['workshop'] ?? '');
-      _controllers['experience'] = TextEditingController(text: data['experience'] ?? '');
+      _controllers['workshop'] =
+          TextEditingController(text: data['workshop'] ?? '');
+      _controllers['experience'] =
+          TextEditingController(text: data['experience'] ?? '');
       _dropdownValues['expertise'] = data['expertise'] ?? '';
     } else if (widget.role.toLowerCase() == 'user') {
       _controllers['plate'] = TextEditingController(text: data['plate'] ?? '');
       _controllers['color'] = TextEditingController(text: data['color'] ?? '');
-      _controllers['emergency'] = TextEditingController(text: data['emergency'] ?? '');
+      _controllers['emergency'] =
+          TextEditingController(text: data['emergency'] ?? '');
       _dropdownValues['vehicleType'] = data['vehicleType'] ?? '';
     } else if (widget.role.toLowerCase() == 'tow') {
-      _controllers['truckModel'] = TextEditingController(text: data['truckModel'] ?? '');
+      _controllers['truckModel'] =
+          TextEditingController(text: data['truckModel'] ?? '');
       _controllers['plate'] = TextEditingController(text: data['plate'] ?? '');
-      _controllers['workshop'] = TextEditingController(text: data['workshop'] ?? '');
-      _dropdownValues['towingCapacity'] = data['towingCapacity'] ?? '';
+      _controllers['workshop'] =
+          TextEditingController(text: data['workshop'] ?? '');
+      _controllers['towingCapacity'] =
+          TextEditingController(text: data['towingCapacity'] ?? '');
     } else if (widget.role.toLowerCase() == 'driver') {
       _controllers['plate'] = TextEditingController(text: data['plate'] ?? '');
       _controllers['nic'] = TextEditingController(text: data['nic'] ?? '');
-      _controllers['emergency'] = TextEditingController(text: data['emergency'] ?? '');
+      _controllers['emergency'] =
+          TextEditingController(text: data['emergency'] ?? '');
       _dropdownValues['vehicleType'] = data['vehicleType'] ?? '';
       _dropdownValues['deliveryArea'] = data['deliveryArea'] ?? '';
     } else if (widget.role.toLowerCase() == 'seller') {
-      _controllers['shopName'] = TextEditingController(text: data['shopName'] ?? '');
+      _controllers['shopName'] =
+          TextEditingController(text: data['shopName'] ?? '');
       _controllers['nic'] = TextEditingController(text: data['nic'] ?? '');
-      _controllers['address'] = TextEditingController(text: data['address'] ?? '');
-      _controllers['emergency'] = TextEditingController(text: data['emergency'] ?? '');
+      _controllers['address'] =
+          TextEditingController(text: data['address'] ?? '');
+      _controllers['emergency'] =
+          TextEditingController(text: data['emergency'] ?? '');
       _dropdownValues['category'] = data['category'] ?? '';
     }
   }
@@ -229,13 +240,13 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
       if (user == null) return;
 
       final roleKey = widget.role.toLowerCase();
-      
+
       // Build role-specific updates
       final Map<String, dynamic> roleUpdates = {
         'fullName': name,
         'updatedAt': Timestamp.now(),
       };
-      
+
       // Add dynamic fields
       _controllers.forEach((key, ctrl) {
         roleUpdates[key] = ctrl.text.trim();
@@ -257,7 +268,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
         final mimeType = _pickedImage!.mimeType ?? 'image/jpeg';
         final dataUrl = 'data:$mimeType;base64,$base64';
         mainUpdates['photoUrl'] = dataUrl;
-        // NOTE: We do NOT call user.updatePhotoURL(dataUrl) here 
+        // NOTE: We do NOT call user.updatePhotoURL(dataUrl) here
         // because Firebase Auth has a short limit on URL length,
         // and base64 strings will trigger "Photo URL too long" error.
       }
@@ -299,7 +310,8 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
   }
 
   String _bytesToBase64(List<int> bytes) {
-    const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/';
+    const chars =
+        'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/';
     final result = StringBuffer();
     for (var i = 0; i < bytes.length; i += 3) {
       final b0 = bytes[i];
@@ -307,14 +319,16 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
       final b2 = i + 2 < bytes.length ? bytes[i + 2] : 0;
       result.write(chars[(b0 >> 2) & 0x3F]);
       result.write(chars[((b0 << 4) | (b1 >> 4)) & 0x3F]);
-      result.write(i + 1 < bytes.length ? chars[((b1 << 2) | (b2 >> 6)) & 0x3F] : '=');
+      result.write(
+          i + 1 < bytes.length ? chars[((b1 << 2) | (b2 >> 6)) & 0x3F] : '=');
       result.write(i + 2 < bytes.length ? chars[b2 & 0x3F] : '=');
     }
     return result.toString();
   }
 
   Uint8List _base64ToBytes(String base64Str) {
-    const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/';
+    const chars =
+        'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/';
     final cleaned = base64Str.replaceAll(RegExp(r'\s'), '');
     final result = <int>[];
     for (var i = 0; i < cleaned.length; i += 4) {
@@ -349,7 +363,8 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
     final titleColor = dark ? Colors.white : Colors.black;
     final subColor = dark ? Colors.grey[400]! : Colors.grey[600]!;
     final cardBg = dark ? const Color(0xFF1E2836) : const Color(0xFFF4F8FA);
-    final borderColor = dark ? const Color(0xFF2A3A50) : const Color(0xFFE0E8F0);
+    final borderColor =
+        dark ? const Color(0xFF2A3A50) : const Color(0xFFE0E8F0);
 
     return Scaffold(
       backgroundColor: bgColor,
@@ -384,7 +399,11 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
           _isSaving
               ? const Padding(
                   padding: EdgeInsets.symmetric(horizontal: 16),
-                  child: Center(child: SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2))),
+                  child: Center(
+                      child: SizedBox(
+                          width: 20,
+                          height: 20,
+                          child: CircularProgressIndicator(strokeWidth: 2))),
                 )
               : TextButton(
                   onPressed: _save,
@@ -393,7 +412,8 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                     style: TextStyle(
                       fontSize: 14,
                       fontWeight: FontWeight.w600,
-                      color: dark ? AppColors.brandYellow : AppColors.primaryBlue,
+                      color:
+                          dark ? AppColors.brandYellow : AppColors.primaryBlue,
                     ),
                   ),
                 ),
@@ -421,7 +441,11 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                           decoration: BoxDecoration(
                             color: const Color(0xFFE8F0FE),
                             shape: BoxShape.circle,
-                            border: Border.all(color: dark ? const Color(0xFF2A3A50) : const Color(0xFFD4E3FB), width: 4),
+                            border: Border.all(
+                                color: dark
+                                    ? const Color(0xFF2A3A50)
+                                    : const Color(0xFFD4E3FB),
+                                width: 4),
                           ),
                           child: ClipOval(child: _buildAvatarContent(dark)),
                         ),
@@ -430,15 +454,21 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                           right: 4,
                           child: Container(
                             padding: const EdgeInsets.all(7),
-                            decoration: BoxDecoration(color: Colors.orange, shape: BoxShape.circle, border: Border.all(color: topBgColor, width: 3)),
-                            child: const Icon(Icons.camera_alt, size: 15, color: Colors.white),
+                            decoration: BoxDecoration(
+                                color: Colors.orange,
+                                shape: BoxShape.circle,
+                                border:
+                                    Border.all(color: topBgColor, width: 3)),
+                            child: const Icon(Icons.camera_alt,
+                                size: 15, color: Colors.white),
                           ),
                         ),
                       ],
                     ),
                   ),
                   const SizedBox(height: 12),
-                  Text('Tap photo to change', style: TextStyle(fontSize: 12, color: subColor)),
+                  Text('Tap photo to change',
+                      style: TextStyle(fontSize: 12, color: subColor)),
                 ],
               ),
             ),
@@ -452,15 +482,28 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                   _sectionLabel('Basic Information', dark),
                   const SizedBox(height: 12),
                   _buildFormContainer(dark, borderColor, cardBg, [
-                    _buildField(label: 'Full Name', controller: _nameController, icon: Icons.person_outline, dark: dark, titleColor: titleColor, subColor: subColor),
-                    _buildField(label: 'Phone Number', controller: _phoneController, icon: Icons.phone_outlined, dark: dark, titleColor: titleColor, subColor: subColor, keyboardType: TextInputType.phone, showDivider: false),
+                    _buildField(
+                        label: 'Full Name',
+                        controller: _nameController,
+                        icon: Icons.person_outline,
+                        dark: dark,
+                        titleColor: titleColor,
+                        subColor: subColor),
+                    _buildField(
+                        label: 'Phone Number',
+                        controller: _phoneController,
+                        icon: Icons.phone_outlined,
+                        dark: dark,
+                        titleColor: titleColor,
+                        subColor: subColor,
+                        keyboardType: TextInputType.phone,
+                        showDivider: false),
                   ]),
-
                   const SizedBox(height: 24),
                   _sectionLabel('${widget.role} Details', dark),
                   const SizedBox(height: 12),
-                  _buildFormContainer(dark, borderColor, cardBg, _buildRoleFields(dark, titleColor, subColor)),
-
+                  _buildFormContainer(dark, borderColor, cardBg,
+                      _buildRoleFields(dark, titleColor, subColor)),
                   const SizedBox(height: 32),
                   SizedBox(
                     width: double.infinity,
@@ -471,11 +514,18 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                         foregroundColor: Colors.white,
                         elevation: 0,
                         padding: const EdgeInsets.symmetric(vertical: 16),
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                        shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(16)),
                       ),
                       child: _isSaving
-                          ? const SizedBox(height: 20, width: 20, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
-                          : const Text('Save Changes', style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold)),
+                          ? const SizedBox(
+                              height: 20,
+                              width: 20,
+                              child: CircularProgressIndicator(
+                                  color: Colors.white, strokeWidth: 2))
+                          : const Text('Save Changes',
+                              style: TextStyle(
+                                  fontSize: 15, fontWeight: FontWeight.bold)),
                     ),
                   ),
                   const SizedBox(height: 40),
@@ -488,7 +538,8 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
     );
   }
 
-  Widget _buildFormContainer(bool dark, Color borderColor, Color cardBg, List<Widget> children) {
+  Widget _buildFormContainer(
+      bool dark, Color borderColor, Color cardBg, List<Widget> children) {
     return Container(
       decoration: BoxDecoration(
         color: cardBg,
@@ -502,46 +553,208 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
 
   List<Widget> _buildRoleFields(bool dark, Color titleColor, Color subColor) {
     final role = widget.role.toLowerCase();
-    
+
     if (role == 'mechanic') {
       return [
-        _buildDropdown(label: 'Expertise', field: 'expertise', items: ['Engine', 'Electrical', 'Brake', 'Transmission', 'Paint', 'AC'], dark: dark, titleColor: titleColor, subColor: subColor),
-        _buildField(label: 'NIC / ID Number', controller: _controllers['nic']!, icon: Icons.badge_outlined, dark: dark, titleColor: titleColor, subColor: subColor),
-        _buildField(label: 'Workshop Name', controller: _controllers['workshop']!, icon: Icons.storefront_outlined, dark: dark, titleColor: titleColor, subColor: subColor),
-        _buildField(label: 'Years of Experience', controller: _controllers['experience']!, icon: Icons.timeline_outlined, dark: dark, titleColor: titleColor, subColor: subColor, keyboardType: TextInputType.number, showDivider: false),
+        _buildDropdown(
+            label: 'Expertise',
+            field: 'expertise',
+            items: [
+              'Engine',
+              'Electrical',
+              'Brake',
+              'Transmission',
+              'Paint',
+              'AC'
+            ],
+            dark: dark,
+            titleColor: titleColor,
+            subColor: subColor),
+        _buildField(
+            label: 'NIC / ID Number',
+            controller: _controllers['nic']!,
+            icon: Icons.badge_outlined,
+            dark: dark,
+            titleColor: titleColor,
+            subColor: subColor),
+        _buildField(
+            label: 'Workshop Name',
+            controller: _controllers['workshop']!,
+            icon: Icons.storefront_outlined,
+            dark: dark,
+            titleColor: titleColor,
+            subColor: subColor),
+        _buildField(
+            label: 'Years of Experience',
+            controller: _controllers['experience']!,
+            icon: Icons.timeline_outlined,
+            dark: dark,
+            titleColor: titleColor,
+            subColor: subColor,
+            keyboardType: TextInputType.number,
+            showDivider: false),
       ];
     } else if (role == 'user') {
       return [
-        _buildDropdown(label: 'Vehicle Type', field: 'vehicleType', items: ['Car', 'SUV', 'Van', 'Motorcycle', 'Three-Wheeler', 'Bus', 'Truck'], dark: dark, titleColor: titleColor, subColor: subColor),
-        _buildField(label: 'Vehicle Plate Number', controller: _controllers['plate']!, icon: Icons.numbers_outlined, dark: dark, titleColor: titleColor, subColor: subColor),
-        _buildField(label: 'Vehicle Color', controller: _controllers['color']!, icon: Icons.palette_outlined, dark: dark, titleColor: titleColor, subColor: subColor),
-        _buildField(label: 'Emergency Contact', controller: _controllers['emergency']!, icon: Icons.emergency_outlined, dark: dark, titleColor: titleColor, subColor: subColor, keyboardType: TextInputType.phone, showDivider: false),
+        _buildDropdown(
+            label: 'Vehicle Type',
+            field: 'vehicleType',
+            items: [
+              'Car',
+              'SUV',
+              'Van',
+              'Motorcycle',
+              'Three-Wheeler',
+              'Bus',
+              'Truck'
+            ],
+            dark: dark,
+            titleColor: titleColor,
+            subColor: subColor),
+        _buildField(
+            label: 'Vehicle Plate Number',
+            controller: _controllers['plate']!,
+            icon: Icons.numbers_outlined,
+            dark: dark,
+            titleColor: titleColor,
+            subColor: subColor),
+        _buildField(
+            label: 'Vehicle Color',
+            controller: _controllers['color']!,
+            icon: Icons.palette_outlined,
+            dark: dark,
+            titleColor: titleColor,
+            subColor: subColor),
+        _buildField(
+            label: 'Emergency Contact',
+            controller: _controllers['emergency']!,
+            icon: Icons.emergency_outlined,
+            dark: dark,
+            titleColor: titleColor,
+            subColor: subColor,
+            keyboardType: TextInputType.phone,
+            showDivider: false),
       ];
     } else if (role == 'tow') {
       return [
-        _buildField(label: 'Tow Truck Model', controller: _controllers['truckModel']!, icon: Icons.local_shipping_outlined, dark: dark, titleColor: titleColor, subColor: subColor),
-        _buildDropdown(label: 'Towing Capacity', field: 'towingCapacity', items: ['1-2', '2-5', '5-10', '10-20', '20+'], dark: dark, titleColor: titleColor, subColor: subColor),
-        _buildField(label: 'Vehicle Plate Number', controller: _controllers['plate']!, icon: Icons.numbers_outlined, dark: dark, titleColor: titleColor, subColor: subColor),
-        _buildField(label: 'Workshop Name', controller: _controllers['workshop']!, icon: Icons.storefront_outlined, dark: dark, titleColor: titleColor, subColor: subColor, showDivider: false),
+        _buildField(
+            label: 'Tow Truck Model',
+            controller: _controllers['truckModel']!,
+            icon: Icons.local_shipping_outlined,
+            dark: dark,
+            titleColor: titleColor,
+            subColor: subColor),
+        _buildField(
+            label: 'Towing Capacity',
+            controller: _controllers['towingCapacity']!,
+            icon: Icons.straighten,
+            dark: dark,
+            titleColor: titleColor,
+            subColor: subColor),
+        _buildField(
+            label: 'Vehicle Plate Number',
+            controller: _controllers['plate']!,
+            icon: Icons.numbers_outlined,
+            dark: dark,
+            titleColor: titleColor,
+            subColor: subColor),
+        _buildField(
+            label: 'Workshop Name',
+            controller: _controllers['workshop']!,
+            icon: Icons.storefront_outlined,
+            dark: dark,
+            titleColor: titleColor,
+            subColor: subColor,
+            showDivider: false),
       ];
     } else if (role == 'driver') {
       return [
-        _buildDropdown(label: 'Vehicle Type', field: 'vehicleType', items: ['Motorcycle', 'Three-Wheeler', 'Car', 'Van'], dark: dark, titleColor: titleColor, subColor: subColor),
-        _buildField(label: 'Vehicle Plate Number', controller: _controllers['plate']!, icon: Icons.numbers_outlined, dark: dark, titleColor: titleColor, subColor: subColor),
-        _buildField(label: 'NIC / ID', controller: _controllers['nic']!, icon: Icons.badge_outlined, dark: dark, titleColor: titleColor, subColor: subColor),
-        _buildDropdown(label: 'Delivery Area', field: 'deliveryArea', items: ['Colombo', 'Gampaha', 'Kandy', 'Galle', 'Matara'], dark: dark, titleColor: titleColor, subColor: subColor),
-        _buildField(label: 'Emergency Contact', controller: _controllers['emergency']!, icon: Icons.emergency_outlined, dark: dark, titleColor: titleColor, subColor: subColor, keyboardType: TextInputType.phone, showDivider: false),
+        _buildDropdown(
+            label: 'Vehicle Type',
+            field: 'vehicleType',
+            items: ['Motorcycle', 'Three-Wheeler', 'Car', 'Van'],
+            dark: dark,
+            titleColor: titleColor,
+            subColor: subColor),
+        _buildField(
+            label: 'Vehicle Plate Number',
+            controller: _controllers['plate']!,
+            icon: Icons.numbers_outlined,
+            dark: dark,
+            titleColor: titleColor,
+            subColor: subColor),
+        _buildField(
+            label: 'NIC / ID',
+            controller: _controllers['nic']!,
+            icon: Icons.badge_outlined,
+            dark: dark,
+            titleColor: titleColor,
+            subColor: subColor),
+        _buildDropdown(
+            label: 'Delivery Area',
+            field: 'deliveryArea',
+            items: ['Colombo', 'Gampaha', 'Kandy', 'Galle', 'Matara'],
+            dark: dark,
+            titleColor: titleColor,
+            subColor: subColor),
+        _buildField(
+            label: 'Emergency Contact',
+            controller: _controllers['emergency']!,
+            icon: Icons.emergency_outlined,
+            dark: dark,
+            titleColor: titleColor,
+            subColor: subColor,
+            keyboardType: TextInputType.phone,
+            showDivider: false),
       ];
     } else if (role == 'seller') {
       return [
-        _buildField(label: 'Shop Name', controller: _controllers['shopName']!, icon: Icons.store_outlined, dark: dark, titleColor: titleColor, subColor: subColor),
-        _buildField(label: 'NIC / ID', controller: _controllers['nic']!, icon: Icons.badge_outlined, dark: dark, titleColor: titleColor, subColor: subColor),
-        _buildDropdown(label: 'Business Category', field: 'category', items: ['Spare Parts', 'Tires', 'Engine', 'Electrical', 'Accessories'], dark: dark, titleColor: titleColor, subColor: subColor),
-        _buildField(label: 'Business Address', controller: _controllers['address']!, icon: Icons.location_on_outlined, dark: dark, titleColor: titleColor, subColor: subColor),
-        _buildField(label: 'Emergency Contact', controller: _controllers['emergency']!, icon: Icons.emergency_outlined, dark: dark, titleColor: titleColor, subColor: subColor, keyboardType: TextInputType.phone, showDivider: false),
+        _buildField(
+            label: 'Shop Name',
+            controller: _controllers['shopName']!,
+            icon: Icons.store_outlined,
+            dark: dark,
+            titleColor: titleColor,
+            subColor: subColor),
+        _buildField(
+            label: 'NIC / ID',
+            controller: _controllers['nic']!,
+            icon: Icons.badge_outlined,
+            dark: dark,
+            titleColor: titleColor,
+            subColor: subColor),
+        _buildDropdown(
+            label: 'Business Category',
+            field: 'category',
+            items: [
+              'Spare Parts',
+              'Tires',
+              'Engine',
+              'Electrical',
+              'Accessories'
+            ],
+            dark: dark,
+            titleColor: titleColor,
+            subColor: subColor),
+        _buildField(
+            label: 'Business Address',
+            controller: _controllers['address']!,
+            icon: Icons.location_on_outlined,
+            dark: dark,
+            titleColor: titleColor,
+            subColor: subColor),
+        _buildField(
+            label: 'Emergency Contact',
+            controller: _controllers['emergency']!,
+            icon: Icons.emergency_outlined,
+            dark: dark,
+            titleColor: titleColor,
+            subColor: subColor,
+            keyboardType: TextInputType.phone,
+            showDivider: false),
       ];
     }
-    
+
     return [Center(child: Text('No additional fields for this role.'))];
   }
 
@@ -551,12 +764,15 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
         return FutureBuilder<Uint8List>(
           future: _pickedImage!.readAsBytes(),
           builder: (ctx, snap) {
-            if (snap.hasData) return Image.memory(snap.data!, fit: BoxFit.cover, width: 110, height: 110);
+            if (snap.hasData)
+              return Image.memory(snap.data!,
+                  fit: BoxFit.cover, width: 110, height: 110);
             return const Center(child: CircularProgressIndicator());
           },
         );
       } else {
-        return Image.file(File(_pickedImage!.path), fit: BoxFit.cover, width: 110, height: 110);
+        return Image.file(File(_pickedImage!.path),
+            fit: BoxFit.cover, width: 110, height: 110);
       }
     }
 
@@ -565,10 +781,20 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
       try {
         final comma = url.indexOf(',');
         final bytes = _base64ToBytes(url.substring(comma + 1));
-        return Image.memory(bytes, fit: BoxFit.cover, width: 110, height: 110, errorBuilder: (_, __, ___) => _initialsWidget());
-      } catch (_) { return _initialsWidget(); }
+        return Image.memory(bytes,
+            fit: BoxFit.cover,
+            width: 110,
+            height: 110,
+            errorBuilder: (_, __, ___) => _initialsWidget());
+      } catch (_) {
+        return _initialsWidget();
+      }
     } else if (url.isNotEmpty) {
-      return Image.network(url, fit: BoxFit.cover, width: 110, height: 110, errorBuilder: (_, __, ___) => _initialsWidget());
+      return Image.network(url,
+          fit: BoxFit.cover,
+          width: 110,
+          height: 110,
+          errorBuilder: (_, __, ___) => _initialsWidget());
     }
 
     return _initialsWidget();
@@ -577,17 +803,35 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
   Widget _initialsWidget() {
     return Center(
       child: Text(
-        _getInitials(_nameController.text.isNotEmpty ? _nameController.text : widget.roleData['fullName'] ?? 'U'),
-        style: const TextStyle(fontSize: 36, fontWeight: FontWeight.bold, color: AppColors.primaryBlue),
+        _getInitials(_nameController.text.isNotEmpty
+            ? _nameController.text
+            : widget.roleData['fullName'] ?? 'U'),
+        style: const TextStyle(
+            fontSize: 36,
+            fontWeight: FontWeight.bold,
+            color: AppColors.primaryBlue),
       ),
     );
   }
 
   Widget _sectionLabel(String text, bool dark) {
-    return Text(text, style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: dark ? Colors.grey[400] : Colors.grey[500], letterSpacing: 0.5));
+    return Text(text,
+        style: TextStyle(
+            fontSize: 13,
+            fontWeight: FontWeight.w600,
+            color: dark ? Colors.grey[400] : Colors.grey[500],
+            letterSpacing: 0.5));
   }
 
-  Widget _buildField({required String label, required TextEditingController controller, required IconData icon, required bool dark, required Color titleColor, required Color subColor, TextInputType keyboardType = TextInputType.text, bool showDivider = true}) {
+  Widget _buildField(
+      {required String label,
+      required TextEditingController controller,
+      required IconData icon,
+      required bool dark,
+      required Color titleColor,
+      required Color subColor,
+      TextInputType keyboardType = TextInputType.text,
+      bool showDivider = true}) {
     return Column(
       children: [
         Padding(
@@ -595,8 +839,19 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
           child: Row(
             children: [
               Container(
-                width: 40, height: 40,
-                decoration: BoxDecoration(color: dark ? const Color(0xFF253447) : Colors.white, borderRadius: BorderRadius.circular(10), boxShadow: dark ? [] : [BoxShadow(color: Colors.black.withValues(alpha: 0.05), blurRadius: 4, offset: const Offset(0, 2))]),
+                width: 40,
+                height: 40,
+                decoration: BoxDecoration(
+                    color: dark ? const Color(0xFF253447) : Colors.white,
+                    borderRadius: BorderRadius.circular(10),
+                    boxShadow: dark
+                        ? []
+                        : [
+                            BoxShadow(
+                                color: Colors.black.withValues(alpha: 0.05),
+                                blurRadius: 4,
+                                offset: const Offset(0, 2))
+                          ]),
                 child: Icon(icon, size: 20, color: AppColors.primaryBlue),
               ),
               const SizedBox(width: 14),
@@ -604,11 +859,22 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(label, style: TextStyle(fontSize: 11, color: subColor, fontWeight: FontWeight.w500)),
+                    Text(label,
+                        style: TextStyle(
+                            fontSize: 11,
+                            color: subColor,
+                            fontWeight: FontWeight.w500)),
                     TextField(
-                      controller: controller, keyboardType: keyboardType,
-                      style: TextStyle(fontSize: 15, fontWeight: FontWeight.w600, color: titleColor),
-                      decoration: const InputDecoration(border: InputBorder.none, isDense: true, contentPadding: EdgeInsets.symmetric(vertical: 4)),
+                      controller: controller,
+                      keyboardType: keyboardType,
+                      style: TextStyle(
+                          fontSize: 15,
+                          fontWeight: FontWeight.w600,
+                          color: titleColor),
+                      decoration: const InputDecoration(
+                          border: InputBorder.none,
+                          isDense: true,
+                          contentPadding: EdgeInsets.symmetric(vertical: 4)),
                     ),
                   ],
                 ),
@@ -616,15 +882,31 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
             ],
           ),
         ),
-        if (showDivider) Padding(padding: const EdgeInsets.symmetric(horizontal: 16), child: Divider(height: 1, color: dark ? Colors.white10 : Colors.black.withValues(alpha: 0.05))),
+        if (showDivider)
+          Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16),
+              child: Divider(
+                  height: 1,
+                  color: dark
+                      ? Colors.white10
+                      : Colors.black.withValues(alpha: 0.05))),
       ],
     );
   }
 
-  Widget _buildDropdown({required String label, required String field, required List<String> items, required bool dark, required Color titleColor, required Color subColor, bool showDivider = true}) {
+  Widget _buildDropdown(
+      {required String label,
+      required String field,
+      required List<String> items,
+      required bool dark,
+      required Color titleColor,
+      required Color subColor,
+      bool showDivider = true}) {
     List<String> displayItems = List.from(items);
     final currentValue = _dropdownValues[field];
-    if (currentValue != null && currentValue.isNotEmpty && !displayItems.contains(currentValue)) {
+    if (currentValue != null &&
+        currentValue.isNotEmpty &&
+        !displayItems.contains(currentValue)) {
       displayItems.insert(0, currentValue);
     }
 
@@ -635,23 +917,44 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
           child: Row(
             children: [
               Container(
-                width: 40, height: 40,
-                decoration: BoxDecoration(color: dark ? const Color(0xFF253447) : Colors.white, borderRadius: BorderRadius.circular(10)),
-                child: Icon(Icons.list_alt_outlined, size: 20, color: AppColors.primaryBlue),
+                width: 40,
+                height: 40,
+                decoration: BoxDecoration(
+                    color: dark ? const Color(0xFF253447) : Colors.white,
+                    borderRadius: BorderRadius.circular(10)),
+                child: Icon(Icons.list_alt_outlined,
+                    size: 20, color: AppColors.primaryBlue),
               ),
               const SizedBox(width: 14),
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(label, style: TextStyle(fontSize: 11, color: subColor, fontWeight: FontWeight.w500)),
+                    Text(label,
+                        style: TextStyle(
+                            fontSize: 11,
+                            color: subColor,
+                            fontWeight: FontWeight.w500)),
                     DropdownButton<String>(
-                      value: currentValue?.isNotEmpty == true && displayItems.contains(currentValue) ? currentValue : null,
+                      value: currentValue?.isNotEmpty == true &&
+                              displayItems.contains(currentValue)
+                          ? currentValue
+                          : null,
                       isExpanded: true,
                       underline: const SizedBox(),
-                      icon: Icon(Icons.keyboard_arrow_down, size: 18, color: subColor),
-                      items: displayItems.map((String value) => DropdownMenuItem<String>(value: value, child: Text(value, style: TextStyle(fontSize: 15, fontWeight: FontWeight.w600, color: titleColor)))).toList(),
-                      onChanged: (v) => setState(() => _dropdownValues[field] = v ?? ''),
+                      icon: Icon(Icons.keyboard_arrow_down,
+                          size: 18, color: subColor),
+                      items: displayItems
+                          .map((String value) => DropdownMenuItem<String>(
+                              value: value,
+                              child: Text(value,
+                                  style: TextStyle(
+                                      fontSize: 15,
+                                      fontWeight: FontWeight.w600,
+                                      color: titleColor))))
+                          .toList(),
+                      onChanged: (v) =>
+                          setState(() => _dropdownValues[field] = v ?? ''),
                     ),
                   ],
                 ),
@@ -659,7 +962,14 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
             ],
           ),
         ),
-        if (showDivider) Padding(padding: const EdgeInsets.symmetric(horizontal: 16), child: Divider(height: 1, color: dark ? Colors.white10 : Colors.black.withValues(alpha: 0.05))),
+        if (showDivider)
+          Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16),
+              child: Divider(
+                  height: 1,
+                  color: dark
+                      ? Colors.white10
+                      : Colors.black.withValues(alpha: 0.05))),
       ],
     );
   }
