@@ -17,7 +17,14 @@ class AdminPaymentsPage extends StatelessWidget {
         final todayStart = DateTime.now().copyWith(hour: 0, minute: 0, second: 0);
         for (final d in docs) {
           final data = d.data() as Map<String, dynamic>;
-          final amount = (data['amount'] ?? 0) as num;
+          num amount = 0;
+          final amtRaw = data['amount'];
+          if (amtRaw is num) {
+            amount = amtRaw;
+          } else if (amtRaw is String) {
+            final cleanStr = amtRaw.replaceAll(RegExp(r'[^0-9.]'), '');
+            amount = num.tryParse(cleanStr) ?? 0;
+          }
           total += amount;
           final ts = data['createdAt'] as Timestamp?;
           if (ts != null && ts.toDate().isAfter(todayStart)) today += amount;
@@ -64,7 +71,14 @@ class AdminPaymentsPage extends StatelessWidget {
                       final date = ts != null ? ts.toDate().toString().substring(0, 16) : '–';
                       final userName = data['userName']?.toString() ?? '–';
                       final mechanicName = data['mechanicName']?.toString() ?? '–';
-                      final amount = (data['amount'] ?? 0).toString();
+                      String amountStr = '0';
+                      final amtRaw2 = data['amount'];
+                      if (amtRaw2 is num) {
+                        amountStr = amtRaw2.toString();
+                      } else if (amtRaw2 is String) {
+                        final cleanStr = amtRaw2.replaceAll(RegExp(r'[^0-9.]'), '');
+                        amountStr = (num.tryParse(cleanStr) ?? 0).toString();
+                      }
                       final currency = data['currency']?.toString() ?? 'LKR';
                       final status = data['status']?.toString() ?? 'unknown';
 
@@ -74,7 +88,7 @@ class AdminPaymentsPage extends StatelessWidget {
                           Expanded(flex: 2, child: Text(date, style: const TextStyle(color: Colors.white54, fontSize: 12))),
                           Expanded(flex: 3, child: Text(userName, style: const TextStyle(color: Colors.white70, fontSize: 12), overflow: TextOverflow.ellipsis)),
                           Expanded(flex: 2, child: Text(mechanicName, style: const TextStyle(color: Colors.white54, fontSize: 12), overflow: TextOverflow.ellipsis)),
-                          Expanded(flex: 1, child: Text('$currency $amount', style: const TextStyle(color: Color(0xFF81C784), fontSize: 12, fontWeight: FontWeight.w600))),
+                          Expanded(flex: 1, child: Text('$currency $amountStr', style: const TextStyle(color: Color(0xFF81C784), fontSize: 12, fontWeight: FontWeight.w600))),
                           Expanded(flex: 1, child: Container(
                             padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                             decoration: BoxDecoration(

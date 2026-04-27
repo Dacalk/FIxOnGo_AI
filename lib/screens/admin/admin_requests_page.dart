@@ -117,7 +117,11 @@ class _AdminRequestsPageState extends State<AdminRequestsPage> {
                       color: const Color(0xFF1A2640),
                       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                       onSelected: (action) async {
-                        if (action == 'cancel') {
+                        if (action == 'details') {
+                          _showRequestDetails(context, data);
+                        } else if (action == 'assign') {
+                          _showAssignMechanic(context, rid);
+                        } else if (action == 'cancel') {
                           final ok = await showAdminConfirmDialog(context,
                               title: 'Cancel Request',
                               message: 'Force-cancel this service request.',
@@ -131,6 +135,9 @@ class _AdminRequestsPageState extends State<AdminRequestsPage> {
                         }
                       },
                       itemBuilder: (_) => [
+                        const PopupMenuItem(value: 'details', child: Text('📄 View Details', style: TextStyle(color: Colors.white70, fontSize: 13))),
+                        if (status == 'pending' || status == 'accepted')
+                          const PopupMenuItem(value: 'assign', child: Text('👨‍🔧 Assign Mechanic', style: TextStyle(color: Colors.white70, fontSize: 13))),
                         if (status != 'cancelled')
                           const PopupMenuItem(value: 'cancel', child: Text('🚫 Force Cancel', style: TextStyle(color: Color(0xFFEF9A9A), fontSize: 13))),
                         if (status != 'disputed')
@@ -147,5 +154,76 @@ class _AdminRequestsPageState extends State<AdminRequestsPage> {
         ),
       ),
     ]);
+  }
+  void _showRequestDetails(BuildContext context, Map<String, dynamic> data) {
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: const Color(0xFF111D35),
+        title: const Text('Request Details', style: TextStyle(color: Colors.white)),
+        content: SingleChildScrollView(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisSize: MainAxisSize.min,
+            children: data.entries.map((e) {
+              final val = e.value is Timestamp ? (e.value as Timestamp).toDate().toString() : e.value.toString();
+              return Padding(
+                padding: const EdgeInsets.symmetric(vertical: 4),
+                child: RichText(
+                  text: TextSpan(
+                    style: const TextStyle(fontSize: 13, color: Colors.white54),
+                    children: [
+                      TextSpan(text: '${e.key}: ', style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.white70)),
+                      TextSpan(text: val),
+                    ],
+                  ),
+                ),
+              );
+            }).toList(),
+          ),
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Close', style: TextStyle(color: Color(0xFF1A4DBE)))),
+        ],
+      ),
+    );
+  }
+
+  void _showAssignMechanic(BuildContext context, String rid) {
+    final ctrl = TextEditingController();
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: const Color(0xFF111D35),
+        title: const Text('Assign Mechanic', style: TextStyle(color: Colors.white)),
+        content: TextField(
+          controller: ctrl,
+          style: const TextStyle(color: Colors.white),
+          decoration: InputDecoration(
+            hintText: 'Enter Mechanic UID',
+            hintStyle: const TextStyle(color: Colors.white38),
+            filled: true,
+            fillColor: const Color(0xFF0D1626),
+            border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+          ),
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancel', style: TextStyle(color: Colors.white54))),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF1A4DBE)),
+            onPressed: () async {
+              if (ctrl.text.trim().isNotEmpty) {
+                await FirebaseFirestore.instance.collection('requests').doc(rid).update({
+                  'mechanicId': ctrl.text.trim(),
+                  'status': 'pending', // Reset to pending for new mechanic
+                });
+                if (ctx.mounted) Navigator.pop(ctx);
+              }
+            },
+            child: const Text('Assign', style: TextStyle(color: Colors.white)),
+          ),
+        ],
+      ),
+    );
   }
 }

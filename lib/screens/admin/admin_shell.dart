@@ -244,12 +244,19 @@ class _NavTile extends StatelessWidget {
             padding: EdgeInsets.symmetric(horizontal: expanded ? 14 : 0, vertical: 12),
             decoration: BoxDecoration(
               color: isActive
-                  ? const Color(0xFF1A4DBE).withValues(alpha: 0.2)
+                  ? const Color(0xFF1A4DBE).withValues(alpha: 0.15)
                   : Colors.transparent,
               borderRadius: BorderRadius.circular(12),
               border: isActive
-                  ? Border.all(color: const Color(0xFF1A4DBE).withValues(alpha: 0.4))
-                  : null,
+                  ? Border.all(color: const Color(0xFF1A4DBE).withValues(alpha: 0.5))
+                  : Border.all(color: Colors.transparent),
+              boxShadow: isActive ? [
+                BoxShadow(
+                  color: const Color(0xFF1A4DBE).withValues(alpha: 0.2),
+                  blurRadius: 8,
+                  offset: const Offset(0, 2),
+                )
+              ] : null,
             ),
             child: Row(
               mainAxisAlignment: expanded ? MainAxisAlignment.start : MainAxisAlignment.center,
@@ -343,18 +350,94 @@ class _TopBar extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      height: 64,
+      height: 72,
       padding: const EdgeInsets.symmetric(horizontal: 24),
       decoration: BoxDecoration(
-        color: const Color(0xFF0D1626),
+        color: const Color(0xFF0D1626).withValues(alpha: 0.95), // Slight transparency for modern feel
         border: Border(bottom: BorderSide(color: Colors.white.withValues(alpha: 0.06))),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.1),
+            blurRadius: 10,
+            offset: const Offset(0, 4),
+          )
+        ],
       ),
       child: Row(
         children: [
-          Text(title, style: const TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold)),
+          Text(title, style: const TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.bold, letterSpacing: -0.5)),
           const Spacer(),
+
+          // Quick Actions (Hidden on very small screens)
+          if (MediaQuery.of(context).size.width > 700) ...[
+            _QuickActionButton(icon: Icons.person_add_rounded, label: 'Add User'),
+            const SizedBox(width: 12),
+            _QuickActionButton(icon: Icons.build_rounded, label: 'Add Mechanic'),
+            const SizedBox(width: 12),
+            _QuickActionButton(icon: Icons.send_rounded, label: 'Notify'),
+            const SizedBox(width: 24),
+          ],
+
+          // Notification Bell
+          Stack(
+            clipBehavior: Clip.none,
+            children: [
+              IconButton(
+                icon: const Icon(Icons.notifications_none_rounded, color: Colors.white70, size: 24),
+                onPressed: () {},
+                splashRadius: 20,
+              ),
+              Positioned(
+                top: 8,
+                right: 8,
+                child: Container(
+                  padding: const EdgeInsets.all(4),
+                  decoration: const BoxDecoration(color: Color(0xFFEF5350), shape: BoxShape.circle),
+                  child: const Text('3', style: TextStyle(color: Colors.white, fontSize: 9, fontWeight: FontWeight.bold)),
+                ),
+              ),
+            ],
+          ),
+          
+          const SizedBox(width: 16),
+          Container(height: 32, width: 1, color: Colors.white10),
+          const SizedBox(width: 16),
+
           _LogoutButton(),
         ],
+      ),
+    );
+  }
+}
+
+class _QuickActionButton extends StatelessWidget {
+  final IconData icon;
+  final String label;
+
+  const _QuickActionButton({required this.icon, required this.label});
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        borderRadius: BorderRadius.circular(8),
+        onTap: () {}, // Future Implementation
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+          decoration: BoxDecoration(
+            color: Colors.white.withValues(alpha: 0.05),
+            borderRadius: BorderRadius.circular(8),
+            border: Border.all(color: Colors.white.withValues(alpha: 0.1)),
+          ),
+          child: Row(
+            children: [
+              Icon(icon, size: 14, color: Colors.white70),
+              const SizedBox(width: 6),
+              Text(label, style: const TextStyle(color: Colors.white70, fontSize: 12, fontWeight: FontWeight.w500)),
+            ],
+          ),
+        ),
       ),
     );
   }
@@ -364,14 +447,19 @@ class _LogoutButton extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return TextButton.icon(
+      style: TextButton.styleFrom(
+        foregroundColor: const Color(0xFFEF9A9A),
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+      ),
       onPressed: () async {
         await FirebaseAuth.instance.signOut();
         if (context.mounted) {
           Navigator.pushReplacementNamed(context, '/admin/login');
         }
       },
-      icon: const Icon(Icons.logout_rounded, size: 16, color: Colors.white38),
-      label: const Text('Logout', style: TextStyle(color: Colors.white38, fontSize: 13)),
+      icon: const Icon(Icons.logout_rounded, size: 18),
+      label: const Text('Logout', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600)),
     );
   }
 }

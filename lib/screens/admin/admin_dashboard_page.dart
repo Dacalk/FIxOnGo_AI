@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import '../../components/admin/admin_stat_card.dart';
+import '../../components/admin/admin_charts.dart';
 import '../../services/admin_service.dart';
 
 class AdminDashboardPage extends StatelessWidget {
@@ -19,6 +20,7 @@ class AdminDashboardPage extends StatelessWidget {
             label: 'Users & Roles',
             builder: (docs) {
               int users = 0, mechanics = 0, sellers = 0, delivers = 0, admins = 0, banned = 0;
+              int totalUsers = docs.length;
               for (final d in docs) {
                 final data = d.data() as Map<String, dynamic>;
                 final roles = (data['roles'] as Map<String, dynamic>?) ?? {};
@@ -29,14 +31,104 @@ class AdminDashboardPage extends StatelessWidget {
                 if (roles.containsKey('admin')) admins++;
                 if (data['isBanned'] == true) banned++;
               }
-              return _KpiRow(stats: [
-                _Stat('Total Users',   users.toString(),     Icons.people_rounded,            const Color(0xFF1A4DBE)),
-                _Stat('Mechanics',     mechanics.toString(), Icons.build_rounded,              const Color(0xFF4CAF50)),
-                _Stat('Sellers',       sellers.toString(),   Icons.store_rounded,              const Color(0xFFFFC107)),
-                _Stat('Delivers',      delivers.toString(),  Icons.delivery_dining_rounded,    const Color(0xFF29B6F6)),
-                _Stat('Admins',        admins.toString(),    Icons.shield_rounded,             const Color(0xFFCE93D8)),
-                _Stat('Banned',        banned.toString(),    Icons.block_rounded,              const Color(0xFFEF5350)),
-              ]);
+              return Column(
+                children: [
+                  _KpiRow(stats: [
+                    _Stat('Total Users',   users.toString(),     Icons.people_rounded,            const Color(0xFF1A4DBE)),
+                    _Stat('Mechanics',     mechanics.toString(), Icons.build_rounded,              const Color(0xFF4CAF50)),
+                    _Stat('Sellers',       sellers.toString(),   Icons.store_rounded,              const Color(0xFFFFC107)),
+                    _Stat('Delivers',      delivers.toString(),  Icons.delivery_dining_rounded,    const Color(0xFF29B6F6)),
+                    _Stat('Admins',        admins.toString(),    Icons.shield_rounded,             const Color(0xFFCE93D8)),
+                    _Stat('Banned',        banned.toString(),    Icons.block_rounded,              const Color(0xFFEF5350)),
+                  ]),
+                  const SizedBox(height: 24),
+                  
+                  // Insights & Role Distribution Row
+                  LayoutBuilder(
+                    builder: (context, constraints) {
+                      final rolesCount = {
+                        'user': users,
+                        'mechanic': mechanics,
+                        'seller': sellers,
+                        'deliver': delivers,
+                        'admin': admins,
+                      };
+                      final isWide = constraints.maxWidth > 800;
+                      
+                      final roleChart = _SectionCard(
+                        title: 'User Role Distribution',
+                        child: SizedBox(
+                          height: 220,
+                          child: AdminCharts.roleDistributionChart(rolesCount),
+                        ),
+                      );
+
+                      final insights = _SectionCard(
+                        title: 'Platform Insights',
+                        child: SizedBox(
+                          height: 220,
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                            children: [
+                              _InsightRow(icon: Icons.trending_up, color: Colors.greenAccent, title: 'High Growth', subtitle: '+12% new mechanics this week'),
+                              StreamBuilder<QuerySnapshot>(
+                                stream: FirebaseFirestore.instance.collection('requests').where('status', isEqualTo: 'disputed').snapshots(),
+                                builder: (context, snap) {
+                                  final count = snap.data?.docs.length ?? 0;
+                                  return _InsightRow(icon: Icons.warning_amber_rounded, color: Colors.orangeAccent, title: 'Attention Required', subtitle: '$count disputed requests pending');
+                                },
+                              ),
+                              _InsightRow(icon: Icons.attach_money_rounded, color: Colors.blueAccent, title: 'Revenue Trend', subtitle: 'Steady growth in daily transactions'),
+                            ],
+                          ),
+                        ),
+                      );
+
+                      if (isWide) {
+                        return Row(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Expanded(flex: 3, child: roleChart),
+                            const SizedBox(width: 24),
+                            Expanded(flex: 2, child: insights),
+                          ],
+                        );
+                      }
+                      return Column(children: [roleChart, const SizedBox(height: 24), insights]);
+                    }
+                  ),
+                ],
+              );
+            },
+          ),
+
+          const SizedBox(height: 24),
+
+          // ── Charts Row (Requests over time) ──
+          _StreamSection(
+            stream: FirebaseFirestore.instance.collection('requests').snapshots(),
+            label: 'daily requests',
+            builder: (docs) {
+              final now = DateTime.now();
+              List<int> dailyCounts = List.filled(7, 0);
+              for (final d in docs) {
+                final data = d.data() as Map<String, dynamic>;
+                final ts = data['createdAt'] as Timestamp?;
+                if (ts != null) {
+                  final diff = now.difference(ts.toDate()).inDays;
+                  if (diff >= 0 && diff < 7) {
+                    dailyCounts[6 - diff]++;
+                  }
+                }
+              }
+              return _SectionCard(
+                title: 'Daily Service Requests (Last 7 Days)',
+                child: SizedBox(
+                  height: 200,
+                  child: AdminCharts.dailyRequestsChart(dailyCounts),
+                ),
+              );
             },
           ),
 
@@ -157,7 +249,16 @@ class AdminDashboardPage extends StatelessWidget {
           final todayStart = DateTime.now().copyWith(hour: 0, minute: 0, second: 0);
           for (final d in docs) {
             final data  = d.data() as Map<String, dynamic>;
-            final amount = (data['amount'] ?? 0) as num;
+            
+            num amount = 0;
+            final amtRaw = data['amount'];
+            if (amtRaw is num) {
+              amount = amtRaw;
+            } else if (amtRaw is String) {
+              final cleanStr = amtRaw.replaceAll(RegExp(r'[^0-9.]'), '');
+              amount = num.tryParse(cleanStr) ?? 0;
+            }
+
             total += amount;
             final ts = data['createdAt'] as Timestamp?;
             if (ts != null && ts.toDate().isAfter(todayStart)) today += amount;
@@ -231,10 +332,18 @@ class _StreamSection extends StatelessWidget {
       stream: stream,
       builder: (context, snap) {
         if (snap.connectionState == ConnectionState.waiting) {
-          return const Padding(
-            padding: EdgeInsets.symmetric(vertical: 16),
-            child: Center(child: CircularProgressIndicator(
-                color: Color(0xFF1A4DBE), strokeWidth: 2)),
+          return Padding(
+            padding: const EdgeInsets.symmetric(vertical: 24),
+            child: Center(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const CircularProgressIndicator(color: Color(0xFF1A4DBE), strokeWidth: 2),
+                  const SizedBox(height: 16),
+                  Text('Loading $label...', style: const TextStyle(color: Colors.white38, fontSize: 12)),
+                ],
+              ),
+            ),
           );
         }
         if (snap.hasError) {
@@ -255,7 +364,10 @@ class _StreamSection extends StatelessWidget {
             ]),
           );
         }
-        return builder(snap.data?.docs ?? []);
+        return AnimatedSwitcher(
+          duration: const Duration(milliseconds: 400),
+          child: builder(snap.data?.docs ?? []),
+        );
       },
     );
   }
@@ -300,16 +412,30 @@ class _SectionCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.all(20),
+      padding: const EdgeInsets.all(24),
       decoration: BoxDecoration(
-        color: const Color(0xFF111D35),
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: Colors.white.withValues(alpha: 0.06)),
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [
+            const Color(0xFF15233E).withValues(alpha: 0.8),
+            const Color(0xFF0D1626).withValues(alpha: 0.9),
+          ],
+        ),
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: Colors.white.withValues(alpha: 0.08), width: 1.5),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.15),
+            blurRadius: 16,
+            offset: const Offset(0, 6),
+          ),
+        ],
       ),
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
         Text(title, style: const TextStyle(
-            color: Colors.white, fontWeight: FontWeight.bold, fontSize: 15)),
-        const SizedBox(height: 14),
+            color: Colors.white, fontWeight: FontWeight.w700, fontSize: 16, letterSpacing: -0.3)),
+        const SizedBox(height: 20),
         child,
       ]),
     );
@@ -356,4 +482,41 @@ class _BoolRow extends StatelessWidget {
       ),
     ]),
   );
+}
+
+class _InsightRow extends StatelessWidget {
+  final IconData icon;
+  final Color color;
+  final String title;
+  final String subtitle;
+
+  const _InsightRow({required this.icon, required this.color, required this.title, required this.subtitle});
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: [
+        Container(
+          padding: const EdgeInsets.all(10),
+          decoration: BoxDecoration(
+            color: color.withValues(alpha: 0.15),
+            shape: BoxShape.circle,
+            border: Border.all(color: color.withValues(alpha: 0.3)),
+          ),
+          child: Icon(icon, color: color, size: 20),
+        ),
+        const SizedBox(width: 16),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(title, style: const TextStyle(color: Colors.white, fontSize: 13, fontWeight: FontWeight.w600)),
+              const SizedBox(height: 2),
+              Text(subtitle, style: const TextStyle(color: Colors.white54, fontSize: 11)),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
 }
