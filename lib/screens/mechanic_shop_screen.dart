@@ -2,8 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'dart:convert';
-import 'dart:typed_data';
 import '../theme_provider.dart';
+import '../components/seller_bottom_nav.dart';
 
 class MechanicShopScreen extends StatefulWidget {
   final bool isEmbedded;
@@ -294,9 +294,17 @@ class _MechanicShopScreenState extends State<MechanicShopScreen> {
   }
 
   // ─────────────────────────────────────────────
-  //  BOTTOM NAVIGATION BAR (Synchronized with Dashboard)
+  //  BOTTOM NAVIGATION BAR
+  //  For Seller: uses the shared SellerBottomNav.
+  //  For Mechanic and others: uses the custom 3-tab nav.
   // ─────────────────────────────────────────────
   Widget _bottomNav(bool dark) {
+    // Sellers use the shared 4-tab component
+    if (widget.role?.toLowerCase() == 'seller') {
+      return SellerBottomNav(currentIndex: 1, role: widget.role);
+    }
+
+    // Mechanic / other roles: 3-tab nav (Dashboard, Shop, Vehicles, Profile)
     return Container(
       decoration: BoxDecoration(
         color: dark ? const Color(0xFF111D35) : Colors.white,
@@ -318,39 +326,22 @@ class _MechanicShopScreenState extends State<MechanicShopScreen> {
           topRight: Radius.circular(24),
         ),
         child: BottomNavigationBar(
-          currentIndex: 1, // Shop is index 1
+          currentIndex: 1, // Shop is active
           onTap: (i) {
-            // Adjust indices for Seller who has no "Vehicles"
-            final isSeller = widget.role?.toLowerCase() == 'seller';
-            if (isSeller) {
-              switch (i) {
-                case 0:
-                  Navigator.pushReplacementNamed(context, '/dashboard',
-                      arguments: widget.role);
-                  break;
-                case 1:
-                  break;
-                case 2:
-                  Navigator.pushReplacementNamed(context, '/profile',
-                      arguments: widget.role);
-                  break;
-              }
-            } else {
-              switch (i) {
-                case 0:
-                  Navigator.pushReplacementNamed(context, '/dashboard',
-                      arguments: widget.role ?? 'Mechanic');
-                  break;
-                case 1:
-                  break;
-                case 2:
-                  Navigator.pushReplacementNamed(context, '/garage');
-                  break;
-                case 3:
-                  Navigator.pushReplacementNamed(context, '/profile',
-                      arguments: widget.role ?? 'Mechanic');
-                  break;
-              }
+            switch (i) {
+              case 0:
+                Navigator.pushReplacementNamed(context, '/dashboard',
+                    arguments: widget.role ?? 'Mechanic');
+                break;
+              case 1:
+                break; // already here
+              case 2:
+                Navigator.pushReplacementNamed(context, '/garage');
+                break;
+              case 3:
+                Navigator.pushReplacementNamed(context, '/profile',
+                    arguments: widget.role ?? 'Mechanic');
+                break;
             }
           },
           type: BottomNavigationBarType.fixed,
@@ -360,15 +351,14 @@ class _MechanicShopScreenState extends State<MechanicShopScreen> {
           unselectedItemColor: dark ? Colors.grey[600] : Colors.grey[400],
           selectedFontSize: 12,
           unselectedFontSize: 11,
-          items: [
-            const BottomNavigationBarItem(
+          items: const [
+            BottomNavigationBarItem(
                 icon: Icon(Icons.home_rounded), label: 'Dashboard'),
-            const BottomNavigationBarItem(
+            BottomNavigationBarItem(
                 icon: Icon(Icons.shopping_bag), label: 'Shop'),
-            if (widget.role?.toLowerCase() != 'seller')
-              const BottomNavigationBarItem(
-                  icon: Icon(Icons.garage_rounded), label: 'Vehicles'),
-            const BottomNavigationBarItem(
+            BottomNavigationBarItem(
+                icon: Icon(Icons.garage_rounded), label: 'Vehicles'),
+            BottomNavigationBarItem(
                 icon: Icon(Icons.person_rounded), label: 'Profile'),
           ],
         ),

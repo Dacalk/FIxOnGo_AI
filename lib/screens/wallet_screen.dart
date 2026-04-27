@@ -34,7 +34,7 @@ class WalletScreen extends StatelessWidget {
           }
 
           final docs = snapshot.data?.docs ?? [];
-          final double totalEarnings = docs.fold(0.0, (sum, doc) => sum + (doc['amount'] ?? 0.0));
+          final double totalEarnings = docs.fold(0.0, (acc, doc) => acc + ((doc['amount'] ?? 0.0) as num).toDouble());
 
           return Column(
             children: [

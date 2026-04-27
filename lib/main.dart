@@ -16,6 +16,8 @@ import 'screens/add_product_screen.dart';
 import 'screens/video_call_screen.dart';
 import 'screens/voice_call_screen.dart';
 import 'screens/mechanic_chat_screen.dart';
+import 'screens/seller_inbox_screen.dart';
+import 'screens/seller_chat_screen.dart';
 import 'screens/ai_chat_history_screen.dart';
 import 'screens/arrival_confirmation_screen.dart';
 import 'screens/dashboard_screen.dart';
@@ -149,8 +151,33 @@ class FixOnGoApp extends StatelessWidget {
                 const AuthGuard(child: VideoCallScreen()),
             '/voice-call': (context) =>
                 const AuthGuard(child: VoiceCallScreen()),
-            '/mechanic-chat': (context) =>
-                const AuthGuard(child: MechanicChatScreen()),
+            '/mechanic-chat': (context) {
+              final args = ModalRoute.of(context)?.settings.arguments;
+              if (args is Map<String, dynamic>) {
+                return AuthGuard(
+                  child: MechanicChatScreen(
+                    conversationId: args['conversationId'] as String?,
+                    otherUserId: args['otherUserId'] as String?,
+                    otherUserName: args['otherUserName'] as String?,
+                    otherUserRole: args['otherUserRole'] as String?,
+                  ),
+                );
+              }
+              return const AuthGuard(child: MechanicChatScreen());
+            },
+            '/seller-inbox': (context) =>
+                const AuthGuard(child: SellerInboxScreen()),
+            '/seller-chat': (context) {
+              final args = ModalRoute.of(context)?.settings.arguments
+                  as Map<String, dynamic>? ?? {};
+              return AuthGuard(
+                child: SellerChatScreen(
+                  conversationId: args['conversationId'] as String? ?? '',
+                  otherUserId: args['otherUserId'] as String? ?? '',
+                  otherUserName: args['otherUserName'] as String? ?? 'Customer',
+                ),
+              );
+            },
             '/arrival-confirmation': (context) =>
                 const AuthGuard(child: ArrivalConfirmationScreen()),
             '/dashboard': (context) =>

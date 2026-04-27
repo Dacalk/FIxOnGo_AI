@@ -20,17 +20,6 @@ class CallSupportScreen extends StatelessWidget {
     final cardBg = dark ? const Color(0xFF1E2836) : Colors.white;
     final badgeBg = dark ? const Color(0xFF1E2836) : Colors.white;
 
-    // AI Chat Card background gradient
-    final aiCardGradient = LinearGradient(
-      colors: dark
-          ? [const Color(0xFF434E60), const Color(0xFF83876B)]
-          : [
-              const Color(0xFFE2E6EC),
-              const Color(0xFFE5EFBD),
-            ], // silver/grey to pale yellow
-      begin: Alignment.centerLeft,
-      end: Alignment.centerRight,
-    );
 
     return Scaffold(
       backgroundColor: bgColor,
@@ -270,93 +259,7 @@ class CallSupportScreen extends StatelessWidget {
               subColor: subColor,
             ),
 
-            const SizedBox(height: 32),
-
-            // ── AI Assistant Card ──
-            Container(
-              width: double.infinity,
-              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 24),
-              decoration: BoxDecoration(
-                gradient: aiCardGradient,
-                borderRadius: BorderRadius.circular(24),
-              ),
-              child: Row(
-                children: [
-                  // Robot Icon Bubble
-                  Container(
-                    width: 50,
-                    height: 50,
-                    decoration: BoxDecoration(
-                      color: dark ? Colors.white24 : Colors.black12,
-                      shape: BoxShape.circle,
-                    ),
-                    child: Icon(
-                      Icons.smart_toy,
-                      color: dark ? AppColors.primaryBlue : Colors.blue[700],
-                      size: 24,
-                    ),
-                  ),
-                  const SizedBox(width: 16),
-
-                  // Text Content
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          'Not an Emergency ?',
-                          style: TextStyle(
-                            fontSize: 15,
-                            fontWeight: FontWeight.bold,
-                            color: titleColor,
-                          ),
-                        ),
-                        const SizedBox(height: 6),
-                        Text(
-                          'Use our AI assistant to troubleshoot minor issues or find nearby repair shops',
-                          style: TextStyle(
-                            fontSize: 12,
-                            color: dark ? Colors.white70 : Colors.grey[600],
-                            height: 1.3,
-                          ),
-                        ),
-                        const SizedBox(height: 8),
-                        GestureDetector(
-                          onTap: () {
-                            Navigator.pushNamed(context, '/ai-chat');
-                          },
-                          child: Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              Text(
-                                'Start AI Chat',
-                                style: TextStyle(
-                                  fontSize: 13,
-                                  fontWeight: FontWeight.bold,
-                                  color: dark
-                                      ? AppColors.brandYellow
-                                      : Colors.orange[500],
-                                ),
-                              ),
-                              const SizedBox(width: 4),
-                              Icon(
-                                Icons.arrow_forward,
-                                size: 16,
-                                color: dark
-                                    ? AppColors.brandYellow
-                                    : Colors.orange[500],
-                              ),
-                            ],
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ],
-              ),
-            ),
-
-            const SizedBox(height: 32),
+            const SizedBox(height: 16),
           ],
         ),
       ),

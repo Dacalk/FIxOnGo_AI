@@ -4,6 +4,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import '../theme_provider.dart';
 import '../components/form_input.dart';
+import '../components/seller_bottom_nav.dart';
 import 'payment_screen.dart';
 import 'edit_profile_screen.dart';
 
@@ -476,15 +477,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                           );
                         },
                       ),
-                      _buildMenuItem(
-                        icon: Icons.history,
-                        title: 'Payment History',
-                        dark: dark,
-                        titleColor: titleColor,
-                        subColor: subColor,
-                        onTap: () =>
-                            Navigator.pushNamed(context, '/payment-history'),
-                      ),
+
                       _buildMenuItem(
                         icon: Icons.security,
                         title: 'Account Security',
@@ -740,6 +733,12 @@ class _ProfileScreenState extends State<ProfileScreen> {
   }
 
   Widget _buildBottomNav(BuildContext context, bool dark) {
+    // Seller: use the shared 4-tab nav, Profile = index 3
+    if (userRole.toLowerCase() == 'seller') {
+      return SellerBottomNav(currentIndex: 3, role: userRole);
+    }
+
+    // Other roles: custom row-based nav
     return Container(
       padding: const EdgeInsets.symmetric(vertical: 12),
       decoration: BoxDecoration(
@@ -761,23 +760,17 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 '/dashboard'),
             _navItem(
                 context,
-                userRole.toLowerCase() == 'mechanic' ||
-                        userRole.toLowerCase() == 'seller'
+                userRole.toLowerCase() == 'mechanic'
                     ? Icons.shopping_bag
                     : Icons.history_rounded,
-                userRole.toLowerCase() == 'mechanic' ||
-                        userRole.toLowerCase() == 'seller'
-                    ? 'Shop'
-                    : 'Activities',
+                userRole.toLowerCase() == 'mechanic' ? 'Shop' : 'Activities',
                 false,
                 dark,
-                userRole.toLowerCase() == 'mechanic' ||
-                        userRole.toLowerCase() == 'seller'
+                userRole.toLowerCase() == 'mechanic'
                     ? '/mechanic-shop'
                     : '/job-history'),
-            if (userRole.toLowerCase() != 'seller')
-              _navItem(context, Icons.garage_rounded, 'Vehicles', false, dark,
-                  '/garage'),
+            _navItem(context, Icons.garage_rounded, 'Vehicles', false, dark,
+                '/garage'),
             _navItem(context, Icons.person_rounded, 'Profile', true, dark,
                 '/profile'),
           ],

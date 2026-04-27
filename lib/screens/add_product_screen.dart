@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:image_picker/image_picker.dart';
-import 'dart:io';
 import 'dart:convert';
 import 'dart:typed_data';
 import '../theme_provider.dart';
@@ -24,7 +23,6 @@ class _AddProductScreenState extends State<AddProductScreen> {
   String _category = 'Tools';
   String? _productId;
   bool _isLoading = false;
-  File? _imageFile;
   bool _isInStock = true;
   String? _existingImageUrl;
   Uint8List? _imageBytes;
@@ -62,7 +60,6 @@ class _AddProductScreenState extends State<AddProductScreen> {
     if (pickedFile != null) {
       final bytes = await pickedFile.readAsBytes();
       setState(() {
-        _imageFile = File(pickedFile.path);
         _imageBytes = bytes;
       });
     }
@@ -75,13 +72,18 @@ class _AddProductScreenState extends State<AddProductScreen> {
       if (mounted) setState(() => _isLoading = true);
     });
     final user = FirebaseAuth.instance.currentUser;
+    if (user == null) return;
 
     String imageUrlToSave = _existingImageUrl ?? '';
     if (_imageBytes != null) {
       imageUrlToSave = 'data:image/png;base64,${base64Encode(_imageBytes!)}';
     }
 
-    final data = {
+    // Use local timestamp to avoid FieldValue.serverTimestamp() inside Map
+    // which can cause permission issues on Flutter Web.
+    final now = Timestamp.fromDate(DateTime.now());
+
+    final data = <String, dynamic>{
       'name': _nameController.text.trim(),
       'price': double.tryParse(_priceController.text) ?? 0.0,
       'description': _descController.text.trim(),
@@ -89,31 +91,30 @@ class _AddProductScreenState extends State<AddProductScreen> {
       'stockCount': int.tryParse(_stockController.text) ?? 1,
       'inStock': _isInStock,
       'imageUrl': imageUrlToSave,
-      'updatedAt': FieldValue.serverTimestamp(),
+      'updatedAt': now,
     };
 
     try {
       final ref = FirebaseFirestore.instance
           .collection('users')
-          .doc(user!.uid)
+          .doc(user.uid)
           .collection('products');
 
       if (_productId == null) {
-        data['createdAt'] = FieldValue.serverTimestamp();
-        await ref.add(data);
+        // New product — include createdAt
+        await ref.add({...data, 'createdAt': now});
       } else {
-        await ref.doc(_productId).update(data);
+        await ref.doc(_productId!).update(data);
       }
 
       if (mounted) Navigator.pop(context);
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text("Error: $e")),
+          SnackBar(content: Text('Save failed: $e')),
         );
       }
     } finally {
-      if (!mounted) return;
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (mounted) setState(() => _isLoading = false);
       });

@@ -19,6 +19,7 @@ import 'job_history_screen.dart';
 import 'payment_history_screen.dart';
 import 'profile_screen.dart';
 import 'wallet_screen.dart';
+import 'seller_inbox_screen.dart';
 
 /// Main dashboard screen with bottom navigation.
 /// Renders role-specific content based on the user's role.
@@ -1242,7 +1243,12 @@ class _DashboardScreenState extends State<DashboardScreen> {
                         title: 'Messages',
                         color: const Color(0xFFE65100),
                         onTap: () {
-                          Navigator.pushNamed(context, '/mechanic-chat');
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (_) => const SellerInboxScreen(),
+                            ),
+                          );
                         },
                       ),
                     ),
