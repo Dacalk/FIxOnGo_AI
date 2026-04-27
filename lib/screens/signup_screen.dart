@@ -382,7 +382,7 @@ class _SignupScreenState extends State<SignupScreen> {
                     ),
                     TextButton(
                       onPressed: () async {
-                        await FirebaseAuth.instance.signOut();
+                        await GoogleAuthService().signOut();
                         setState(() {});
                       },
                       child:
@@ -530,8 +530,6 @@ class _SignupScreenState extends State<SignupScreen> {
     ];
   }
 
-
-
   List<Widget> _towFields() {
     return [
       FormInput(
@@ -545,7 +543,6 @@ class _SignupScreenState extends State<SignupScreen> {
           onChanged: (v) => towingCapacity = v),
     ];
   }
-
 
   List<Widget> _sellerFields() {
     return [

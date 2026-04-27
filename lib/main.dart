@@ -50,9 +50,9 @@ void main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
   try {
-    await dotenv.load(fileName: "lib/assets/env");
+    await dotenv.load(fileName: ".env");
   } catch (e) {
-    debugPrint("Warning: Could not load lib/assets/env: $e");
+    debugPrint("Warning: Could not load .env: $e");
   }
 
   if (Firebase.apps.isEmpty) {
@@ -169,7 +169,8 @@ class FixOnGoApp extends StatelessWidget {
                 const AuthGuard(child: SellerInboxScreen()),
             '/seller-chat': (context) {
               final args = ModalRoute.of(context)?.settings.arguments
-                  as Map<String, dynamic>? ?? {};
+                      as Map<String, dynamic>? ??
+                  {};
               return AuthGuard(
                 child: SellerChatScreen(
                   conversationId: args['conversationId'] as String? ?? '',

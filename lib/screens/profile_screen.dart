@@ -1,5 +1,6 @@
 import 'dart:typed_data';
 import 'package:flutter/material.dart';
+import '../services/google_auth_service.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import '../theme_provider.dart';
@@ -394,12 +395,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     ],
                   ),
                   const SizedBox(height: 16),
-                  _shopInfoRow(
-                      'Shop Name',
-                      roleData['shopName'] ?? 'No Name',
-                      Icons.business,
-                      subColor,
-                      titleColor),
+                  _shopInfoRow('Shop Name', roleData['shopName'] ?? 'No Name',
+                      Icons.business, subColor, titleColor),
                   const Divider(height: 24),
                   _shopInfoRow(
                       'Category',
@@ -408,12 +405,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
                       subColor,
                       titleColor),
                   const Divider(height: 24),
-                  _shopInfoRow(
-                      'Address',
-                      roleData['address'] ?? 'No Address',
-                      Icons.location_on,
-                      subColor,
-                      titleColor),
+                  _shopInfoRow('Address', roleData['address'] ?? 'No Address',
+                      Icons.location_on, subColor, titleColor),
                 ],
               ),
             ),
@@ -477,7 +470,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
                           );
                         },
                       ),
-
                       _buildMenuItem(
                         icon: Icons.security,
                         title: 'Account Security',
@@ -536,7 +528,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   width: double.infinity,
                   child: ElevatedButton(
                     onPressed: () async {
-                      await FirebaseAuth.instance.signOut();
+                      await GoogleAuthService().signOut();
                       if (context.mounted) {
                         Navigator.pushNamedAndRemoveUntil(
                           context,
@@ -824,7 +816,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
     );
   }
 
-  Widget _shopInfoRow(String label, String value, IconData icon, Color subColor, Color titleColor) {
+  Widget _shopInfoRow(String label, String value, IconData icon, Color subColor,
+      Color titleColor) {
     return Row(
       children: [
         Icon(icon, size: 18, color: subColor),
