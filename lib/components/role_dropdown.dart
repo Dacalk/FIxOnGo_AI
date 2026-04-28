@@ -33,6 +33,7 @@ class _RoleDropdownState extends State<RoleDropdown> {
     'Tow',
     'Seller',
     'Driver',
+    'Delivery',
   ];
 
   @override

@@ -39,6 +39,9 @@ import 'screens/tow_vehicle_screen.dart';
 import 'features/towing/towing_booking_screen.dart';
 import 'features/towing/towing_status_screen.dart';
 import 'features/towing/tow_nav_to_user_screen.dart';
+import 'screens/delivery_history_screen.dart';
+import 'screens/active_delivery_screen.dart';
+import 'screens/delivery_jobs_screen.dart';
 import 'theme_provider.dart';
 
 import 'package:flutter_dotenv/flutter_dotenv.dart';
@@ -218,6 +221,12 @@ class FixOnGoApp extends StatelessWidget {
                   ModalRoute.of(context)?.settings.arguments as String?;
               return AuthGuard(child: JobHistoryScreen(role: role));
             },
+            '/delivery-history': (context) =>
+                const AuthGuard(child: DeliveryHistoryScreen()),
+            '/active-delivery': (context) =>
+                const AuthGuard(child: ActiveDeliveryScreen()),
+            '/delivery-jobs': (context) =>
+                const AuthGuard(child: DeliveryJobsScreen()),
             '/home': (context) => const AuthGuard(child: HomeScreen()),
             '/towing-booking': (context) =>
                 const AuthGuard(child: TowingBookingScreen()),
