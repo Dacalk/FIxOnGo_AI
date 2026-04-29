@@ -12,10 +12,13 @@ class ProfileScreen extends StatefulWidget {
   final Map<String, dynamic>? userData;
   final String? role;
 
+  final bool isEmbedded;
+
   const ProfileScreen({
     super.key,
     this.userData,
     this.role,
+    this.isEmbedded = false,
   });
 
   @override
@@ -209,7 +212,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
       appBar: AppBar(
         backgroundColor: topBgColor,
         elevation: 0,
-        automaticallyImplyLeading: false, 
+        automaticallyImplyLeading: false,
         centerTitle: true,
         title: Text(
           'My Profile',
@@ -230,11 +233,10 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 color: dark ? Colors.white : Colors.black,
               ),
               onPressed: () {
-                Navigator.pushReplacement(
+                Navigator.pushReplacementNamed(
                   context,
-                  MaterialPageRoute(
-                    builder: (_) => DashboardScreen(role: userRole),
-                  ),
+                  '/dashboard',
+                  arguments: userRole,
                 );
               },
             ),
@@ -242,7 +244,21 @@ class _ProfileScreenState extends State<ProfileScreen> {
         ),
         actions: [
           TextButton(
-            onPressed: () {},
+            onPressed: () async {
+              final updated = await Navigator.push<bool>(
+                context,
+                MaterialPageRoute(
+                  builder: (_) => EditProfileScreen(
+                    roleData: roleData,
+                    role: userRole,
+                    initialPhotoUrl: userPhotoUrl,
+                    email: userEmail,
+                    phone: userPhone,
+                  ),
+                ),
+              );
+              if (updated == true) _loadProfile();
+            },
             child: Text(
               'Edit',
               style: TextStyle(
@@ -285,33 +301,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                                 ),
                               ),
                               child: ClipOval(
-                                child: userPhotoUrl.isNotEmpty
-                                    ? Image.network(
-                                        userPhotoUrl,
-                                        fit: BoxFit.cover,
-                                        width: 100,
-                                        height: 100,
-                                        errorBuilder: (_, __, ___) => Center(
-                                          child: Text(
-                                            _getInitials(userName),
-                                            style: const TextStyle(
-                                              fontSize: 32,
-                                              fontWeight: FontWeight.bold,
-                                              color: AppColors.primaryBlue,
-                                            ),
-                                          ),
-                                        ),
-                                      )
-                                    : Center(
-                                        child: Text(
-                                          _getInitials(userName),
-                                          style: const TextStyle(
-                                            fontSize: 32,
-                                            fontWeight: FontWeight.bold,
-                                            color: AppColors.primaryBlue,
-                                          ),
-                                        ),
-                                      ),
+                                child: _buildAvatar(),
                               ),
                             ),
                             Positioned(
@@ -322,7 +312,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
                                 decoration: BoxDecoration(
                                   color: Colors.orange,
                                   shape: BoxShape.circle,
-                                  border: Border.all(color: topBgColor, width: 3),
+                                  border:
+                                      Border.all(color: topBgColor, width: 3),
                                 ),
                                 child: const Icon(
                                   Icons.camera_alt,
@@ -377,7 +368,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
                                 dark: dark,
                                 titleColor: titleColor,
                                 subColor: subColor,
-                                onTap: () => Navigator.pushNamed(context, '/garage'),
+                                onTap: () =>
+                                    Navigator.pushNamed(context, '/garage'),
                               ),
                               _buildMenuItem(
                                 icon: Icons.credit_card_outlined,
@@ -389,7 +381,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
                                   Navigator.push(
                                     context,
                                     MaterialPageRoute(
-                                      builder: (_) => PaymentScreen(role: userRole),
+                                      builder: (_) =>
+                                          PaymentScreen(role: userRole),
                                     ),
                                   );
                                 },
@@ -400,12 +393,14 @@ class _ProfileScreenState extends State<ProfileScreen> {
                                 dark: dark,
                                 titleColor: titleColor,
                                 subColor: subColor,
-                                onTap: () => Navigator.pushNamed(context, '/payment-history'),
+                                onTap: () => Navigator.pushNamed(
+                                    context, '/payment-history'),
                               ),
                               _buildMenuItem(
                                 icon: Icons.security,
                                 title: 'Account Security',
-                                trailingText: hasPassword ? 'Protected' : 'Incomplete',
+                                trailingText:
+                                    hasPassword ? 'Protected' : 'Incomplete',
                                 dark: dark,
                                 titleColor: titleColor,
                                 subColor: subColor,
@@ -417,7 +412,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
                                 dark: dark,
                                 titleColor: titleColor,
                                 subColor: subColor,
-                                onTap: () => Navigator.pushNamed(context, '/call-support'),
+                                onTap: () => Navigator.pushNamed(
+                                    context, '/call-support'),
                               ),
                               _buildMenuItem(
                                 icon: Icons.help_outline,
@@ -426,7 +422,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
                                 titleColor: titleColor,
                                 subColor: subColor,
                                 showDivider: false,
-                                onTap: () => Navigator.pushNamed(context, '/help-support'),
+                                onTap: () => Navigator.pushNamed(
+                                    context, '/help-support'),
                               ),
                               if (availableRoles.length > 1)
                                 _buildMenuItem(
@@ -451,7 +448,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                           ),
                         ),
 
-                        const SizedBox(height: 32),
+                const SizedBox(height: 32),
 
                         // ── Sign Out Button ──
                         SizedBox(
@@ -468,7 +465,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
                               }
                             },
                             style: ElevatedButton.styleFrom(
-                              backgroundColor: dark ? signOutBgDark : signOutBgLight,
+                              backgroundColor:
+                                  dark ? signOutBgDark : signOutBgLight,
                               foregroundColor: dark ? Colors.black : Colors.red,
                               elevation: 0,
                               padding: const EdgeInsets.symmetric(vertical: 16),

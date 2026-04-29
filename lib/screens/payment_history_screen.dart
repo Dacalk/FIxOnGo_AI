@@ -4,7 +4,8 @@ import '../theme_provider.dart';
 /// Payment History screen — view past transactions.
 /// Linked from the Bottom Navigation Bar 'Payment' tab.
 class PaymentHistoryScreen extends StatelessWidget {
-  const PaymentHistoryScreen({super.key});
+  final bool isEmbedded;
+  const PaymentHistoryScreen({super.key, this.isEmbedded = false});
 
   @override
   Widget build(BuildContext context) {
@@ -24,6 +25,197 @@ class PaymentHistoryScreen extends StatelessWidget {
         dark ? const Color(0xFF98C1EA) : const Color(0xFFB3D4F3);
     final bannerCircle2 =
         dark ? const Color(0xFFDDEBFA) : const Color(0xFFEAF2FB);
+
+    final content = Column(
+      children: [
+        Expanded(
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.fromLTRB(24, 20, 24, 24),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // ── Total Spent Banner ──
+                Container(
+                  width: double.infinity,
+                  height: 120,
+                  decoration: BoxDecoration(
+                    color: bannerBg,
+                    borderRadius: BorderRadius.circular(24),
+                  ),
+                  clipBehavior: Clip.hardEdge,
+                  child: Stack(
+                    children: [
+                      // Left decoration circle
+                      Positioned(
+                        left: -30,
+                        bottom: -30,
+                        child: Container(
+                          width: 130,
+                          height: 130,
+                          decoration: BoxDecoration(
+                            color: bannerCircle1,
+                            shape: BoxShape.circle,
+                          ),
+                        ),
+                      ),
+                      // Right decoration circle
+                      Positioned(
+                        right: -40,
+                        top: -40,
+                        child: Container(
+                          width: 140,
+                          height: 140,
+                          decoration: BoxDecoration(
+                            color: bannerCircle2,
+                            shape: BoxShape.circle,
+                          ),
+                        ),
+                      ),
+                      // Content
+                      Center(
+                        child: Column(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Text(
+                              'TOTAL SPENT THIS MONTH',
+                              style: TextStyle(
+                                fontSize: 11,
+                                fontWeight: FontWeight.bold,
+                                color: bannerText,
+                                letterSpacing: 0.5,
+                              ),
+                            ),
+                            const SizedBox(height: 8),
+                            Text(
+                              'RS. 5000.00',
+                              style: TextStyle(
+                                fontSize: 24,
+                                fontWeight: FontWeight.w800,
+                                color: bannerText,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+
+                const SizedBox(height: 24),
+
+                // ── Filters & Headers ──
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Text(
+                      'Recent',
+                      style: TextStyle(
+                        fontSize: 14,
+                        fontWeight: FontWeight.bold,
+                        color: titleColor,
+                      ),
+                    ),
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 12,
+                        vertical: 6,
+                      ),
+                      decoration: BoxDecoration(
+                        color: dark ? AppColors.brandYellow : Colors.grey[300],
+                        borderRadius: BorderRadius.circular(20),
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Text(
+                            'Last 4 Month',
+                            style: TextStyle(
+                              fontSize: 11,
+                              fontWeight: FontWeight.bold,
+                              color: dark ? Colors.black : Colors.grey[700],
+                            ),
+                          ),
+                          const SizedBox(width: 4),
+                          Icon(
+                            Icons.keyboard_arrow_down,
+                            size: 16,
+                            color: dark ? Colors.black : Colors.grey[700],
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+
+                const SizedBox(height: 16),
+
+                // ── Group: February 2026 ──
+                _buildMonthHeader('February 2026', titleColor),
+                _buildTransactionCard(
+                  icon: Icons.build,
+                  title: 'Mechanic Request',
+                  date: '12 Feb, 10.30 AM',
+                  vehicle: 'TOYOTA HYBRID',
+                  amount: 'RS.2,500',
+                  status: 'COMPLETED',
+                  cardLogo: 'VISA',
+                  cardTail: 'Ending in 4587',
+                  dark: dark,
+                  cardBg: cardBg,
+                  titleColor: titleColor,
+                  subColor: subColor,
+                ),
+
+                const SizedBox(height: 24),
+
+                // ── Group: November 2025 ──
+                _buildMonthHeader('November 2025', titleColor),
+                _buildTransactionCard(
+                  icon: Icons.car_repair,
+                  title: 'Tool Request',
+                  date: '12 Nov, 12 PM',
+                  vehicle: 'BYD Vehicle',
+                  amount: 'RS.1,500',
+                  status: 'COMPLETED',
+                  cardLogo: 'VISA',
+                  cardTail: 'Ending in 4587',
+                  dark: dark,
+                  cardBg: cardBg,
+                  titleColor: titleColor,
+                  subColor: subColor,
+                ),
+
+                const SizedBox(height: 24),
+
+                // ── Group: October 2025 ──
+                _buildMonthHeader('October 2025', titleColor),
+                _buildTransactionCard(
+                  icon: Icons.build,
+                  title: 'Mechanic Request',
+                  date: '12 OCT, 11.30 AM',
+                  vehicle: 'TOYOTA HYBRID',
+                  amount: 'RS.1,500',
+                  status: 'COMPLETED',
+                  cardLogo: 'VISA',
+                  cardTail: 'Ending in 4587',
+                  dark: dark,
+                  cardBg: cardBg,
+                  titleColor: titleColor,
+                  subColor: subColor,
+                ),
+
+                const SizedBox(height: 40),
+              ],
+            ),
+          ),
+        ),
+        if (!isEmbedded)
+          // ── Bottom Navigation Bar ──
+          _buildBottomNav(context, dark),
+      ],
+    );
+
+    if (isEmbedded) return content;
 
     return Scaffold(
       backgroundColor: bgColor,
@@ -54,195 +246,7 @@ class PaymentHistoryScreen extends StatelessWidget {
           ),
         ),
       ),
-      body: Column(
-        children: [
-          Expanded(
-            child: SingleChildScrollView(
-              padding: const EdgeInsets.fromLTRB(24, 20, 24, 24),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  // ── Total Spent Banner ──
-                  Container(
-                    width: double.infinity,
-                    height: 120,
-                    decoration: BoxDecoration(
-                      color: bannerBg,
-                      borderRadius: BorderRadius.circular(24),
-                    ),
-                    clipBehavior: Clip.hardEdge,
-                    child: Stack(
-                      children: [
-                        // Left decoration circle
-                        Positioned(
-                          left: -30,
-                          bottom: -30,
-                          child: Container(
-                            width: 130,
-                            height: 130,
-                            decoration: BoxDecoration(
-                              color: bannerCircle1,
-                              shape: BoxShape.circle,
-                            ),
-                          ),
-                        ),
-                        // Right decoration circle
-                        Positioned(
-                          right: -40,
-                          top: -40,
-                          child: Container(
-                            width: 140,
-                            height: 140,
-                            decoration: BoxDecoration(
-                              color: bannerCircle2,
-                              shape: BoxShape.circle,
-                            ),
-                          ),
-                        ),
-                        // Content
-                        Center(
-                          child: Column(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            children: [
-                              Text(
-                                'TOTAL SPENT THIS MONTH',
-                                style: TextStyle(
-                                  fontSize: 11,
-                                  fontWeight: FontWeight.bold,
-                                  color: bannerText,
-                                  letterSpacing: 0.5,
-                                ),
-                              ),
-                              const SizedBox(height: 8),
-                              Text(
-                                'RS. 5000.00',
-                                style: TextStyle(
-                                  fontSize: 24,
-                                  fontWeight: FontWeight.w800,
-                                  color: bannerText,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-
-                  const SizedBox(height: 24),
-
-                  // ── Filters & Headers ──
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      Text(
-                        'Recent',
-                        style: TextStyle(
-                          fontSize: 14,
-                          fontWeight: FontWeight.bold,
-                          color: titleColor,
-                        ),
-                      ),
-                      Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 12,
-                          vertical: 6,
-                        ),
-                        decoration: BoxDecoration(
-                          color:
-                              dark ? AppColors.brandYellow : Colors.grey[300],
-                          borderRadius: BorderRadius.circular(20),
-                        ),
-                        child: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Text(
-                              'Last 4 Month',
-                              style: TextStyle(
-                                fontSize: 11,
-                                fontWeight: FontWeight.bold,
-                                color: dark ? Colors.black : Colors.grey[700],
-                              ),
-                            ),
-                            const SizedBox(width: 4),
-                            Icon(
-                              Icons.keyboard_arrow_down,
-                              size: 16,
-                              color: dark ? Colors.black : Colors.grey[700],
-                            ),
-                          ],
-                        ),
-                      ),
-                    ],
-                  ),
-
-                  const SizedBox(height: 16),
-
-                  // ── Group: February 2026 ──
-                  _buildMonthHeader('February 2026', titleColor),
-                  _buildTransactionCard(
-                    icon: Icons.build,
-                    title: 'Mechanic Request',
-                    date: '12 Feb, 10.30 AM',
-                    vehicle: 'TOYOTA HYBRID',
-                    amount: 'RS.2,500',
-                    status: 'COMPLETED',
-                    cardLogo: 'VISA',
-                    cardTail: 'Ending in 4587',
-                    dark: dark,
-                    cardBg: cardBg,
-                    titleColor: titleColor,
-                    subColor: subColor,
-                  ),
-
-                  const SizedBox(height: 24),
-
-                  // ── Group: November 2025 ──
-                  _buildMonthHeader('November 2025', titleColor),
-                  _buildTransactionCard(
-                    icon: Icons.car_repair,
-                    title: 'Tool Request',
-                    date: '12 Nov, 12 PM',
-                    vehicle: 'BYD Vehicle',
-                    amount: 'RS.1,500',
-                    status: 'COMPLETED',
-                    cardLogo: 'VISA',
-                    cardTail: 'Ending in 4587',
-                    dark: dark,
-                    cardBg: cardBg,
-                    titleColor: titleColor,
-                    subColor: subColor,
-                  ),
-
-                  const SizedBox(height: 24),
-
-                  // ── Group: October 2025 ──
-                  _buildMonthHeader('October 2025', titleColor),
-                  _buildTransactionCard(
-                    icon: Icons.build,
-                    title: 'Mechanic Request',
-                    date: '12 OCT, 11.30 AM',
-                    vehicle: 'TOYOTA HYBRID',
-                    amount: 'RS.1,500',
-                    status: 'COMPLETED',
-                    cardLogo: 'VISA',
-                    cardTail: 'Ending in 4587',
-                    dark: dark,
-                    cardBg: cardBg,
-                    titleColor: titleColor,
-                    subColor: subColor,
-                  ),
-
-                  const SizedBox(height: 40),
-                ],
-              ),
-            ),
-          ),
-
-          // ── Bottom Navigation Bar ──
-          _buildBottomNav(context, dark),
-        ],
-      ),
+      body: content,
     );
   }
 

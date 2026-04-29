@@ -4,7 +4,8 @@ import '../theme_provider.dart';
 /// Garage screen — manage vehicles.
 /// Linked from the Bottom Navigation Bar 'Garage' tab.
 class GarageScreen extends StatelessWidget {
-  const GarageScreen({super.key});
+  final bool isEmbedded;
+  const GarageScreen({super.key, this.isEmbedded = false});
 
   @override
   Widget build(BuildContext context) {
@@ -25,6 +26,111 @@ class GarageScreen extends StatelessWidget {
         ? AppColors.brandYellow.withValues(alpha: 0.2)
         : const Color(0xFFFFF9C4);
     final primaryText = dark ? AppColors.brandYellow : Colors.orange[800]!;
+
+    final content = Column(
+      children: [
+        Expanded(
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.all(24),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // ── Overview Section ──
+                Text(
+                  'Overview',
+                  style: TextStyle(fontSize: 13, color: titleColor),
+                ),
+                const SizedBox(height: 6),
+                Text(
+                  'Total Vehicles : 02',
+                  style: TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.bold,
+                    color: titleColor,
+                  ),
+                ),
+                const SizedBox(height: 24),
+
+                // ── Add New Vehicle Button ──
+                SizedBox(
+                  width: double.infinity,
+                  child: ElevatedButton(
+                    onPressed: () {},
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor:
+                          dark ? AppColors.brandYellow : AppColors.primaryBlue,
+                      foregroundColor: dark ? Colors.black : Colors.white,
+                      elevation: 0,
+                      padding: const EdgeInsets.symmetric(vertical: 16),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                    ),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Icon(
+                          Icons.add_circle_outline,
+                          size: 20,
+                          color: dark ? Colors.black : Colors.white,
+                        ),
+                        const SizedBox(width: 8),
+                        Text(
+                          'Add New Vehicle',
+                          style: TextStyle(
+                            fontSize: 15,
+                            fontWeight: FontWeight.bold,
+                            color: dark ? Colors.black : Colors.white,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 32),
+
+                // ── Vehicle Cards ──
+                _buildVehicleCard(
+                  imagePath:
+                      'assets/images/placeholder_suv.png', // We'll use a placeholder colored box
+                  name: 'Toyota Highlandr\nHybrid',
+                  plate: 'CARBON - 10',
+                  statusText: 'ACTIVE',
+                  statusBgColor: activeBg,
+                  statusTextColor: activeText,
+                  dark: dark,
+                  cardBg: cardBg,
+                  borderColor: borderColor,
+                  titleColor: titleColor,
+                  subColor: subColor,
+                ),
+                const SizedBox(height: 16),
+                _buildVehicleCard(
+                  imagePath: 'assets/images/placeholder_sedan.png',
+                  name: 'BYD\'s Flagship\nHan EV',
+                  plate: 'LG73 - SDU',
+                  statusText: 'PRIMARY',
+                  statusBgColor: primaryBg,
+                  statusTextColor: primaryText,
+                  dark: dark,
+                  cardBg: cardBg,
+                  borderColor: borderColor,
+                  titleColor: titleColor,
+                  subColor: subColor,
+                ),
+
+                const SizedBox(height: 40),
+              ],
+            ),
+          ),
+        ),
+        if (!isEmbedded)
+          // ── Bottom Navigation Bar ──
+          _buildBottomNav(context, dark),
+      ],
+    );
+
+    if (isEmbedded) return content;
 
     return Scaffold(
       backgroundColor: bgColor,
@@ -55,109 +161,7 @@ class GarageScreen extends StatelessWidget {
           ),
         ),
       ),
-      body: Column(
-        children: [
-          Expanded(
-            child: SingleChildScrollView(
-              padding: const EdgeInsets.all(24),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  // ── Overview Section ──
-                  Text(
-                    'Overview',
-                    style: TextStyle(fontSize: 13, color: titleColor),
-                  ),
-                  const SizedBox(height: 6),
-                  Text(
-                    'Total Vehicles : 02',
-                    style: TextStyle(
-                      fontSize: 18,
-                      fontWeight: FontWeight.bold,
-                      color: titleColor,
-                    ),
-                  ),
-                  const SizedBox(height: 24),
-
-                  // ── Add New Vehicle Button ──
-                  SizedBox(
-                    width: double.infinity,
-                    child: ElevatedButton(
-                      onPressed: () {},
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: dark
-                            ? AppColors.brandYellow
-                            : AppColors.primaryBlue,
-                        foregroundColor: dark ? Colors.black : Colors.white,
-                        elevation: 0,
-                        padding: const EdgeInsets.symmetric(vertical: 16),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                      ),
-                      child: Row(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          Icon(
-                            Icons.add_circle_outline,
-                            size: 20,
-                            color: dark ? Colors.black : Colors.white,
-                          ),
-                          const SizedBox(width: 8),
-                          Text(
-                            'Add New Vehicle',
-                            style: TextStyle(
-                              fontSize: 15,
-                              fontWeight: FontWeight.bold,
-                              color: dark ? Colors.black : Colors.white,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
-                  const SizedBox(height: 32),
-
-                  // ── Vehicle Cards ──
-                  _buildVehicleCard(
-                    imagePath:
-                        'assets/images/placeholder_suv.png', // We'll use a placeholder colored box
-                    name: 'Toyota Highlandr\nHybrid',
-                    plate: 'CARBON - 10',
-                    statusText: 'ACTIVE',
-                    statusBgColor: activeBg,
-                    statusTextColor: activeText,
-                    dark: dark,
-                    cardBg: cardBg,
-                    borderColor: borderColor,
-                    titleColor: titleColor,
-                    subColor: subColor,
-                  ),
-                  const SizedBox(height: 16),
-                  _buildVehicleCard(
-                    imagePath: 'assets/images/placeholder_sedan.png',
-                    name: 'BYD\'s Flagship\nHan EV',
-                    plate: 'LG73 - SDU',
-                    statusText: 'PRIMARY',
-                    statusBgColor: primaryBg,
-                    statusTextColor: primaryText,
-                    dark: dark,
-                    cardBg: cardBg,
-                    borderColor: borderColor,
-                    titleColor: titleColor,
-                    subColor: subColor,
-                  ),
-
-                  const SizedBox(height: 40),
-                ],
-              ),
-            ),
-          ),
-
-          // ── Bottom Navigation Bar ──
-          _buildBottomNav(context, dark),
-        ],
-      ),
+      body: content,
     );
   }
 
