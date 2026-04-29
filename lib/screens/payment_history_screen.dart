@@ -75,22 +75,33 @@ class _PaymentHistoryScreenState extends State<PaymentHistoryScreen> {
     final user = FirebaseAuth.instance.currentUser;
     if (user == null) return Stream.value([]);
 
+    // Simple query without .orderBy to avoid needing a composite index
     Query query = FirebaseFirestore.instance
         .collection('payments')
         .where(providerView ? 'mechanicId' : 'userId', isEqualTo: user.uid);
 
-    if (typeFilter != null) {
-      query = query.where('type', isEqualTo: typeFilter);
-    }
+    // NOTE: typeFilter removed — payment docs don't always have a 'type' field,
+    // and adding a second .where() would require yet another composite index.
 
-    return query
-        .orderBy('createdAt', descending: true)
-        .snapshots()
-        .map((snap) => snap.docs.map((doc) {
-              final data = doc.data() as Map<String, dynamic>;
-              data['id'] = doc.id;
-              return data;
-            }).toList());
+    return query.snapshots().map((snap) {
+      final list = snap.docs.map((doc) {
+        final data = doc.data() as Map<String, dynamic>;
+        data['id'] = doc.id;
+        return data;
+      }).toList();
+
+      // Sort by createdAt in memory (newest first)
+      list.sort((a, b) {
+        final aTime = a['createdAt'] as Timestamp?;
+        final bTime = b['createdAt'] as Timestamp?;
+        if (aTime == null && bTime == null) return 0;
+        if (aTime == null) return 1;
+        if (bTime == null) return -1;
+        return bTime.compareTo(aTime);
+      });
+
+      return list;
+    });
   }
 
   @override

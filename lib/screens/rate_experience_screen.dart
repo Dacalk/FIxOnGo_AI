@@ -76,7 +76,10 @@ class _RateExperienceScreenState extends State<RateExperienceScreen> {
         if (!snapshot.exists) return;
 
         final data = snapshot.data()!;
-        final m = Map<String, dynamic>.from(data['roles']['mechanic'] ?? {});
+        final roles = data['roles'] as Map<String, dynamic>?;
+        if (roles == null) return;
+        
+        final m = Map<String, dynamic>.from(roles['mechanic'] ?? {});
 
         final double currentRating = (m['rating'] ?? 0.0).toDouble();
         final int currentCount = (m['reviews'] ?? 0).toInt();

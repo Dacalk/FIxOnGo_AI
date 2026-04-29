@@ -34,6 +34,7 @@ class _SearchingMechanicsScreenState extends State<SearchingMechanicsScreen> {
   String? _currentRequestId;
   bool _isRequesting = false;
   bool _isNavigating = false; // Guard for double-navigation
+  bool _mapReady = false; // Delay map render to avoid Flutter Web assertion
   String? _serviceType;
   String? _userName;
 
@@ -43,6 +44,10 @@ class _SearchingMechanicsScreenState extends State<SearchingMechanicsScreen> {
     _fetchLocation();
     _listenToMechanics();
     _initUserData();
+    // Delay map rendering to avoid Flutter Web engine assertion loop
+    Future.delayed(const Duration(milliseconds: 300), () {
+      if (mounted) setState(() => _mapReady = true);
+    });
   }
 
   Future<void> _initUserData() async {
@@ -54,13 +59,11 @@ class _SearchingMechanicsScreenState extends State<SearchingMechanicsScreen> {
       if (!mounted) return;
       final args = ModalRoute.of(context)?.settings.arguments;
       if (args is Map<String, dynamic>) {
-        WidgetsBinding.instance.addPostFrameCallback((_) {
-          if (mounted) {
-            setState(() {
-              _serviceType = args['serviceType'];
-            });
-          }
-        });
+        if (mounted) {
+          setState(() {
+            _serviceType = args['serviceType'];
+          });
+        }
       }
     });
 
@@ -70,12 +73,8 @@ class _SearchingMechanicsScreenState extends State<SearchingMechanicsScreen> {
         .doc(user.uid)
         .get();
     if (doc.exists && mounted) {
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (mounted) {
-          setState(() {
-            _userName = doc.data()?['fullName'] ?? user.displayName ?? 'User';
-          });
-        }
+      setState(() {
+        _userName = doc.data()?['fullName'] ?? user.displayName ?? 'User';
       });
     }
   }
@@ -90,7 +89,7 @@ class _SearchingMechanicsScreenState extends State<SearchingMechanicsScreen> {
       debugPrint('[SearchingMechanics] mechanic snapshot docs=${snap.docs.length}');
       for (var doc in snap.docs) {
         final data = doc.data();
-        final m = data['roles']['mechanic'] as Map<String, dynamic>?;
+        final m = data['roles']?['mechanic'] as Map<String, dynamic>?;
         if (m != null) {
           // Filter: only show active, online, available mechanics with location
           final isActive = m['isActive'] ?? true;
@@ -116,6 +115,7 @@ class _SearchingMechanicsScreenState extends State<SearchingMechanicsScreen> {
               'lat': loc['lat'],
               'lng': loc['lng'],
               'lastSeen': m['lastSeen'],
+              'photoUrl': data['photoUrl'],
             });
           } else {
             debugPrint('[SearchingMechanics] Mechanic ${doc.id} has no location — skipping');
@@ -137,14 +137,10 @@ class _SearchingMechanicsScreenState extends State<SearchingMechanicsScreen> {
         _uiUpdateTimer?.cancel();
         _uiUpdateTimer = Timer(const Duration(milliseconds: 500), () {
           if (mounted) {
-            WidgetsBinding.instance.addPostFrameCallback((_) {
-              if (mounted) {
-                setState(() {
-                  _mechanics = list;
-                  if (_selectedMechanic == null && list.isNotEmpty) {
-                    _selectedMechanic = list.first;
-                  }
-                });
+            setState(() {
+              _mechanics = list;
+              if (_selectedMechanic == null && list.isNotEmpty) {
+                _selectedMechanic = list.first;
               }
             });
           }
@@ -166,11 +162,9 @@ class _SearchingMechanicsScreenState extends State<SearchingMechanicsScreen> {
         'mechanic UID=$mechanicUid '
         'assignedProviderId=$mechanicUid');
 
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (mounted) {
-        setState(() => _isRequesting = true);
-      }
-    });
+    if (mounted) {
+      setState(() => _isRequesting = true);
+    }
 
     // Use ProviderService to create request with targetRole + assignedProviderId
     try {
@@ -178,6 +172,7 @@ class _SearchingMechanicsScreenState extends State<SearchingMechanicsScreen> {
         mechanicUid: mechanicUid,
         mechanicName: _selectedMechanic!['name'],
         userName: _userName ?? user.displayName ?? 'User',
+        userPhotoUrl: user.photoURL,
         userId: user.uid,
         userLocation: {
           'lat': _userLatLng!.latitude,
@@ -189,9 +184,7 @@ class _SearchingMechanicsScreenState extends State<SearchingMechanicsScreen> {
     } catch (e) {
       debugPrint('[SearchingMechanics] Failed to create request: $e');
       if (mounted) {
-        WidgetsBinding.instance.addPostFrameCallback((_) {
-          if (mounted) setState(() => _isRequesting = false);
-        });
+        setState(() => _isRequesting = false);
       }
       return;
     }
@@ -214,27 +207,19 @@ class _SearchingMechanicsScreenState extends State<SearchingMechanicsScreen> {
           _requestSub?.cancel();
 
           if (mounted) {
-            WidgetsBinding.instance.addPostFrameCallback((_) {
-              if (mounted) {
-                Navigator.pushReplacementNamed(context, '/mechanic-accepted',
-                    arguments: _currentRequestId);
-              }
-            });
+            Navigator.pushReplacementNamed(context, '/mechanic-accepted',
+                arguments: _currentRequestId);
           }
         } else if (status == 'rejected') {
           debugPrint('[SearchingMechanics] Request rejected by mechanic UID=$mechanicUid');
           if (mounted) {
-            WidgetsBinding.instance.addPostFrameCallback((_) {
-              if (mounted) {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(
-                      content: Text("Request rejected by mechanic.")),
-                );
-                setState(() {
-                  _isRequesting = false;
-                  _currentRequestId = null;
-                });
-              }
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(
+                  content: Text("Request rejected by mechanic.")),
+            );
+            setState(() {
+              _isRequesting = false;
+              _currentRequestId = null;
             });
             _requestSub?.cancel();
           }
@@ -247,20 +232,19 @@ class _SearchingMechanicsScreenState extends State<SearchingMechanicsScreen> {
     try {
       final latLng = await LocationService.instance.getCurrentLatLng();
       if (!mounted) return;
-      WidgetsBinding.instance.addPostFrameCallback((_) {
+      setState(() => _userLatLng = latLng);
+      // Give the map widget a moment to build before moving
+      Future.delayed(const Duration(milliseconds: 100), () {
         if (mounted) {
-          setState(() => _userLatLng = latLng);
-          _mapController.move(latLng, 14);
+          try {
+            _mapController.move(latLng, 14);
+          } catch (_) {} // Ignore if map not fully ready
         }
       });
     } catch (_) {
       // Fallback to Colombo
       if (!mounted) return;
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (mounted) {
-          setState(() => _userLatLng = const LatLng(6.9271, 79.8612));
-        }
-      });
+      setState(() => _userLatLng = const LatLng(6.9271, 79.8612));
     }
   }
 
@@ -294,11 +278,9 @@ class _SearchingMechanicsScreenState extends State<SearchingMechanicsScreen> {
           height: 40,
           child: GestureDetector(
             onTap: () {
-              WidgetsBinding.instance.addPostFrameCallback((_) {
-                if (mounted) {
-                  setState(() => _selectedMechanic = mech);
-                }
-              });
+              if (mounted) {
+                setState(() => _selectedMechanic = mech);
+              }
             },
             child: Container(
               decoration: BoxDecoration(
@@ -352,13 +334,20 @@ class _SearchingMechanicsScreenState extends State<SearchingMechanicsScreen> {
         children: [
           // ── Full-screen Map ──
           Positioned.fill(
-            child: OsmMapWidget(
-              center: center,
-              zoom: 14,
-              mapController: _mapController,
-              markers: _buildMarkers(dark),
-              showLocateButton: false,
-            ),
+            child: _mapReady
+                ? OsmMapWidget(
+                    center: center,
+                    zoom: 14,
+                    mapController: _mapController,
+                    markers: _buildMarkers(dark),
+                    showLocateButton: false,
+                  )
+                : Container(
+                    color: dark ? AppColors.darkBackground : const Color(0xFFE8E8E8),
+                    child: const Center(
+                      child: CircularProgressIndicator(),
+                    ),
+                  ),
           ),
 
           // ── Back Button ──
@@ -541,6 +530,7 @@ class _SearchingMechanicsScreenState extends State<SearchingMechanicsScreen> {
                           backgroundColor: AppColors.primaryBlue,
                           foregroundColor: Colors.white,
                           disabledBackgroundColor: Colors.grey[300],
+                          disabledForegroundColor: Colors.grey[600],
                           minimumSize: const Size(double.infinity, 56),
                           shape: RoundedRectangleBorder(
                             borderRadius: BorderRadius.circular(16),
@@ -597,10 +587,12 @@ class _SearchingMechanicsScreenState extends State<SearchingMechanicsScreen> {
   Widget _mechanicCard(Map<String, dynamic> mech, bool selected, bool dark) {
     return GestureDetector(
       onTap: () {
-        WidgetsBinding.instance.addPostFrameCallback((_) {
+        setState(() => _selectedMechanic = mech);
+        Future.delayed(const Duration(milliseconds: 50), () {
           if (mounted) {
-            setState(() => _selectedMechanic = mech);
-            _mapController.move(LatLng(mech['lat'], mech['lng']), 14);
+            try {
+              _mapController.move(LatLng(mech['lat'], mech['lng']), 14);
+            } catch (_) {}
           }
         });
       },
@@ -636,8 +628,16 @@ class _SearchingMechanicsScreenState extends State<SearchingMechanicsScreen> {
               decoration: BoxDecoration(
                 color: dark ? Colors.grey[800] : Colors.grey[200],
                 borderRadius: BorderRadius.circular(12),
+                image: (mech['photoUrl'] != null && mech['photoUrl'].toString().isNotEmpty)
+                    ? DecorationImage(
+                        image: NetworkImage(mech['photoUrl']),
+                        fit: BoxFit.cover,
+                      )
+                    : null,
               ),
-              child: const Icon(Icons.person, color: Colors.grey),
+              child: (mech['photoUrl'] == null || mech['photoUrl'].toString().isEmpty)
+                  ? const Icon(Icons.person, color: Colors.grey)
+                  : null,
             ),
             const SizedBox(width: 12),
             // Info
