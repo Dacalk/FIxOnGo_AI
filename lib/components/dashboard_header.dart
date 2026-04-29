@@ -100,8 +100,8 @@ class DashboardHeader extends StatelessWidget {
                 padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
                 decoration: BoxDecoration(
                   color: dark
-                      ? Colors.white.withValues(alpha: 0.08)
-                      : Colors.black.withValues(alpha: 0.06),
+                      ? Colors.white.withAlpha(20)
+                      : Colors.black.withAlpha(15),
                   borderRadius: BorderRadius.circular(20),
                 ),
                 child: Row(
@@ -116,7 +116,7 @@ class DashboardHeader extends StatelessWidget {
                         padding: const EdgeInsets.all(6),
                         decoration: BoxDecoration(
                           color: !dark
-                              ? Colors.orange.withValues(alpha: 0.15)
+                              ? Colors.orange.withAlpha(38)
                               : Colors.transparent,
                           shape: BoxShape.circle,
                         ),
@@ -137,7 +137,7 @@ class DashboardHeader extends StatelessWidget {
                         padding: const EdgeInsets.all(6),
                         decoration: BoxDecoration(
                           color: dark
-                              ? Colors.blue.withValues(alpha: 0.15)
+                              ? Colors.blue.withAlpha(38)
                               : Colors.transparent,
                           shape: BoxShape.circle,
                         ),

@@ -49,7 +49,7 @@ class SellerInboxScreen extends StatelessWidget {
                 boxShadow: [
                   BoxShadow(
                     color: Colors.black
-                        .withValues(alpha: dark ? 0.3 : 0.06),
+                        .withAlpha((dark ? 0.3 : 0.06 * 255).toInt()),
                     blurRadius: 10,
                     offset: const Offset(0, 3),
                   ),
@@ -89,7 +89,7 @@ class SellerInboxScreen extends StatelessWidget {
                     padding: const EdgeInsets.all(10),
                     decoration: BoxDecoration(
                       color:
-                          AppColors.primaryBlue.withValues(alpha: 0.1),
+                          AppColors.primaryBlue.withAlpha(25),
                       shape: BoxShape.circle,
                     ),
                     child: const Icon(Icons.inbox_rounded,
@@ -293,8 +293,8 @@ class _ConversationTile extends StatelessWidget {
       child: Container(
         color: hasUnread
             ? (dark
-                ? AppColors.primaryBlue.withValues(alpha: 0.06)
-                : AppColors.primaryBlue.withValues(alpha: 0.04))
+                ? AppColors.primaryBlue.withAlpha(15)
+                : AppColors.primaryBlue.withAlpha(10))
             : cardColor,
         padding:
             const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
@@ -307,7 +307,7 @@ class _ConversationTile extends StatelessWidget {
                 CircleAvatar(
                   radius: 26,
                   backgroundColor:
-                      AppColors.primaryBlue.withValues(alpha: 0.15),
+                      AppColors.primaryBlue.withAlpha(38),
                   child: Text(
                     name.isNotEmpty ? name[0].toUpperCase() : '?',
                     style: const TextStyle(

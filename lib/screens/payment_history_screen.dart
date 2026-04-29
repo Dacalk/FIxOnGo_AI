@@ -76,9 +76,14 @@ class _PaymentHistoryScreenState extends State<PaymentHistoryScreen> {
     if (user == null) return Stream.value([]);
 
     // Simple query without .orderBy to avoid needing a composite index
+    String idField = 'userId';
+    if (providerView) {
+      idField = 'providerId';
+    }
+
     Query query = FirebaseFirestore.instance
         .collection('payments')
-        .where(providerView ? 'mechanicId' : 'userId', isEqualTo: user.uid);
+        .where(idField, isEqualTo: user.uid);
 
     // NOTE: typeFilter removed — payment docs don't always have a 'type' field,
     // and adding a second .where() would require yet another composite index.
@@ -89,6 +94,9 @@ class _PaymentHistoryScreenState extends State<PaymentHistoryScreen> {
         data['id'] = doc.id;
         return data;
       }).toList();
+
+      debugPrint('PAYMENT HISTORY QUERY for $idField = ${user.uid}: Fetched ${list.length} records');
+      if (list.isNotEmpty) debugPrint('First record: ${list.first}');
 
       // Sort by createdAt in memory (newest first)
       list.sort((a, b) {
@@ -117,10 +125,10 @@ class _PaymentHistoryScreenState extends State<PaymentHistoryScreen> {
     final bannerBg = dark ? const Color(0xFF1E3A8A) : const Color(0xFFD4E6F8);
     final bannerText = dark ? Colors.white : const Color(0xFF3B7BC2);
     final bannerCircle1 = dark
-        ? const Color(0xFF2563EB).withValues(alpha: 0.5)
+        ? const Color(0xFF2563EB).withAlpha(127)
         : const Color(0xFFB3D4F3);
     final bannerCircle2 = dark
-        ? const Color(0xFF3B82F6).withValues(alpha: 0.3)
+        ? const Color(0xFF3B82F6).withAlpha(76)
         : const Color(0xFFEAF2FB);
 
     final content = StreamBuilder<List<Map<String, dynamic>>>(
@@ -260,7 +268,7 @@ class _PaymentHistoryScreenState extends State<PaymentHistoryScreen> {
                             children: [
                               Icon(Icons.history_toggle_off_rounded,
                                   size: 64,
-                                  color: subColor.withValues(alpha: 0.5)),
+                                  color: subColor.withAlpha(127)),
                               const SizedBox(height: 16),
                               Text(
                                 "No transaction history found.",
@@ -339,11 +347,29 @@ class _PaymentHistoryScreenState extends State<PaymentHistoryScreen> {
       final amount = (p['amount'] as num?)?.toDouble() ?? 0.0;
       final type = p['type'] ?? 'service';
       final isTowing = type.toString().toLowerCase() == 'towing';
+      final isShop = type.toString().toLowerCase() == 'shop_order';
+      final isDelivery = type.toString().toLowerCase() == 'delivery';
+
+      String title;
+      IconData icon;
+      if (isShop) {
+        title = p['itemName'] != null ? 'Shop Order: ${p['itemName']}' : 'Shop Order';
+        icon = Icons.shopping_bag;
+      } else if (isDelivery) {
+        title = 'Delivery Earnings';
+        icon = Icons.delivery_dining;
+      } else if (isTowing) {
+        title = 'Towing Request';
+        icon = Icons.local_shipping;
+      } else {
+        title = 'Mechanic Request';
+        icon = Icons.build;
+      }
 
       list.add(
         _buildTransactionCard(
-          icon: isTowing ? Icons.local_shipping : Icons.build,
-          title: isTowing ? 'Towing Request' : 'Mechanic Request',
+          icon: icon,
+          title: title,
           date: _formatDate(date),
           vehicle:
               'Transaction ID: ${p['id'].toString().substring(0, 8).toUpperCase()}',
@@ -404,7 +430,7 @@ class _PaymentHistoryScreenState extends State<PaymentHistoryScreen> {
             ? null
             : [
                 BoxShadow(
-                  color: Colors.black.withValues(alpha: 0.03),
+                  color: Colors.black.withAlpha(7),
                   blurRadius: 10,
                   spreadRadius: 1,
                   offset: const Offset(0, 4),
@@ -417,7 +443,7 @@ class _PaymentHistoryScreenState extends State<PaymentHistoryScreen> {
           Container(
             padding: const EdgeInsets.all(10),
             decoration: BoxDecoration(
-              color: iconColor?.withValues(alpha: 0.1),
+              color: iconColor?.withAlpha(25),
               borderRadius: BorderRadius.circular(12),
             ),
             child: Icon(icon, size: 28, color: iconColor),
@@ -508,7 +534,7 @@ class _PaymentHistoryScreenState extends State<PaymentHistoryScreen> {
         color: dark ? const Color(0xFF111D35) : Colors.white,
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withValues(alpha: 0.05),
+            color: Colors.black.withAlpha(12),
             blurRadius: 10,
             offset: const Offset(0, -5),
           ),

@@ -229,7 +229,7 @@ class _LoginScreenState extends State<LoginScreen> {
                       end: Alignment.bottomCenter,
                       colors: [
                         Colors.transparent,
-                        bgColor.withValues(alpha: 0.8),
+                        bgColor.withAlpha(204),
                         bgColor,
                       ],
                       stops: const [0.3, 0.75, 1.0],
@@ -247,7 +247,7 @@ class _LoginScreenState extends State<LoginScreen> {
                           CircleAvatar(
                             backgroundColor: dark
                                 ? AppColors.darkCardSurface
-                                : Colors.amber.withValues(alpha: 0.8),
+                                : Colors.amber.withAlpha(204),
                             radius: 24,
                             child: Icon(
                               Icons.car_repair,

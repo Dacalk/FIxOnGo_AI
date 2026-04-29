@@ -19,7 +19,7 @@ class ServiceCard extends StatelessWidget {
     final dark = isDarkMode(context);
     final primaryColor = isSelected ? AppColors.emergencyRed : (dark ? AppColors.darkSurface : Colors.white);
     final textColor = isSelected ? Colors.white : (dark ? Colors.white : Colors.black87);
-    final subtitleColor = isSelected ? Colors.white.withValues(alpha: 0.8) : (dark ? Colors.grey[400] : Colors.grey[600]);
+    final subtitleColor = isSelected ? Colors.white.withAlpha(204) : (dark ? Colors.grey[400] : Colors.grey[600]);
 
     return GestureDetector(
       onTap: onTap,
@@ -38,7 +38,7 @@ class ServiceCard extends StatelessWidget {
           boxShadow: isSelected
               ? [
                   BoxShadow(
-                    color: AppColors.emergencyRed.withValues(alpha: 0.3),
+                    color: AppColors.emergencyRed.withAlpha(76),
                     blurRadius: 12,
                     offset: const Offset(0, 6),
                   )
@@ -51,7 +51,7 @@ class ServiceCard extends StatelessWidget {
             Container(
               padding: const EdgeInsets.all(8),
               decoration: BoxDecoration(
-                color: isSelected ? Colors.white.withValues(alpha: 0.2) : AppColors.emergencyRed.withValues(alpha: 0.1),
+                color: isSelected ? Colors.white.withAlpha(51) : AppColors.emergencyRed.withAlpha(25),
                 shape: BoxShape.circle,
               ),
               child: Icon(

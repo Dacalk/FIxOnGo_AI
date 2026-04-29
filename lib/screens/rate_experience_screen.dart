@@ -278,7 +278,7 @@ class _RateExperienceScreenState extends State<RateExperienceScreen> {
                           ),
                           decoration: BoxDecoration(
                             color: isSelected
-                                ? AppColors.primaryBlue.withValues(alpha: 0.1)
+                                ? AppColors.primaryBlue.withAlpha(25)
                                 : Colors.transparent,
                             borderRadius: BorderRadius.circular(20),
                             border: Border.all(
@@ -384,7 +384,7 @@ class _RateExperienceScreenState extends State<RateExperienceScreen> {
         padding: const EdgeInsets.symmetric(horizontal: 22, vertical: 12),
         decoration: BoxDecoration(
           color: isSelected
-              ? selectedColor.withValues(alpha: 0.15)
+              ? selectedColor.withAlpha(38)
               : Colors.transparent,
           borderRadius: BorderRadius.circular(12),
           border: Border.all(

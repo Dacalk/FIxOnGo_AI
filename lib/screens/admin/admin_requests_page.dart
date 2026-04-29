@@ -84,7 +84,7 @@ class _AdminRequestsPageState extends State<AdminRequestsPage> {
                   decoration: BoxDecoration(
                     color: const Color(0xFF111D35),
                     borderRadius: BorderRadius.circular(14),
-                    border: Border.all(color: Colors.white.withValues(alpha: 0.06)),
+                    border: Border.all(color: Colors.white.withAlpha(15)),
                   ),
                   child: Row(children: [
                     Container(
@@ -99,7 +99,7 @@ class _AdminRequestsPageState extends State<AdminRequestsPage> {
                         Container(
                           padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                           decoration: BoxDecoration(
-                            color: _statusColor(status).withValues(alpha: 0.15),
+                            color: _statusColor(status).withAlpha(38),
                             borderRadius: BorderRadius.circular(6),
                           ),
                           child: Text(status.toUpperCase(),

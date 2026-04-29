@@ -381,7 +381,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                       Container(
                         padding: const EdgeInsets.all(8),
                         decoration: BoxDecoration(
-                          color: AppColors.primaryBlue.withValues(alpha: 0.1),
+                          color: AppColors.primaryBlue.withAlpha(25),
                           shape: BoxShape.circle,
                         ),
                         child: const Icon(Icons.store,
@@ -718,7 +718,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   ? []
                   : [
                       BoxShadow(
-                        color: Colors.black.withValues(alpha: 0.05),
+                        color: Colors.black.withAlpha(12),
                         blurRadius: 4,
                         offset: const Offset(0, 2),
                       ),
@@ -762,7 +762,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
             child: Divider(
               height: 1,
               color:
-                  dark ? Colors.white10 : Colors.black.withValues(alpha: 0.05),
+                  dark ? Colors.white10 : Colors.black.withAlpha(12),
             ),
           ),
       ],
@@ -782,7 +782,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
         color: dark ? const Color(0xFF111D35) : Colors.white,
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withValues(alpha: 0.05),
+            color: Colors.black.withAlpha(12),
             blurRadius: 10,
             offset: const Offset(0, -5),
           ),

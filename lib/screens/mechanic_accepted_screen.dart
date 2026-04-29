@@ -79,6 +79,7 @@ class _MechanicAcceptedScreenState extends State<MechanicAcceptedScreen> {
             'requestId': _requestId,
             'userId': reqData['userId'],
             'mechanicId': reqData['mechanicId'],
+            'providerId': reqData['mechanicId'],
             'mechanicName': reqData['mechanicName'] ?? 'Mechanic',
             'userName': reqData['userName'] ?? 'User',
             'amount': reqData['totalPrice'] ?? 2000,
@@ -214,7 +215,7 @@ class _MechanicAcceptedScreenState extends State<MechanicAcceptedScreen> {
                   shape: BoxShape.circle,
                   boxShadow: [
                     BoxShadow(
-                      color: Colors.black.withValues(alpha: 0.1),
+                      color: Colors.black.withAlpha(25),
                       blurRadius: 8,
                     ),
                   ],
@@ -242,7 +243,7 @@ class _MechanicAcceptedScreenState extends State<MechanicAcceptedScreen> {
                   ),
                   boxShadow: [
                     BoxShadow(
-                      color: Colors.black.withValues(alpha: 0.1),
+                      color: Colors.black.withAlpha(25),
                       blurRadius: 20,
                       offset: const Offset(0, -5),
                     ),
@@ -411,7 +412,7 @@ class _MechanicAcceptedScreenState extends State<MechanicAcceptedScreen> {
                                           color: dark
                                               ? AppColors.darkBackground
                                               : AppColors.primaryBlue
-                                                  .withValues(alpha: 0.1),
+                                                  .withAlpha(25),
                                           shape: BoxShape.circle,
                                         ),
                                         child: Icon(
@@ -436,7 +437,7 @@ class _MechanicAcceptedScreenState extends State<MechanicAcceptedScreen> {
                                           color: dark
                                               ? AppColors.darkBackground
                                               : AppColors.primaryBlue
-                                                  .withValues(alpha: 0.1),
+                                                  .withAlpha(25),
                                           shape: BoxShape.circle,
                                         ),
                                         child: Icon(
@@ -461,7 +462,7 @@ class _MechanicAcceptedScreenState extends State<MechanicAcceptedScreen> {
                                           color: dark
                                               ? AppColors.darkBackground
                                               : AppColors.primaryBlue
-                                                  .withValues(alpha: 0.1),
+                                                  .withAlpha(25),
                                           shape: BoxShape.circle,
                                         ),
                                         child: Icon(
@@ -677,7 +678,7 @@ class _MechanicAcceptedScreenState extends State<MechanicAcceptedScreen> {
                                   vertical: 4,
                                 ),
                                 decoration: BoxDecoration(
-                                  color: Colors.green.withValues(alpha: 0.15),
+                                  color: Colors.green.withAlpha(38),
                                   borderRadius: BorderRadius.circular(8),
                                 ),
                                 child: const Text(
@@ -865,7 +866,7 @@ class _MechanicAcceptedScreenState extends State<MechanicAcceptedScreen> {
 
   Widget _paymentTab(int index, IconData icon, String label, bool dark) {
     final isSelected = _selectedPayment == index;
-    final selectedBg = AppColors.primaryBlue.withValues(alpha: 0.1);
+    final selectedBg = AppColors.primaryBlue.withAlpha(25);
     final unselectedBg = dark ? const Color(0xFF1A2E4A) : Colors.grey[100]!;
 
     return GestureDetector(

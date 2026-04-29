@@ -64,7 +64,7 @@ class AdminPaymentsPage extends StatelessWidget {
                 : ListView.separated(
                     padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
                     itemCount: docs.length,
-                    separatorBuilder: (_, __) => Divider(color: Colors.white.withValues(alpha: 0.05), height: 1),
+                    separatorBuilder: (_, __) => Divider(color: Colors.white.withAlpha(12), height: 1),
                     itemBuilder: (context, i) {
                       final data = docs[i].data() as Map<String, dynamic>;
                       final ts = data['createdAt'] as Timestamp?;
@@ -93,8 +93,8 @@ class AdminPaymentsPage extends StatelessWidget {
                             padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                             decoration: BoxDecoration(
                               color: status == 'success'
-                                  ? const Color(0xFF4CAF50).withValues(alpha: 0.15)
-                                  : const Color(0xFFEF5350).withValues(alpha: 0.15),
+                                  ? const Color(0xFF4CAF50).withAlpha(38)
+                                  : const Color(0xFFEF5350).withAlpha(38),
                               borderRadius: BorderRadius.circular(4),
                             ),
                             child: Text(status.toUpperCase(),
@@ -125,9 +125,9 @@ class _RevCard extends StatelessWidget {
       child: Container(
         padding: const EdgeInsets.all(14),
         decoration: BoxDecoration(
-          color: color.withValues(alpha: 0.1),
+          color: color.withAlpha(25),
           borderRadius: BorderRadius.circular(12),
-          border: Border.all(color: color.withValues(alpha: 0.2)),
+          border: Border.all(color: color.withAlpha(51)),
         ),
         child: Row(children: [
           Icon(icon, color: color, size: 20),

@@ -46,13 +46,13 @@ class _AdminStatCardState extends State<AdminStatCard> {
           borderRadius: BorderRadius.circular(20),
           border: Border.all(
             color: _isHovered 
-                ? widget.accentColor.withValues(alpha: 0.5) 
-                : Colors.white.withValues(alpha: 0.08),
+                ? widget.accentColor.withAlpha(127) 
+                : Colors.white.withAlpha(20),
             width: _isHovered ? 1.5 : 1.0,
           ),
           boxShadow: [
             BoxShadow(
-              color: widget.accentColor.withValues(alpha: _isHovered ? 0.2 : 0.05),
+              color: widget.accentColor.withAlpha(((_isHovered ? 0.2 : 0.05) * 255).toInt()),
               blurRadius: _isHovered ? 20 : 10,
               offset: Offset(0, _isHovered ? 8 : 4),
             ),
@@ -67,9 +67,9 @@ class _AdminStatCardState extends State<AdminStatCard> {
                 Container(
                   padding: const EdgeInsets.all(12),
                   decoration: BoxDecoration(
-                    color: widget.accentColor.withValues(alpha: 0.12),
+                    color: widget.accentColor.withAlpha(30),
                     borderRadius: BorderRadius.circular(12),
-                    border: Border.all(color: widget.accentColor.withValues(alpha: 0.2)),
+                    border: Border.all(color: widget.accentColor.withAlpha(51)),
                   ),
                   child: Icon(widget.icon, color: widget.accentColor, size: 24),
                 ),
@@ -77,13 +77,13 @@ class _AdminStatCardState extends State<AdminStatCard> {
                   padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                   decoration: BoxDecoration(
                     color: isPositive 
-                        ? Colors.greenAccent.withValues(alpha: 0.1) 
-                        : Colors.redAccent.withValues(alpha: 0.1),
+                        ? Colors.greenAccent.withAlpha(25) 
+                        : Colors.redAccent.withAlpha(25),
                     borderRadius: BorderRadius.circular(20),
                     border: Border.all(
                       color: isPositive 
-                          ? Colors.greenAccent.withValues(alpha: 0.2) 
-                          : Colors.redAccent.withValues(alpha: 0.2),
+                          ? Colors.greenAccent.withAlpha(51) 
+                          : Colors.redAccent.withAlpha(51),
                     ),
                   ),
                   child: Row(
@@ -122,7 +122,7 @@ class _AdminStatCardState extends State<AdminStatCard> {
             Text(
               widget.label,
               style: TextStyle(
-                color: Colors.white.withValues(alpha: 0.6),
+                color: Colors.white.withAlpha(153),
                 fontSize: 14,
                 fontWeight: FontWeight.w500,
               ),
@@ -132,7 +132,7 @@ class _AdminStatCardState extends State<AdminStatCard> {
               Text(
                 widget.subtitle!,
                 style: TextStyle(
-                  color: widget.accentColor.withValues(alpha: 0.8),
+                  color: widget.accentColor.withAlpha(204),
                   fontSize: 12,
                   fontWeight: FontWeight.w600,
                 ),

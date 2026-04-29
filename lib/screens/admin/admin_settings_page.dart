@@ -120,8 +120,8 @@ class _ToggleTile extends StatelessWidget {
       borderRadius: BorderRadius.circular(12),
       border: Border.all(
         color: (dangerColor && value)
-            ? const Color(0xFFEF5350).withValues(alpha: 0.4)
-            : Colors.white.withValues(alpha: 0.06),
+            ? const Color(0xFFEF5350).withAlpha(102)
+            : Colors.white.withAlpha(15),
       ),
     ),
     child: Row(children: [
@@ -151,7 +151,7 @@ class _NumberTile extends StatelessWidget {
     decoration: BoxDecoration(
       color: const Color(0xFF111D35),
       borderRadius: BorderRadius.circular(12),
-      border: Border.all(color: Colors.white.withValues(alpha: 0.06)),
+      border: Border.all(color: Colors.white.withAlpha(15)),
     ),
     child: Row(children: [
       Expanded(child: Text(label, style: const TextStyle(color: Colors.white70, fontSize: 14))),
@@ -185,7 +185,7 @@ class _TextTile extends StatelessWidget {
     decoration: BoxDecoration(
       color: const Color(0xFF111D35),
       borderRadius: BorderRadius.circular(12),
-      border: Border.all(color: Colors.white.withValues(alpha: 0.06)),
+      border: Border.all(color: Colors.white.withAlpha(15)),
     ),
     child: Row(children: [
       Expanded(child: Text(label, style: const TextStyle(color: Colors.white70, fontSize: 14))),

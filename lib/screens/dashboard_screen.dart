@@ -330,7 +330,10 @@ class _DashboardScreenState extends State<DashboardScreen> {
                     : PaymentHistoryScreen(
                         isEmbedded: true,
                         isProviderView: role.toLowerCase() == 'mechanic' ||
-                            role.toLowerCase() == 'tow',
+                            role.toLowerCase() == 'tow' ||
+                            role.toLowerCase() == 'seller' ||
+                            role.toLowerCase() == 'delivery',
+                        role: role,
                         filterType: role.toLowerCase() == 'tow'
                             ? 'towing'
                             : (role.toLowerCase() == 'mechanic'
@@ -469,11 +472,15 @@ class _DashboardScreenState extends State<DashboardScreen> {
         .pendingRequestsStream(targetRole: 'seller', providerUid: uid)
         .listen((docs) {
       debugPrint('[Dashboard] seller pendingRequests: seller UID=$uid result count=${docs.length}');
-      if (docs.isNotEmpty) {
-        final req = docs.first;
+      for (var req in docs) {
         final reqId = req['id'] as String;
 
         if (_lastDialogRequestId != reqId && !_isOverlayShown) {
+          // Ignore shop_orders from showing a popup dialog
+          if (req['type'] == 'shop_order') {
+            debugPrint('[Dashboard] seller listener: ignoring shop_order dialog for $reqId');
+            continue;
+          }
           _lastDialogRequestId = reqId;
           _showNewRequestDialog(req);
         }
@@ -494,7 +501,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
     // Payment History for Tow
     _towPaymentHistoryStream = FirebaseFirestore.instance
         .collection('payments')
-        .where('mechanicId', isEqualTo: uid)
+        .where('providerId', isEqualTo: uid)
         .snapshots()
         .map((snap) {
       final list =
@@ -541,7 +548,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
     // For mechanic earnings/history
     _paymentHistoryStream = FirebaseFirestore.instance
         .collection('payments')
-        .where('mechanicId', isEqualTo: uid)
+        .where('providerId', isEqualTo: uid)
         .snapshots()
         .map((snap) {
       final list =
@@ -578,12 +585,10 @@ class _DashboardScreenState extends State<DashboardScreen> {
         .snapshots()
         .map((s) => s.docs.map((d) => {'id': d.id, ...d.data()}).toList());
 
-    // Completed deliveries — for earnings stats
+    // Completed deliveries — for earnings stats from payments collection
     _paymentHistoryStream = FirebaseFirestore.instance
-        .collection('deliveries')
-        .where('driverId', isEqualTo: uid)
-        .where('status', isEqualTo: 'delivered')
-        
+        .collection('payments')
+        .where('providerId', isEqualTo: uid)
         .snapshots()
         .map((s) => s.docs.map((d) => {'id': d.id, ...d.data()}).toList());
 
@@ -669,7 +674,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
             Container(
               padding: const EdgeInsets.all(10),
               decoration: BoxDecoration(
-                color: accent.withValues(alpha: 0.12),
+                color: accent.withAlpha(30),
                 borderRadius: BorderRadius.circular(12),
               ),
               child: Icon(
@@ -689,7 +694,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                         padding: const EdgeInsets.symmetric(
                             horizontal: 8, vertical: 3),
                         decoration: BoxDecoration(
-                          color: accent.withValues(alpha: 0.12),
+                          color: accent.withAlpha(30),
                           borderRadius: BorderRadius.circular(8),
                         ),
                         child: Text(
@@ -972,7 +977,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
         color: dark ? const Color(0xFF111D35) : Colors.white,
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withValues(alpha: dark ? 0.3 : 0.08),
+            color: Colors.black.withAlpha(((dark ? 0.3 : 0.08) * 255).toInt()),
             blurRadius: 16,
             offset: const Offset(0, -4),
           ),
@@ -1121,7 +1126,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                                 padding: const EdgeInsets.all(6),
                                 decoration: BoxDecoration(
                                   color:
-                                      Colors.redAccent.withValues(alpha: 0.8),
+                                      Colors.redAccent.withAlpha(204),
                                   shape: BoxShape.circle,
                                 ),
                                 child: const Icon(Icons.bug_report,
@@ -1225,11 +1230,11 @@ class _DashboardScreenState extends State<DashboardScreen> {
                         title: 'Browse Shop',
                         color: const Color(0xFF1B5E20),
                         onTap: () {
-                          // Redirect to searching for mechanics who have products/shops
+                          // Redirect to browsing nearby shops
                           Future.microtask(() {
                             if (mounted) {
                               Navigator.pushNamed(
-                                  context, '/searching-mechanics');
+                                  context, '/browse-shops');
                             }
                           });
                         },
@@ -1280,6 +1285,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
           ),
           const SizedBox(height: 16),
           _buildOngoingRequestsSection(dark),
+          const SizedBox(height: 16),
+          _buildRecentUserOrdersSection(dark),
           const SizedBox(height: 24),
         ],
       ),
@@ -1317,25 +1324,31 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
                   return Row(
                     children: [
-                      StatCard(
-                        icon: Icons.work_history,
-                        value: jobCount.toString(),
-                        label: "Total Jobs",
-                        accentColor: Colors.orange,
+                      Expanded(
+                        child: StatCard(
+                          icon: Icons.work_history,
+                          value: jobCount.toString(),
+                          label: "Total Jobs",
+                          accentColor: Colors.orange,
+                        ),
                       ),
                       const SizedBox(width: 12),
-                      StatCard(
-                        icon: Icons.star,
-                        value: '4.8', // Mock for now
-                        label: 'Rating',
-                        accentColor: AppColors.brandYellow,
+                      Expanded(
+                        child: StatCard(
+                          icon: Icons.star,
+                          value: '4.8', // Mock for now
+                          label: 'Rating',
+                          accentColor: AppColors.brandYellow,
+                        ),
                       ),
                       const SizedBox(width: 12),
-                      StatCard(
-                        icon: Icons.account_balance_wallet,
-                        value: 'Rs. ${totalEarnings ~/ 1000}K',
-                        label: 'Earnings',
-                        accentColor: Colors.green,
+                      Expanded(
+                        child: StatCard(
+                          icon: Icons.account_balance_wallet,
+                          value: 'Rs. ${totalEarnings ~/ 1000}K',
+                          label: 'Earnings',
+                          accentColor: Colors.green,
+                        ),
                       ),
                     ],
                   );
@@ -1353,8 +1366,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
                 borderRadius: BorderRadius.circular(18),
                 border: Border.all(
                   color: _isMechanicActive
-                      ? Colors.green.withValues(alpha: 0.4)
-                      : Colors.grey.withValues(alpha: 0.4),
+                      ? Colors.green.withAlpha(102)
+                      : Colors.grey.withAlpha(102),
                 ),
               ),
               child: Row(
@@ -1478,7 +1491,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                       Container(
                         padding: const EdgeInsets.all(10),
                         decoration: BoxDecoration(
-                          color: Colors.blue.withValues(alpha: 0.12),
+                          color: Colors.blue.withAlpha(30),
                           borderRadius: BorderRadius.circular(12),
                         ),
                         child: const Icon(Icons.delivery_dining,
@@ -1512,7 +1525,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                         padding: const EdgeInsets.symmetric(
                             horizontal: 10, vertical: 4),
                         decoration: BoxDecoration(
-                          color: Colors.blue.withValues(alpha: 0.12),
+                          color: Colors.blue.withAlpha(30),
                           borderRadius: BorderRadius.circular(10),
                         ),
                         child: Text(
@@ -1564,25 +1577,31 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
                   return Row(
                     children: [
-                      StatCard(
-                        icon: Icons.local_shipping,
-                        value: jobCount.toString(),
-                        label: 'Total Tows',
-                        accentColor: Colors.orange,
+                      Expanded(
+                        child: StatCard(
+                          icon: Icons.local_shipping,
+                          value: jobCount.toString(),
+                          label: 'Total Tows',
+                          accentColor: Colors.orange,
+                        ),
                       ),
                       const SizedBox(width: 12),
-                      StatCard(
-                        icon: Icons.route,
-                        value: '---',
-                        label: 'Distance',
-                        accentColor: Colors.blue,
+                      Expanded(
+                        child: StatCard(
+                          icon: Icons.route,
+                          value: '---',
+                          label: 'Distance',
+                          accentColor: Colors.blue,
+                        ),
                       ),
                       const SizedBox(width: 12),
-                      StatCard(
-                        icon: Icons.account_balance_wallet,
-                        value: 'Rs. ${totalEarnings ~/ 1000}K',
-                        label: 'Earnings',
-                        accentColor: Colors.green,
+                      Expanded(
+                        child: StatCard(
+                          icon: Icons.account_balance_wallet,
+                          value: 'Rs. ${totalEarnings ~/ 1000}K',
+                          label: 'Earnings',
+                          accentColor: Colors.green,
+                        ),
                       ),
                     ],
                   );
@@ -1705,62 +1724,68 @@ class _DashboardScreenState extends State<DashboardScreen> {
             padding: const EdgeInsets.symmetric(horizontal: 16),
             child: Row(
               children: [
-                StreamBuilder<QuerySnapshot>(
-                  stream: FirebaseFirestore.instance
-                      .collection('requests')
-                      .where('sellerId', isEqualTo: user?.uid)
-                      .where('type', isEqualTo: 'shop_order')
-                      .snapshots(),
-                  builder: (context, snapshot) {
-                    final count = snapshot.data?.docs.length ?? 0;
-                    return Expanded(
-                      child: StatCard(
+                Expanded(
+                  child: StreamBuilder<QuerySnapshot>(
+                    stream: FirebaseFirestore.instance
+                        .collection('requests')
+                        .where('sellerId', isEqualTo: user?.uid)
+                        .where('type', isEqualTo: 'shop_order')
+                        .snapshots(),
+                    builder: (context, snapshot) {
+                      final count = snapshot.data?.docs.length ?? 0;
+                      return StatCard(
                         icon: Icons.shopping_bag,
                         value: count.toString(),
                         label: "All Orders",
                         accentColor: Colors.orange,
-                      ),
-                    );
-                  },
+                      );
+                    },
+                  ),
                 ),
                 const SizedBox(width: 12),
-                StreamBuilder<QuerySnapshot>(
-                  stream: FirebaseFirestore.instance
-                      .collection('users')
-                      .doc(user?.uid)
-                      .collection('products')
-                      .snapshots(),
-                  builder: (context, snapshot) {
-                    final count = snapshot.data?.docs.length ?? 0;
-                    return Expanded(
-                      child: StatCard(
+                Expanded(
+                  child: StreamBuilder<QuerySnapshot>(
+                    stream: FirebaseFirestore.instance
+                        .collection('users')
+                        .doc(user?.uid)
+                        .collection('products')
+                        .snapshots(),
+                    builder: (context, snapshot) {
+                      final count = snapshot.data?.docs.length ?? 0;
+                      return StatCard(
                         icon: Icons.inventory_2,
                         value: count.toString(),
                         label: 'Products',
                         accentColor: Colors.blue,
-                      ),
-                    );
-                  },
+                      );
+                    },
+                  ),
                 ),
                 const SizedBox(width: 12),
-                StreamBuilder<QuerySnapshot>(
-                  stream: FirebaseFirestore.instance
-                      .collection('payments')
-                      .where('sellerId', isEqualTo: user?.uid)
-                      .snapshots(),
-                  builder: (context, snapshot) {
-                    final double revenue = snapshot.data?.docs.fold(
-                            0.0, (sum, doc) => sum! + (doc['amount'] ?? 0.0)) ??
-                        0.0;
-                    return Expanded(
-                      child: StatCard(
+                Expanded(
+                  child: StreamBuilder<QuerySnapshot>(
+                    stream: FirebaseFirestore.instance
+                        .collection('payments')
+                        .where('providerId', isEqualTo: user?.uid)
+                        .snapshots(),
+                    builder: (context, snapshot) {
+                      if (snapshot.connectionState == ConnectionState.waiting) {
+                        return const StatCard(icon: Icons.trending_up, value: '...', label: 'Revenue', accentColor: Colors.green);
+                      }
+                      if (snapshot.hasError) return const StatCard(icon: Icons.error, value: 'Error', label: 'Revenue', accentColor: Colors.red);
+                      
+                      final docs = snapshot.data?.docs ?? [];
+                      final double revenue = docs.fold(
+                              0.0, (sum, doc) => sum + ((doc['amount'] ?? 0.0) as num).toDouble());
+                      
+                      return StatCard(
                         icon: Icons.trending_up,
-                        value: 'Rs. ${(revenue / 1000).toStringAsFixed(1)}K',
+                        value: 'Rs. ${revenue.toStringAsFixed(0)}',
                         label: 'Revenue',
                         accentColor: Colors.green,
-                      ),
-                    );
-                  },
+                      );
+                    },
+                  ),
                 ),
               ],
             ),
@@ -1775,13 +1800,37 @@ class _DashboardScreenState extends State<DashboardScreen> {
             stream: FirebaseFirestore.instance
                 .collection('requests')
                 .where('sellerId', isEqualTo: user?.uid)
-                .where('type', isEqualTo: 'shop_order')
-                .orderBy('createdAt', descending: true)
-                .limit(3)
                 .snapshots(),
             builder: (context, snapshot) {
-              final docs = snapshot.data?.docs ?? [];
-              if (docs.isEmpty) {
+              if (snapshot.hasError) {
+                debugPrint('Recent Orders Error: ${snapshot.error}');
+                return const Padding(
+                  padding: EdgeInsets.all(24.0),
+                  child: Center(child: Text("Error loading orders")),
+                );
+              }
+              
+              final allDocs = snapshot.data?.docs ?? [];
+              
+              // Filter and sort in memory to avoid composite index requirement
+              final shopOrders = allDocs.where((doc) {
+                final data = doc.data() as Map<String, dynamic>;
+                return data['type'] == 'shop_order';
+              }).toList();
+              
+              shopOrders.sort((a, b) {
+                final dataA = a.data() as Map<String, dynamic>;
+                final dataB = b.data() as Map<String, dynamic>;
+                final timeA = dataA['createdAt'] as Timestamp?;
+                final timeB = dataB['createdAt'] as Timestamp?;
+                if (timeA == null) return 1;
+                if (timeB == null) return -1;
+                return timeB.compareTo(timeA);
+              });
+              
+              final displayDocs = shopOrders.take(6).toList();
+
+              if (displayDocs.isEmpty) {
                 return Padding(
                   padding: const EdgeInsets.all(24.0),
                   child: Center(
@@ -1790,18 +1839,46 @@ class _DashboardScreenState extends State<DashboardScreen> {
                 );
               }
               return Column(
-                children: docs.map((doc) {
-                  final data = doc.data() as Map<String, dynamic>;
-                  return _orderCard(
-                    data['productName'] ?? 'Product',
-                    'Order #${doc.id.substring(0, 5).toUpperCase()} • ${data['userName'] ?? 'Customer'}',
-                    data['status'] ?? 'Pending',
-                    data['status'] == 'delivered' ? Colors.green : Colors.blue,
-                    dark,
-                    orderId: doc.id,
-                    orderData: data,
-                  );
-                }).toList(),
+                children: [
+                  ...displayDocs.map((doc) {
+                    final data = doc.data() as Map<String, dynamic>;
+                    final status = data['status'] ?? 'pending';
+                    Color statusColor = Colors.blue;
+                    if (status == 'delivered') statusColor = Colors.green;
+                    if (status == 'paid') statusColor = Colors.orange;
+
+                    return _orderCard(
+                      data['productName'] ?? 'Product',
+                      'Order #${doc.id.substring(0, 5).toUpperCase()} • ${data['userName'] ?? 'Customer'}',
+                      status,
+                      statusColor,
+                      dark,
+                      orderId: doc.id,
+                      orderData: data,
+                    );
+                  }).toList(),
+                  if (shopOrders.length > 6)
+                    Padding(
+                      padding: const EdgeInsets.only(top: 12),
+                      child: TextButton(
+                        onPressed: () {
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (_) => JobHistoryScreen(
+                                role: 'seller',
+                                isMechanicView: false,
+                              ),
+                            ),
+                          );
+                        },
+                        child: const Text('View All Orders',
+                            style: TextStyle(
+                                color: AppColors.primaryBlue,
+                                fontWeight: FontWeight.bold)),
+                      ),
+                    ),
+                ],
               );
             },
           ),
@@ -1835,7 +1912,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
                         title: 'View Orders',
                         color: const Color(0xFF1565C0),
                         onTap: () {
-                          Navigator.pushNamed(context, '/job-history');
+                          Navigator.pushNamed(context, '/job-history',
+                              arguments: role);
                         },
                       ),
                     ),
@@ -1915,28 +1993,36 @@ class _DashboardScreenState extends State<DashboardScreen> {
               builder: (context, snapshot) {
                 final done = snapshot.data ?? [];
                 final totalEarnings =
-                    done.fold<num>(0, (s, d) => s + (d['earnings'] ?? 0));
+                    done.fold<num>(0, (s, d) => s + (d['amount'] ?? 0));
                 return Row(
                   children: [
-                    StatCard(
-                      icon: Icons.delivery_dining,
-                      value: done.length.toString(),
-                      label: 'Deliveries',
-                      accentColor: Colors.orange,
+                    Expanded(
+                      child: StatCard(
+                        icon: Icons.delivery_dining,
+                        value: done.length.toString(),
+                        label: 'Deliveries',
+                        accentColor: Colors.orange,
+                      ),
                     ),
                     const SizedBox(width: 12),
-                    StatCard(
-                      icon: Icons.route,
-                      value: '${(done.length * 4.2).toStringAsFixed(0)} km',
-                      label: 'Distance',
-                      accentColor: Colors.blue,
+                    Expanded(
+                      child: StatCard(
+                        icon: Icons.route,
+                        value: '${(done.length * 4.2).toStringAsFixed(0)} km',
+                        label: 'Distance',
+                        accentColor: Colors.blue,
+                      ),
                     ),
                     const SizedBox(width: 12),
-                    StatCard(
-                      icon: Icons.account_balance_wallet,
-                      value: 'Rs. ${totalEarnings ~/ 1000}K',
-                      label: 'Earnings',
-                      accentColor: Colors.green,
+                    Expanded(
+                      child: StatCard(
+                        icon: Icons.account_balance_wallet,
+                        value: totalEarnings >= 1000 
+                            ? 'Rs. ${(totalEarnings / 1000).toStringAsFixed(1)}K'
+                            : 'Rs. ${totalEarnings.toStringAsFixed(0)}',
+                        label: 'Earnings',
+                        accentColor: Colors.green,
+                      ),
                     ),
                   ],
                 );
@@ -1955,8 +2041,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
                 borderRadius: BorderRadius.circular(18),
                 border: Border.all(
                   color: _isDeliveryActive
-                      ? Colors.green.withValues(alpha: 0.4)
-                      : Colors.grey.withValues(alpha: 0.4),
+                      ? Colors.green.withAlpha(102)
+                      : Colors.grey.withAlpha(102),
                 ),
               ),
               child: Row(
@@ -2019,7 +2105,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                                     Border.all(color: Colors.white, width: 3),
                                 boxShadow: [
                                   BoxShadow(
-                                    color: Colors.green.withValues(alpha: 0.4),
+                                    color: Colors.green.withAlpha(102),
                                     blurRadius: 10,
                                     spreadRadius: 2,
                                   ),
@@ -2094,8 +2180,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
                     borderRadius: BorderRadius.circular(20),
                     border: Border.all(
                       color: dark
-                          ? Colors.blue.withValues(alpha: 0.3)
-                          : Colors.blue.withValues(alpha: 0.2),
+                          ? Colors.blue.withAlpha(76)
+                          : Colors.blue.withAlpha(51),
                     ),
                   ),
                   child: Column(
@@ -2106,7 +2192,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                           Container(
                             padding: const EdgeInsets.all(8),
                             decoration: BoxDecoration(
-                              color: Colors.blue.withValues(alpha: 0.15),
+                              color: Colors.blue.withAlpha(38),
                               borderRadius: BorderRadius.circular(10),
                             ),
                             child: const Icon(Icons.local_shipping,
@@ -2147,7 +2233,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                           minHeight: 6,
                           backgroundColor: dark
                               ? Colors.grey[800]
-                              : Colors.blue.withValues(alpha: 0.1),
+                              : Colors.blue.withAlpha(25),
                           valueColor: const AlwaysStoppedAnimation(Colors.blue),
                         ),
                       ),
@@ -2250,25 +2336,31 @@ class _DashboardScreenState extends State<DashboardScreen> {
             padding: const EdgeInsets.symmetric(horizontal: 16),
             child: Row(
               children: [
-                StatCard(
-                  icon: Icons.delivery_dining,
-                  value: '8',
-                  label: 'Deliveries',
-                  accentColor: Colors.orange,
+                Expanded(
+                  child: StatCard(
+                    icon: Icons.delivery_dining,
+                    value: '8',
+                    label: 'Deliveries',
+                    accentColor: Colors.orange,
+                  ),
                 ),
                 const SizedBox(width: 12),
-                StatCard(
-                  icon: Icons.route,
-                  value: '32 km',
-                  label: 'Distance',
-                  accentColor: Colors.blue,
+                Expanded(
+                  child: StatCard(
+                    icon: Icons.route,
+                    value: '32 km',
+                    label: 'Distance',
+                    accentColor: Colors.blue,
+                  ),
                 ),
                 const SizedBox(width: 12),
-                StatCard(
-                  icon: Icons.account_balance_wallet,
-                  value: 'LKR 8K',
-                  label: 'Earnings',
-                  accentColor: Colors.green,
+                Expanded(
+                  child: StatCard(
+                    icon: Icons.account_balance_wallet,
+                    value: 'LKR 8K',
+                    label: 'Earnings',
+                    accentColor: Colors.green,
+                  ),
                 ),
               ],
             ),
@@ -2292,8 +2384,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
                 borderRadius: BorderRadius.circular(20),
                 border: Border.all(
                   color: dark
-                      ? Colors.blue.withValues(alpha: 0.3)
-                      : Colors.blue.withValues(alpha: 0.2),
+                      ? Colors.blue.withAlpha(76)
+                      : Colors.blue.withAlpha(51),
                 ),
               ),
               child: Column(
@@ -2304,7 +2396,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                       Container(
                         padding: const EdgeInsets.all(8),
                         decoration: BoxDecoration(
-                          color: Colors.blue.withValues(alpha: 0.15),
+                          color: Colors.blue.withAlpha(38),
                           borderRadius: BorderRadius.circular(10),
                         ),
                         child: const Icon(
@@ -2349,7 +2441,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                       minHeight: 6,
                       backgroundColor: dark
                           ? Colors.grey[800]
-                          : Colors.blue.withValues(alpha: 0.1),
+                          : Colors.blue.withAlpha(25),
                       valueColor: const AlwaysStoppedAnimation(Colors.blue),
                     ),
                   ),
@@ -2510,7 +2602,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
             Container(
               padding: const EdgeInsets.all(10),
               decoration: BoxDecoration(
-                color: accent.withValues(alpha: dark ? 0.15 : 0.1),
+                color: accent.withAlpha(((dark ? 0.15 : 0.1) * 255).toInt()),
                 borderRadius: BorderRadius.circular(12),
               ),
               child: Icon(icon, color: accent, size: 22),
@@ -2576,7 +2668,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
             Container(
               padding: const EdgeInsets.all(10),
               decoration: BoxDecoration(
-                color: statusColor.withValues(alpha: dark ? 0.15 : 0.1),
+                color: statusColor.withAlpha(((dark ? 0.15 : 0.1) * 255).toInt()),
                 borderRadius: BorderRadius.circular(12),
               ),
               child: Icon(Icons.shopping_bag, color: statusColor, size: 22),
@@ -2608,7 +2700,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
               decoration: BoxDecoration(
-                color: statusColor.withValues(alpha: 0.12),
+                color: statusColor.withAlpha(30),
                 borderRadius: BorderRadius.circular(10),
               ),
               child: Text(
@@ -2738,6 +2830,68 @@ class _DashboardScreenState extends State<DashboardScreen> {
     );
   }
 
+  /// Recent orders section for User Dashboard
+  Widget _buildRecentUserOrdersSection(bool dark) {
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null) return const SizedBox.shrink();
+
+    return StreamBuilder<QuerySnapshot>(
+      stream: FirebaseFirestore.instance
+          .collection('requests')
+          .where('userId', isEqualTo: user.uid)
+          .snapshots(),
+      builder: (context, snapshot) {
+        if (snapshot.hasError) {
+            debugPrint('User Recent Orders Error: ${snapshot.error}');
+            return const SizedBox.shrink();
+        }
+        if (!snapshot.hasData) return const SizedBox.shrink();
+        
+        final allDocs = snapshot.data!.docs;
+        
+        // Filter and sort in memory
+        final shopOrders = allDocs.where((doc) {
+          final data = doc.data() as Map<String, dynamic>;
+          return data['type'] == 'shop_order';
+        }).toList();
+        
+        shopOrders.sort((a, b) {
+          final dataA = a.data() as Map<String, dynamic>;
+          final dataB = b.data() as Map<String, dynamic>;
+          final timeA = dataA['createdAt'] as Timestamp?;
+          final timeB = dataB['createdAt'] as Timestamp?;
+          if (timeA == null) return 1;
+          if (timeB == null) return -1;
+          return timeB.compareTo(timeA);
+        });
+        
+        final displayDocs = shopOrders.take(3).toList();
+        
+        if (displayDocs.isEmpty) return const SizedBox.shrink();
+
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            _sectionTitle('Recent Orders', dark),
+            const SizedBox(height: 12),
+            ...displayDocs.map((doc) {
+              final data = doc.data() as Map<String, dynamic>;
+              return _orderCard(
+                data['productName'] ?? 'Product',
+                'Order #${doc.id.substring(0, 5).toUpperCase()} • ${data['sellerName'] ?? 'Seller'}',
+                data['status'] ?? 'Pending',
+                data['status'] == 'delivered' ? Colors.green : AppColors.primaryBlue,
+                dark,
+                orderId: doc.id,
+                orderData: data,
+              );
+            }),
+          ],
+        );
+      },
+    );
+  }
+
   Widget _ongoingRequestCard(Map<String, dynamic> req, bool dark) {
     final status = req['status'] ?? 'pending';
     final name = req['mechanicName'] ?? 'Searching...';
@@ -2750,7 +2904,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
         borderRadius: BorderRadius.circular(16),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withValues(alpha: 0.05),
+            color: Colors.black.withAlpha(12),
             blurRadius: 10,
             offset: const Offset(0, 4),
           ),
@@ -2759,7 +2913,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
       child: Row(
         children: [
           CircleAvatar(
-            backgroundColor: AppColors.primaryBlue.withValues(alpha: 0.1),
+            backgroundColor: AppColors.primaryBlue.withAlpha(25),
             child: const Icon(Icons.engineering, color: AppColors.primaryBlue),
           ),
           const SizedBox(width: 16),
@@ -2867,7 +3021,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
         borderRadius: BorderRadius.circular(18),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withValues(alpha: 0.04),
+            color: Colors.black.withAlpha(10),
             blurRadius: 10,
             offset: const Offset(0, 4),
           ),
@@ -2878,7 +3032,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
         leading: Container(
           padding: const EdgeInsets.all(10),
           decoration: BoxDecoration(
-            color: Colors.orange.withValues(alpha: 0.1),
+            color: Colors.orange.withAlpha(25),
             borderRadius: BorderRadius.circular(12),
           ),
           child: const Icon(Icons.build_circle, color: Colors.orange, size: 24),
@@ -2934,7 +3088,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
           boxShadow: [
             if (!dark)
               BoxShadow(
-                color: Colors.black.withValues(alpha: 0.05),
+                color: Colors.black.withAlpha(12),
                 blurRadius: 10,
                 offset: const Offset(0, 4),
               ),
@@ -2959,7 +3113,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                             height: 35,
                             child: Container(
                               decoration: BoxDecoration(
-                                color: jobColor.withValues(alpha: 0.2),
+                                color: jobColor.withAlpha(51),
                                 shape: BoxShape.circle,
                                 border: Border.all(color: jobColor, width: 2),
                               ),
@@ -2981,7 +3135,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                           child: Container(
                             decoration: BoxDecoration(
                               color:
-                                  AppColors.primaryBlue.withValues(alpha: 0.2),
+                                  AppColors.primaryBlue.withAlpha(51),
                               shape: BoxShape.circle,
                               border: Border.all(
                                   color: AppColors.primaryBlue, width: 2),

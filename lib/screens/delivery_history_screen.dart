@@ -18,27 +18,12 @@ class _DeliveryHistoryScreenState extends State<DeliveryHistoryScreen> {
   final List<String> _filters = ['All Time', 'Today', 'Last 7 Days', 'Last 30 Days'];
 
   Stream<QuerySnapshot> _buildStream(String uid) {
-    var query = FirebaseFirestore.instance
+    // Only query by driverId to avoid requiring a composite index.
+    // Filtering by status and date will be done in-memory.
+    return FirebaseFirestore.instance
         .collection('deliveries')
         .where('driverId', isEqualTo: uid)
-        .where('status', isEqualTo: 'delivered')
-        .orderBy('deliveredAt', descending: true);
-
-    final now = DateTime.now();
-    if (_filter == 'Today') {
-      final start = DateTime(now.year, now.month, now.day);
-      query = query.where('deliveredAt',
-          isGreaterThanOrEqualTo: Timestamp.fromDate(start));
-    } else if (_filter == 'Last 7 Days') {
-      query = query.where('deliveredAt',
-          isGreaterThanOrEqualTo:
-              Timestamp.fromDate(now.subtract(const Duration(days: 7))));
-    } else if (_filter == 'Last 30 Days') {
-      query = query.where('deliveredAt',
-          isGreaterThanOrEqualTo:
-              Timestamp.fromDate(now.subtract(const Duration(days: 30))));
-    }
-    return query.snapshots();
+        .snapshots();
   }
 
   @override
@@ -87,10 +72,46 @@ class _DeliveryHistoryScreenState extends State<DeliveryHistoryScreen> {
           child: StreamBuilder<QuerySnapshot>(
             stream: _buildStream(uid),
             builder: (context, snapshot) {
+              if (snapshot.hasError) {
+                return const Center(child: Text('Error loading deliveries'));
+              }
               if (snapshot.connectionState == ConnectionState.waiting) {
                 return const Center(child: CircularProgressIndicator());
               }
-              final docs = snapshot.data?.docs ?? [];
+              
+              final allDocs = snapshot.data?.docs ?? [];
+              
+              // Filter and sort in memory
+              final now = DateTime.now();
+              DateTime? minDate;
+              if (_filter == 'Today') {
+                minDate = DateTime(now.year, now.month, now.day);
+              } else if (_filter == 'Last 7 Days') {
+                minDate = now.subtract(const Duration(days: 7));
+              } else if (_filter == 'Last 30 Days') {
+                minDate = now.subtract(const Duration(days: 30));
+              }
+
+              final docs = allDocs.where((doc) {
+                final d = doc.data() as Map<String, dynamic>;
+                if (d['status'] != 'delivered') return false;
+                
+                final ts = d['deliveredAt'] as Timestamp?;
+                if (minDate != null) {
+                  if (ts == null) return false;
+                  if (ts.toDate().isBefore(minDate)) return false;
+                }
+                return true;
+              }).toList();
+
+              docs.sort((a, b) {
+                final tsA = (a.data() as Map<String, dynamic>)['deliveredAt'] as Timestamp?;
+                final tsB = (b.data() as Map<String, dynamic>)['deliveredAt'] as Timestamp?;
+                if (tsA == null && tsB == null) return 0;
+                if (tsA == null) return 1;
+                if (tsB == null) return -1;
+                return tsB.compareTo(tsA);
+              });
 
               // Summary bar
               final totalEarnings = docs.fold<num>(
@@ -191,7 +212,7 @@ class _DeliveryHistoryScreenState extends State<DeliveryHistoryScreen> {
                                     Container(
                                       padding: const EdgeInsets.all(10),
                                       decoration: BoxDecoration(
-                                        color: accent.withValues(alpha: 0.12),
+                                        color: accent.withAlpha(30),
                                         borderRadius: BorderRadius.circular(12),
                                       ),
                                       child: Icon(Icons.check_circle,

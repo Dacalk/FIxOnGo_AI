@@ -218,7 +218,7 @@ class _TowNavToUserScreenState extends State<TowNavToUserScreen> {
                 children: [
                   Row(
                     children: [
-                      CircleAvatar(backgroundColor: AppColors.emergencyRed.withValues(alpha: 0.1), child: const Icon(Icons.person, color: AppColors.emergencyRed)),
+                      CircleAvatar(backgroundColor: AppColors.emergencyRed.withAlpha(25), child: const Icon(Icons.person, color: AppColors.emergencyRed)),
                       const SizedBox(width: 12),
                       Expanded(
                         child: Column(

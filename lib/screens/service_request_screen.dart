@@ -84,7 +84,7 @@ class _ServiceRequestScreenState extends State<ServiceRequestScreen> {
                   shape: BoxShape.circle,
                   boxShadow: [
                     BoxShadow(
-                      color: Colors.black.withValues(alpha: 0.1),
+                      color: Colors.black.withAlpha(25),
                       blurRadius: 8,
                       offset: const Offset(0, 2),
                     ),
@@ -111,7 +111,7 @@ class _ServiceRequestScreenState extends State<ServiceRequestScreen> {
                 borderRadius: BorderRadius.circular(30),
                 boxShadow: [
                   BoxShadow(
-                    color: Colors.black.withValues(alpha: 0.1),
+                    color: Colors.black.withAlpha(25),
                     blurRadius: 8,
                     offset: const Offset(0, 2),
                   ),
@@ -150,7 +150,7 @@ class _ServiceRequestScreenState extends State<ServiceRequestScreen> {
                 shape: BoxShape.circle,
                 boxShadow: [
                   BoxShadow(
-                    color: Colors.black.withValues(alpha: 0.1),
+                    color: Colors.black.withAlpha(25),
                     blurRadius: 8,
                     offset: const Offset(0, 2),
                   ),
@@ -178,7 +178,7 @@ class _ServiceRequestScreenState extends State<ServiceRequestScreen> {
                 ),
                 boxShadow: [
                   BoxShadow(
-                    color: Colors.black.withValues(alpha: 0.1),
+                    color: Colors.black.withAlpha(25),
                     blurRadius: 20,
                     offset: const Offset(0, -5),
                   ),
@@ -351,8 +351,8 @@ class _ServiceRequestScreenState extends State<ServiceRequestScreen> {
               height: 48,
               decoration: BoxDecoration(
                 color: dark
-                    ? AppColors.primaryBlue.withValues(alpha: 0.15)
-                    : AppColors.primaryBlue.withValues(alpha: 0.1),
+                    ? AppColors.primaryBlue.withAlpha(38)
+                    : AppColors.primaryBlue.withAlpha(25),
                 borderRadius: BorderRadius.circular(14),
               ),
               child: Icon(service.icon, color: AppColors.primaryBlue, size: 24),
@@ -419,8 +419,8 @@ class _MapGridPainter extends CustomPainter {
   void paint(Canvas canvas, Size size) {
     final paint = Paint()
       ..color = dark
-          ? Colors.grey[800]!.withValues(alpha: 0.3)
-          : Colors.grey[300]!.withValues(alpha: 0.5)
+          ? Colors.grey[800]!.withAlpha(76)
+          : Colors.grey[300]!.withAlpha(127)
       ..strokeWidth = 0.5;
 
     // Draw horizontal lines
@@ -435,8 +435,8 @@ class _MapGridPainter extends CustomPainter {
     // Draw a few "road" lines
     final roadPaint = Paint()
       ..color = dark
-          ? Colors.cyan.withValues(alpha: 0.15)
-          : Colors.blue.withValues(alpha: 0.08)
+          ? Colors.cyan.withAlpha(38)
+          : Colors.blue.withAlpha(20)
       ..strokeWidth = 3;
 
     canvas.drawLine(

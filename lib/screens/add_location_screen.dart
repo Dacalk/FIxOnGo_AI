@@ -262,7 +262,7 @@ class _AddLocationScreenState extends State<AddLocationScreen> {
             width: 40,
             height: 40,
             decoration: BoxDecoration(
-              color: AppColors.primaryBlue.withValues(alpha: 0.1),
+              color: AppColors.primaryBlue.withAlpha(25),
               shape: BoxShape.circle,
             ),
             child:
@@ -302,8 +302,8 @@ class _AddLocationScreenState extends State<AddLocationScreen> {
     final titleColor = dark ? Colors.white : Colors.black;
     final subColor = dark ? Colors.grey[500]! : Colors.grey[600]!;
     final iconBg = dark
-        ? AppColors.brandYellow.withValues(alpha: 0.15)
-        : AppColors.brandYellow.withValues(alpha: 0.1);
+        ? AppColors.brandYellow.withAlpha(38)
+        : AppColors.brandYellow.withAlpha(25);
     final dividerColor = dark ? Colors.grey[800]! : Colors.grey[200]!;
 
     return Column(

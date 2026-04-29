@@ -129,7 +129,7 @@ class _AiChatHistoryScreenState extends State<AiChatHistoryScreen> {
           width: 48,
           height: 48,
           decoration: BoxDecoration(
-            color: AppColors.primaryBlue.withOpacity(0.1),
+            color: AppColors.primaryBlue.withAlpha(25),
             borderRadius: BorderRadius.circular(12),
           ),
           child: const Icon(Icons.smart_toy, color: AppColors.primaryBlue),

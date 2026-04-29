@@ -30,7 +30,7 @@ class SellerBottomNav extends StatelessWidget {
         color: dark ? const Color(0xFF111D35) : Colors.white,
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withValues(alpha: dark ? 0.3 : 0.08),
+            color: Colors.black.withAlpha(((dark ? 0.3 : 0.08) * 255).toInt()),
             blurRadius: 16,
             offset: const Offset(0, -4),
           ),

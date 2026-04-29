@@ -216,7 +216,7 @@ class _DeliveryJobsScreenState extends State<DeliveryJobsScreen> {
             ? []
             : [
                 BoxShadow(
-                  color: Colors.black.withValues(alpha: 0.03),
+                  color: Colors.black.withAlpha(7),
                   blurRadius: 10,
                   offset: const Offset(0, 4),
                 )
@@ -231,7 +231,7 @@ class _DeliveryJobsScreenState extends State<DeliveryJobsScreen> {
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
                 decoration: BoxDecoration(
-                  color: badgeColor.withValues(alpha: 0.12),
+                  color: badgeColor.withAlpha(30),
                   borderRadius: BorderRadius.circular(12),
                 ),
                 child: Row(

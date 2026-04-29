@@ -40,7 +40,7 @@ class AdminMechanicsPage extends StatelessWidget {
               decoration: BoxDecoration(
                 color: const Color(0xFF111D35),
                 borderRadius: BorderRadius.circular(14),
-                border: Border.all(color: Colors.white.withValues(alpha: 0.06)),
+                border: Border.all(color: Colors.white.withAlpha(15)),
               ),
               child: Row(children: [
                 // Status dot
@@ -49,7 +49,7 @@ class AdminMechanicsPage extends StatelessWidget {
                   decoration: BoxDecoration(
                     shape: BoxShape.circle,
                     color: isActive ? const Color(0xFF4CAF50) : Colors.white24,
-                    boxShadow: isActive ? [BoxShadow(color: const Color(0xFF4CAF50).withValues(alpha: 0.4), blurRadius: 6)] : null,
+                    boxShadow: isActive ? [BoxShadow(color: const Color(0xFF4CAF50).withAlpha(102), blurRadius: 6)] : null,
                   ),
                 ),
                 const SizedBox(width: 14),

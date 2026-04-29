@@ -121,7 +121,7 @@ class _FixOnGoSplashScreenState extends State<FixOnGoSplashScreen>
                   borderRadius: BorderRadius.circular(32),
                   boxShadow: [
                     BoxShadow(
-                      color: Colors.black.withValues(alpha: 0.15),
+                      color: Colors.black.withAlpha(38),
                       blurRadius: 20,
                       offset: const Offset(0, 10),
                     ),
@@ -170,7 +170,7 @@ class _FixOnGoSplashScreenState extends State<FixOnGoSplashScreen>
               Text(
                 'Help when you need it most',
                 style: TextStyle(
-                  color: Colors.white.withValues(alpha: 0.7),
+                  color: Colors.white.withAlpha(178),
                   fontSize: 16,
                 ),
               ),

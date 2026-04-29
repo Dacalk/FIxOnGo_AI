@@ -40,13 +40,13 @@ class AdminSellersPage extends StatelessWidget {
               decoration: BoxDecoration(
                 color: const Color(0xFF111D35),
                 borderRadius: BorderRadius.circular(14),
-                border: Border.all(color: Colors.white.withValues(alpha: 0.06)),
+                border: Border.all(color: Colors.white.withAlpha(15)),
               ),
               child: Row(children: [
                 Container(
                   width: 40, height: 40,
                   decoration: BoxDecoration(
-                    color: const Color(0xFFFFC107).withValues(alpha: 0.15),
+                    color: const Color(0xFFFFC107).withAlpha(38),
                     borderRadius: BorderRadius.circular(10),
                   ),
                   child: const Icon(Icons.store_rounded, color: Color(0xFFFFD54F), size: 20),
@@ -71,7 +71,7 @@ class AdminSellersPage extends StatelessWidget {
                     TextButton(
                       onPressed: () => AdminService.approveSellerApplication(uid),
                       style: TextButton.styleFrom(
-                        backgroundColor: const Color(0xFF4CAF50).withValues(alpha: 0.15),
+                        backgroundColor: const Color(0xFF4CAF50).withAlpha(38),
                         foregroundColor: const Color(0xFF81C784),
                         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
@@ -103,7 +103,7 @@ class _Chip extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
       decoration: BoxDecoration(
-        color: color.withValues(alpha: 0.15),
+        color: color.withAlpha(38),
         borderRadius: BorderRadius.circular(6),
       ),
       child: Text(label, style: TextStyle(color: color, fontSize: 10, fontWeight: FontWeight.w600)),

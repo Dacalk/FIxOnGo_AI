@@ -87,13 +87,13 @@ class ArrivalConfirmationScreen extends StatelessWidget {
                             child: Container(
                               padding: const EdgeInsets.all(8),
                               decoration: BoxDecoration(
-                                color: Colors.white.withValues(alpha: 0.15),
+                                color: Colors.white.withAlpha(38),
                                 borderRadius: BorderRadius.circular(8),
                               ),
                               child: Icon(
                                 Icons.laptop,
                                 size: 30,
-                                color: Colors.white.withValues(alpha: 0.7),
+                                color: Colors.white.withAlpha(178),
                               ),
                             ),
                           ),
@@ -104,13 +104,13 @@ class ArrivalConfirmationScreen extends StatelessWidget {
                                 Icon(
                                   Icons.build,
                                   size: 50,
-                                  color: Colors.white.withValues(alpha: 0.5),
+                                  color: Colors.white.withAlpha(127),
                                 ),
                                 const SizedBox(height: 6),
                                 Icon(
                                   Icons.car_repair,
                                   size: 40,
-                                  color: Colors.white.withValues(alpha: 0.4),
+                                  color: Colors.white.withAlpha(102),
                                 ),
                               ],
                             ),
@@ -232,9 +232,7 @@ class ArrivalConfirmationScreen extends StatelessWidget {
                             decoration: BoxDecoration(
                               borderRadius: BorderRadius.circular(8),
                               border: Border.all(
-                                color: AppColors.primaryBlue.withValues(
-                                  alpha: 0.4,
-                                ),
+                                color: AppColors.primaryBlue.withAlpha((0.4 * 255).toInt()),
                               ),
                             ),
                             child: Row(

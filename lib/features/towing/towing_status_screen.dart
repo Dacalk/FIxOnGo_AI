@@ -202,7 +202,7 @@ class _TowingStatusScreenState extends State<TowingStatusScreen> {
                 borderRadius: const BorderRadius.vertical(top: Radius.circular(32)),
                 boxShadow: [
                   BoxShadow(
-                    color: Colors.black.withValues(alpha: 0.1),
+                    color: Colors.black.withAlpha(25),
                     blurRadius: 20,
                     offset: const Offset(0, -5),
                   )
@@ -240,7 +240,7 @@ class _TowingStatusScreenState extends State<TowingStatusScreen> {
                       Container(
                         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                         decoration: BoxDecoration(
-                          color: AppColors.emergencyRed.withValues(alpha: 0.1),
+                          color: AppColors.emergencyRed.withAlpha(25),
                           borderRadius: BorderRadius.circular(12),
                         ),
                         child: Text(
@@ -341,7 +341,7 @@ class _TowingStatusScreenState extends State<TowingStatusScreen> {
                         width: double.infinity,
                         padding: const EdgeInsets.all(12),
                         decoration: BoxDecoration(
-                          color: Colors.green.withValues(alpha: 0.1),
+                          color: Colors.green.withAlpha(25),
                           borderRadius: BorderRadius.circular(12),
                           border: Border.all(color: Colors.green),
                         ),

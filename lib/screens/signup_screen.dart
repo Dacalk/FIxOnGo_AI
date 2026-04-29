@@ -252,7 +252,7 @@ class _SignupScreenState extends State<SignupScreen> {
                     style: TextStyle(
                       fontSize: 16,
                       fontWeight: FontWeight.w600,
-                      color: titleColor.withValues(alpha: 0.7),
+                      color: titleColor.withAlpha(178),
                     ),
                   ),
                   TextButton(
@@ -610,6 +610,32 @@ class _SignupScreenState extends State<SignupScreen> {
           onChanged: (v) => emergency = v),
     ];
   }
+  
+  List<Widget> _sellerFields() {
+    return [
+      FormInput(
+          label: 'Shop Name',
+          hintText: 'Auto Parts Center',
+          onChanged: (v) => shopName = v),
+      const SizedBox(height: 20),
+      FormDropdown(
+        label: 'Shop Category',
+        hintText: 'Select Category',
+        items: ['Tools', 'Parts', 'Accessories', 'Oils', 'Tires'],
+        onChanged: (v) => category = v ?? '',
+      ),
+      const SizedBox(height: 20),
+      FormInput(
+          label: 'Shop Address',
+          hintText: 'No 123, Main Street, Colombo',
+          onChanged: (v) => address = v),
+      const SizedBox(height: 20),
+      FormInput(
+          label: 'NIC / ID Number',
+          hintText: '123456789V',
+          onChanged: (v) => nic = v),
+    ];
+  }
 
   List<Widget> _buildFormFields(String role) {
     switch (role.toLowerCase()) {
@@ -619,6 +645,8 @@ class _SignupScreenState extends State<SignupScreen> {
         return _deliveryFields();
       case 'tow':
         return _towFields();
+      case 'seller':
+        return _sellerFields();
       default:
         return _defaultUserFields();
     }

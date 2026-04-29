@@ -107,8 +107,8 @@ class _RoleDropdownState extends State<RoleDropdown> {
                       borderRadius: BorderRadius.circular(12),
                       color: isSelected
                           ? (dark
-                              ? AppColors.primaryBlue.withValues(alpha: 0.2)
-                              : AppColors.primaryBlue.withValues(alpha: 0.08))
+                              ? AppColors.primaryBlue.withAlpha(51)
+                              : AppColors.primaryBlue.withAlpha(20))
                           : Colors.transparent,
                       border: isSelected
                           ? Border.all(color: AppColors.primaryBlue, width: 1.5)

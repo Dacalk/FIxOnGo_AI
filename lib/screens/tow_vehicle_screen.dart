@@ -117,7 +117,7 @@ class _TowVehicleScreenState extends State<TowVehicleScreen> {
                           width: 80,
                           height: 80,
                           decoration: BoxDecoration(
-                            color: Colors.white.withValues(alpha: 0.15),
+                            color: Colors.white.withAlpha(38),
                             shape: BoxShape.circle,
                           ),
                           child: const Icon(
@@ -143,7 +143,7 @@ class _TowVehicleScreenState extends State<TowVehicleScreen> {
                           padding: const EdgeInsets.symmetric(
                               horizontal: 12, vertical: 4),
                           decoration: BoxDecoration(
-                            color: Colors.white.withValues(alpha: 0.2),
+                            color: Colors.white.withAlpha(51),
                             borderRadius: BorderRadius.circular(12),
                           ),
                           child: Text(
@@ -182,7 +182,7 @@ class _TowVehicleScreenState extends State<TowVehicleScreen> {
                           ? null
                           : [
                               BoxShadow(
-                                color: Colors.black.withValues(alpha: 0.05),
+                                color: Colors.black.withAlpha(12),
                                 blurRadius: 10,
                                 offset: const Offset(0, 4),
                               ),
@@ -259,7 +259,7 @@ class _TowVehicleScreenState extends State<TowVehicleScreen> {
                           ? null
                           : [
                               BoxShadow(
-                                color: Colors.black.withValues(alpha: 0.05),
+                                color: Colors.black.withAlpha(12),
                                 blurRadius: 10,
                                 offset: const Offset(0, 4),
                               ),
@@ -271,7 +271,7 @@ class _TowVehicleScreenState extends State<TowVehicleScreen> {
                           width: 48,
                           height: 48,
                           decoration: BoxDecoration(
-                            color: Colors.green.withValues(alpha: 0.15),
+                            color: Colors.green.withAlpha(38),
                             borderRadius: BorderRadius.circular(12),
                           ),
                           child: const Icon(Icons.check_circle,
@@ -404,7 +404,7 @@ class _TowVehicleScreenState extends State<TowVehicleScreen> {
       padding: const EdgeInsets.symmetric(horizontal: 16),
       child: Divider(
         height: 1,
-        color: dark ? Colors.white10 : Colors.black.withValues(alpha: 0.05),
+        color: dark ? Colors.white10 : Colors.black.withAlpha(12),
       ),
     );
   }

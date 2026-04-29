@@ -349,9 +349,9 @@ class _StreamSection extends StatelessWidget {
           return Container(
             padding: const EdgeInsets.all(12),
             decoration: BoxDecoration(
-              color: const Color(0xFFEF5350).withValues(alpha: 0.1),
+              color: const Color(0xFFEF5350).withAlpha(25),
               borderRadius: BorderRadius.circular(8),
-              border: Border.all(color: const Color(0xFFEF5350).withValues(alpha: 0.3)),
+              border: Border.all(color: const Color(0xFFEF5350).withAlpha(76)),
             ),
             child: Row(children: [
               const Icon(Icons.error_outline, color: Color(0xFFEF9A9A), size: 16),
@@ -417,15 +417,15 @@ class _SectionCard extends StatelessWidget {
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
           colors: [
-            const Color(0xFF15233E).withValues(alpha: 0.8),
-            const Color(0xFF0D1626).withValues(alpha: 0.9),
+            const Color(0xFF15233E).withAlpha(204),
+            const Color(0xFF0D1626).withAlpha(229),
           ],
         ),
         borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: Colors.white.withValues(alpha: 0.08), width: 1.5),
+        border: Border.all(color: Colors.white.withAlpha(20), width: 1.5),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withValues(alpha: 0.15),
+            color: Colors.black.withAlpha(38),
             blurRadius: 16,
             offset: const Offset(0, 6),
           ),
@@ -469,8 +469,8 @@ class _BoolRow extends StatelessWidget {
         padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
         decoration: BoxDecoration(
           color: value
-              ? const Color(0xFF4CAF50).withValues(alpha: 0.15)
-              : const Color(0xFFEF5350).withValues(alpha: 0.15),
+              ? const Color(0xFF4CAF50).withAlpha(38)
+              : const Color(0xFFEF5350).withAlpha(38),
           borderRadius: BorderRadius.circular(6),
         ),
         child: Text(value ? 'ON' : 'OFF',
@@ -498,9 +498,9 @@ class _InsightRow extends StatelessWidget {
         Container(
           padding: const EdgeInsets.all(10),
           decoration: BoxDecoration(
-            color: color.withValues(alpha: 0.15),
+            color: color.withAlpha(38),
             shape: BoxShape.circle,
-            border: Border.all(color: color.withValues(alpha: 0.3)),
+            border: Border.all(color: color.withAlpha(76)),
           ),
           child: Icon(icon, color: color, size: 20),
         ),

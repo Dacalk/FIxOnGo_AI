@@ -49,7 +49,7 @@ class _VideoCallScreenState extends State<VideoCallScreen> {
                     child: Icon(
                       Icons.build,
                       size: 120,
-                      color: Colors.white.withValues(alpha: 0.15),
+                      color: Colors.white.withAlpha(38),
                     ),
                   ),
                 ],
@@ -64,7 +64,7 @@ class _VideoCallScreenState extends State<VideoCallScreen> {
             child: Container(
               padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
               decoration: BoxDecoration(
-                color: Colors.black.withValues(alpha: 0.5),
+                color: Colors.black.withAlpha(127),
                 borderRadius: BorderRadius.circular(12),
               ),
               child: Column(
@@ -119,12 +119,12 @@ class _VideoCallScreenState extends State<VideoCallScreen> {
                 color: Colors.grey[300],
                 borderRadius: BorderRadius.circular(14),
                 border: Border.all(
-                  color: Colors.white.withValues(alpha: 0.3),
+                  color: Colors.white.withAlpha(76),
                   width: 2,
                 ),
                 boxShadow: [
                   BoxShadow(
-                    color: Colors.black.withValues(alpha: 0.3),
+                    color: Colors.black.withAlpha(76),
                     blurRadius: 10,
                     offset: const Offset(0, 4),
                   ),
@@ -141,7 +141,7 @@ class _VideoCallScreenState extends State<VideoCallScreen> {
                         child: Icon(
                           Icons.person,
                           size: 40,
-                          color: Colors.white.withValues(alpha: 0.6),
+                          color: Colors.white.withAlpha(153),
                         ),
                       ),
                     ),
@@ -160,8 +160,8 @@ class _VideoCallScreenState extends State<VideoCallScreen> {
               height: 48,
               decoration: BoxDecoration(
                 color: dark
-                    ? Colors.black.withValues(alpha: 0.6)
-                    : Colors.grey[800]!.withValues(alpha: 0.7),
+                    ? Colors.black.withAlpha(153)
+                    : Colors.grey[800]!.withAlpha(178),
                 shape: BoxShape.circle,
               ),
               child: const Icon(
@@ -190,7 +190,7 @@ class _VideoCallScreenState extends State<VideoCallScreen> {
                   borderRadius: BorderRadius.circular(24),
                   boxShadow: [
                     BoxShadow(
-                      color: Colors.black.withValues(alpha: 0.15),
+                      color: Colors.black.withAlpha(38),
                       blurRadius: 16,
                       offset: const Offset(0, -4),
                     ),
@@ -268,7 +268,7 @@ class _VideoCallScreenState extends State<VideoCallScreen> {
             height: 48,
             decoration: BoxDecoration(
               color: isActive
-                  ? Colors.grey.withValues(alpha: 0.2)
+                  ? Colors.grey.withAlpha(51)
                   : Colors.transparent,
               shape: BoxShape.circle,
             ),
