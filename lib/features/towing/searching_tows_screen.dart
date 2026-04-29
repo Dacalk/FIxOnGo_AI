@@ -1,50 +1,52 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
-import '../theme_provider.dart';
-import '../components/osm_map_widget.dart';
-import '../services/location_service.dart';
-import '../services/provider_service.dart';
+import '../../../theme_provider.dart';
+import '../../../components/osm_map_widget.dart';
+import '../../../services/location_service.dart';
+import '../../../services/provider_service.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'dart:async';
+import 'towing_status_screen.dart';
 
-/// "Searching for nearby mechanics" screen.
-/// Shown after a user requests a service — displays a real OSM map with
-/// mechanic pins and an animated bottom sheet indicating the search is
-/// in progress.
-class SearchingMechanicsScreen extends StatefulWidget {
-  const SearchingMechanicsScreen({super.key});
+/// "Searching for nearby tow trucks" screen.
+/// Mirrors the SearchingMechanicsScreen but queries tow providers instead.
+class SearchingTowsScreen extends StatefulWidget {
+  const SearchingTowsScreen({super.key});
 
   @override
-  State<SearchingMechanicsScreen> createState() =>
-      _SearchingMechanicsScreenState();
+  State<SearchingTowsScreen> createState() => _SearchingTowsScreenState();
 }
 
-class _SearchingMechanicsScreenState extends State<SearchingMechanicsScreen> {
+class _SearchingTowsScreenState extends State<SearchingTowsScreen> {
   final MapController _mapController = MapController();
 
   LatLng? _userLatLng;
 
   // Real data
-  List<Map<String, dynamic>> _mechanics = [];
-  Map<String, dynamic>? _selectedMechanic;
-  StreamSubscription? _mechanicSub;
+  List<Map<String, dynamic>> _towProviders = [];
+  Map<String, dynamic>? _selectedProvider;
+  StreamSubscription? _providerSub;
   StreamSubscription? _requestSub;
   String? _currentRequestId;
   bool _isRequesting = false;
-  bool _isNavigating = false; // Guard for double-navigation
-  bool _mapReady = false; // Delay map render to avoid Flutter Web assertion
-  String? _serviceType;
+  bool _isNavigating = false;
+  bool _mapReady = false;
   String? _userName;
+
+  // Booking details passed from TowingBookingScreen
+  Map<String, dynamic> _bookingArgs = {};
+
+  Timer? _uiUpdateTimer;
 
   @override
   void initState() {
     super.initState();
     _fetchLocation();
-    _listenToMechanics();
+    _listenToTowProviders();
     _initUserData();
-    // Delay map rendering to avoid Flutter Web engine assertion loop
+    // Delay map render to avoid Flutter Web assertion loop
     Future.delayed(const Duration(milliseconds: 300), () {
       if (mounted) setState(() => _mapReady = true);
     });
@@ -54,20 +56,20 @@ class _SearchingMechanicsScreenState extends State<SearchingMechanicsScreen> {
     final user = FirebaseAuth.instance.currentUser;
     if (user == null) return;
 
-    // Try to get service info from arguments
+    // Get booking args
     Future.microtask(() {
       if (!mounted) return;
       final args = ModalRoute.of(context)?.settings.arguments;
       if (args is Map<String, dynamic>) {
         if (mounted) {
           setState(() {
-            _serviceType = args['serviceType'];
+            _bookingArgs = args;
           });
         }
       }
     });
 
-    // Fetch user name from document if displayName is null
+    // Fetch user name
     final doc = await FirebaseFirestore.instance
         .collection('users')
         .doc(user.uid)
@@ -79,45 +81,44 @@ class _SearchingMechanicsScreenState extends State<SearchingMechanicsScreen> {
     }
   }
 
-  void _listenToMechanics() {
-    _mechanicSub = FirebaseFirestore.instance
+  void _listenToTowProviders() {
+    _providerSub = FirebaseFirestore.instance
         .collection('users')
         .snapshots()
         .listen((snap) {
       final list = <Map<String, dynamic>>[];
-      debugPrint('[SearchingMechanics] mechanic snapshot docs=${snap.docs.length}');
+      debugPrint('[SearchingTows] tow provider snapshot docs=${snap.docs.length}');
       for (var doc in snap.docs) {
         final data = doc.data();
-        final m = data['roles']?['mechanic'] as Map<String, dynamic>?;
-        if (m != null) {
-          // Filter: only show active, online, available mechanics with location
-          final isActive = m['isActive'] ?? true;
+        final t = data['roles']?['tow'] as Map<String, dynamic>?;
+        if (t != null) {
+          final isActive = t['isActive'] ?? true;
           if (!isActive) continue;
 
-          final isOnline = m['isOnline'] as bool? ?? true;  // default true for legacy accounts
-          final isAvailable = m['isAvailable'] as bool? ?? true;
-          // Skip if explicitly offline or unavailable
+          final isOnline = t['isOnline'] as bool? ?? true;
+          final isAvailable = t['isAvailable'] as bool? ?? true;
           if (!isOnline || !isAvailable) {
-            debugPrint('[SearchingMechanics] Skipping mechanic ${doc.id} isOnline=$isOnline isAvailable=$isAvailable');
+            debugPrint('[SearchingTows] Skipping tow ${doc.id} isOnline=$isOnline isAvailable=$isAvailable');
             continue;
           }
 
-          final loc = m['location'] as Map<String, dynamic>?;
+          final loc = t['location'] as Map<String, dynamic>?;
           if (loc != null) {
             list.add({
               'id': doc.id,
-              'name': m['fullName'] ?? 'Mechanic',
-              'specialty': m['vehicleType'] ?? 'General Mechanic',
-              'price': m['priceBase'] ?? 2500,
-              'rating': m['rating'] ?? 4.5,
-              'reviews': m['reviews'] ?? 0,
+              'name': t['fullName'] ?? 'Tow Driver',
+              'truckModel': t['truckModel'] ?? 'Tow Truck',
+              'plate': t['plate'] ?? '',
+              'towingCapacity': t['towingCapacity'] ?? '',
+              'rating': t['rating'] ?? 4.5,
+              'reviews': t['reviews'] ?? 0,
               'lat': loc['lat'],
               'lng': loc['lng'],
-              'lastSeen': m['lastSeen'],
+              'lastSeen': t['lastSeen'],
               'photoUrl': data['photoUrl'],
             });
           } else {
-            debugPrint('[SearchingMechanics] Mechanic ${doc.id} has no location — skipping');
+            debugPrint('[SearchingTows] Tow ${doc.id} has no location — skipping');
           }
         }
       }
@@ -132,14 +133,13 @@ class _SearchingMechanicsScreenState extends State<SearchingMechanicsScreen> {
       });
 
       if (mounted) {
-        // Debounce UI update to once every 500ms to prevent engine crashes
         _uiUpdateTimer?.cancel();
         _uiUpdateTimer = Timer(const Duration(milliseconds: 500), () {
           if (mounted) {
             setState(() {
-              _mechanics = list;
-              if (_selectedMechanic == null && list.isNotEmpty) {
-                _selectedMechanic = list.first;
+              _towProviders = list;
+              if (_selectedProvider == null && list.isNotEmpty) {
+                _selectedProvider = list.first;
               }
             });
           }
@@ -148,73 +148,109 @@ class _SearchingMechanicsScreenState extends State<SearchingMechanicsScreen> {
     });
   }
 
-  Timer? _uiUpdateTimer;
-
   Future<void> _sendRequest() async {
-    if (_selectedMechanic == null || _userLatLng == null) return;
+    if (_selectedProvider == null || _userLatLng == null) return;
     final user = FirebaseAuth.instance.currentUser;
     if (user == null) return;
 
-    final mechanicUid = _selectedMechanic!['id'] as String;
-    debugPrint('[SearchingMechanics] _sendRequest '
+    final towUid = _selectedProvider!['id'] as String;
+    debugPrint('[SearchingTows] _sendRequest '
         'userId=${user.uid} '
-        'mechanic UID=$mechanicUid '
-        'assignedProviderId=$mechanicUid');
+        'tow UID=$towUid '
+        'assignedProviderId=$towUid');
 
     if (mounted) {
       setState(() => _isRequesting = true);
     }
 
-    // Use ProviderService to create request with targetRole + assignedProviderId
     try {
-      _currentRequestId = await ProviderService.instance.createMechanicRequest(
-        mechanicUid: mechanicUid,
-        mechanicName: _selectedMechanic!['name'],
+      // Build request data using ProviderService
+      final pickupCoords = _bookingArgs['pickupCoords'] as Map<String, double>?;
+      final destCoords = _bookingArgs['destinationCoords'] as Map<String, double>?;
+
+      _currentRequestId = await ProviderService.instance.createTowRequest(
+        towProviderUid: towUid,
+        towProviderName: _selectedProvider!['name'],
         userName: _userName ?? user.displayName ?? 'User',
         userPhotoUrl: user.photoURL,
         userId: user.uid,
-        userLocation: {
+        userLocation: pickupCoords ?? {
           'lat': _userLatLng!.latitude,
           'lng': _userLatLng!.longitude,
         },
-        serviceType: _serviceType ?? 'General Service',
-        basePrice: 2000,
+        dropoffLocation: destCoords,
+        dropoffAddress: _bookingArgs['destinationAddress'] as String?,
+        basePrice: (_bookingArgs['basePrice'] as num?)?.toInt() ?? 2500,
       );
+
+      // Also update with extra booking details
+      if (_currentRequestId != null) {
+        final Map<String, dynamic> extra = {};
+        if (_bookingArgs['serviceType'] != null) {
+          extra['serviceType'] = _bookingArgs['serviceType'];
+        }
+        if (_bookingArgs['vehicleDetails'] != null) {
+          extra['vehicleDetails'] = _bookingArgs['vehicleDetails'];
+        }
+        if (_bookingArgs['notes'] != null) {
+          extra['notes'] = _bookingArgs['notes'];
+        }
+        if (_bookingArgs['estimatedDistance'] != null) {
+          extra['estimatedDistance'] = _bookingArgs['estimatedDistance'];
+        }
+        if (_bookingArgs['userAddress'] != null) {
+          extra['userAddress'] = _bookingArgs['userAddress'];
+        }
+        if (_bookingArgs['destination'] != null) {
+          extra['destination'] = _bookingArgs['destination'];
+        }
+
+        if (extra.isNotEmpty) {
+          await FirebaseFirestore.instance
+              .collection('requests')
+              .doc(_currentRequestId)
+              .update(extra);
+        }
+      }
     } catch (e) {
-      debugPrint('[SearchingMechanics] Failed to create request: $e');
+      debugPrint('[SearchingTows] Failed to create request: $e');
       if (mounted) {
         setState(() => _isRequesting = false);
       }
       return;
     }
 
-    debugPrint('[SearchingMechanics] Request created '
+    debugPrint('[SearchingTows] Request created '
         'requestId=$_currentRequestId '
-        'assignedProviderId=$mechanicUid mechanic UID=$mechanicUid');
+        'assignedProviderId=$towUid tow UID=$towUid');
 
-    // Listen for acceptance — real-time via .snapshots()
+    // Listen for acceptance
     final ref = FirebaseFirestore.instance.collection('requests').doc(_currentRequestId);
     _requestSub = ref.snapshots().listen((snap) {
       if (snap.exists) {
         final status = snap.data()?['status'];
         final assignedId = snap.data()?['assignedProviderId'];
-        debugPrint('[SearchingMechanics] status listener: '
-            'status=$status assignedProviderId=$assignedId mechanic UID=$mechanicUid result count=1');
+        debugPrint('[SearchingTows] status listener: '
+            'status=$status assignedProviderId=$assignedId tow UID=$towUid result count=1');
         if (status == 'accepted') {
           if (_isNavigating) return;
           _isNavigating = true;
           _requestSub?.cancel();
 
           if (mounted) {
-            Navigator.pushReplacementNamed(context, '/mechanic-accepted',
-                arguments: _currentRequestId);
+            Navigator.pushReplacement(
+              context,
+              MaterialPageRoute(
+                builder: (context) => TowingStatusScreen(requestId: _currentRequestId),
+              ),
+            );
           }
         } else if (status == 'rejected') {
-          debugPrint('[SearchingMechanics] Request rejected by mechanic UID=$mechanicUid');
+          debugPrint('[SearchingTows] Request rejected by tow UID=$towUid');
           if (mounted) {
             ScaffoldMessenger.of(context).showSnackBar(
               const SnackBar(
-                  content: Text("Request rejected by mechanic.")),
+                  content: Text("Request rejected by tow driver.")),
             );
             setState(() {
               _isRequesting = false;
@@ -232,16 +268,14 @@ class _SearchingMechanicsScreenState extends State<SearchingMechanicsScreen> {
       final latLng = await LocationService.instance.getCurrentLatLng();
       if (!mounted) return;
       setState(() => _userLatLng = latLng);
-      // Give the map widget a moment to build before moving
       Future.delayed(const Duration(milliseconds: 100), () {
         if (mounted) {
           try {
             _mapController.move(latLng, 14);
-          } catch (_) {} // Ignore if map not fully ready
+          } catch (_) {}
         }
       });
     } catch (_) {
-      // Fallback to Colombo
       if (!mounted) return;
       setState(() => _userLatLng = const LatLng(6.9271, 79.8612));
     }
@@ -249,60 +283,51 @@ class _SearchingMechanicsScreenState extends State<SearchingMechanicsScreen> {
 
   List<Marker> _buildMarkers(bool dark) {
     final markers = <Marker>[];
-    if (_userLatLng == null) return markers;
 
     // User marker
-    markers.add(
-      Marker(
+    if (_userLatLng != null) {
+      markers.add(Marker(
         point: _userLatLng!,
         width: 40,
         height: 40,
-        child: Icon(
-          Icons.location_on,
-          size: 30,
-          color: AppColors.primaryBlue,
+        child: Container(
+          decoration: BoxDecoration(
+            color: AppColors.emergencyRed,
+            shape: BoxShape.circle,
+            border: Border.all(color: Colors.white, width: 2),
+            boxShadow: const [BoxShadow(color: Colors.black26, blurRadius: 8)],
+          ),
+          child: const Icon(Icons.person, color: Colors.white, size: 22),
         ),
-      ),
-    );
+      ));
+    }
 
-    // Mechanic pins
-    for (final mech in _mechanics) {
-      final mechLatLng = LatLng(mech['lat'], mech['lng']);
-      final isSelected = _selectedMechanic?['id'] == mech['id'];
-
+    // Tow provider markers
+    for (final tow in _towProviders) {
+      final isSelected = _selectedProvider?['id'] == tow['id'];
       markers.add(
         Marker(
-          point: mechLatLng,
-          width: 40,
-          height: 40,
+          point: LatLng(tow['lat'], tow['lng']),
+          width: isSelected ? 50 : 40,
+          height: isSelected ? 50 : 40,
           child: GestureDetector(
-            onTap: () {
-              if (mounted) {
-                setState(() => _selectedMechanic = mech);
-              }
-            },
+            onTap: () => setState(() => _selectedProvider = tow),
             child: Container(
               decoration: BoxDecoration(
-                color: isSelected
-                    ? AppColors.brandYellow
-                    : (dark
-                        ? const Color(0xFF1E3350)
-                        : const Color(0xFF2C3E50)),
+                color: isSelected ? AppColors.emergencyRed : Colors.orange,
                 shape: BoxShape.circle,
                 border: Border.all(
-                  color: isSelected
-                      ? Colors.white
-                      : (dark ? Colors.grey[700]! : Colors.white),
-                  width: 2,
+                  color: Colors.white,
+                  width: isSelected ? 3 : 2,
                 ),
                 boxShadow: isSelected
-                    ? [BoxShadow(color: Colors.black26, blurRadius: 8)]
+                    ? [const BoxShadow(color: Colors.black26, blurRadius: 8)]
                     : null,
               ),
               child: Icon(
-                Icons.person,
-                color: isSelected ? Colors.black : Colors.white,
-                size: isSelected ? 20 : 16,
+                Icons.local_shipping,
+                color: isSelected ? Colors.white : Colors.white,
+                size: isSelected ? 24 : 18,
               ),
             ),
           ),
@@ -315,7 +340,7 @@ class _SearchingMechanicsScreenState extends State<SearchingMechanicsScreen> {
 
   @override
   void dispose() {
-    _mechanicSub?.cancel();
+    _providerSub?.cancel();
     _requestSub?.cancel();
     _uiUpdateTimer?.cancel();
     _mapController.dispose();
@@ -405,7 +430,7 @@ class _SearchingMechanicsScreenState extends State<SearchingMechanicsScreen> {
             ),
           ),
 
-          // ── Bottom Sheet (Mechanic Selection) ──
+          // ── Bottom Sheet (Tow Provider Selection) ──
           Positioned(
             left: 0,
             right: 0,
@@ -448,7 +473,7 @@ class _SearchingMechanicsScreenState extends State<SearchingMechanicsScreen> {
                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: [
                           Text(
-                            'Select Mechanic',
+                            'Select Tow Truck',
                             style: TextStyle(
                               fontSize: 18,
                               fontWeight: FontWeight.bold,
@@ -462,7 +487,7 @@ class _SearchingMechanicsScreenState extends State<SearchingMechanicsScreen> {
                               child: CircularProgressIndicator(
                                 strokeWidth: 2,
                                 valueColor: AlwaysStoppedAnimation<Color>(
-                                    AppColors.primaryBlue),
+                                    AppColors.emergencyRed),
                               ),
                             ),
                         ],
@@ -470,7 +495,7 @@ class _SearchingMechanicsScreenState extends State<SearchingMechanicsScreen> {
                     ),
                     const SizedBox(height: 16),
 
-                    // Filters (Simulated)
+                    // Filters
                     SingleChildScrollView(
                       scrollDirection: Axis.horizontal,
                       padding: const EdgeInsets.symmetric(horizontal: 16),
@@ -478,23 +503,23 @@ class _SearchingMechanicsScreenState extends State<SearchingMechanicsScreen> {
                         children: [
                           _filterChip('Recommended', true, dark),
                           _filterChip('Nearest', false, dark),
-                          _filterChip('Lowest Price', false, dark),
+                          _filterChip('Top Rated', false, dark),
                         ],
                       ),
                     ),
                     const SizedBox(height: 12),
 
-                    // Mechanic List
-                    if (_mechanics.isEmpty)
+                    // Tow Provider List
+                    if (_towProviders.isEmpty)
                       Padding(
                         padding: const EdgeInsets.symmetric(vertical: 40),
                         child: Column(
                           children: [
-                            CircularProgressIndicator(
-                                color: AppColors.primaryBlue),
+                            const CircularProgressIndicator(
+                                color: AppColors.emergencyRed),
                             const SizedBox(height: 12),
                             Text(
-                              'Finding professionals...',
+                              'Finding nearby tow trucks...',
                               style: TextStyle(color: Colors.grey[500]),
                             ),
                           ],
@@ -502,16 +527,16 @@ class _SearchingMechanicsScreenState extends State<SearchingMechanicsScreen> {
                       )
                     else
                       SizedBox(
-                        height: 140, // Slightly more compact
+                        height: 140,
                         child: ListView.builder(
                           scrollDirection: Axis.horizontal,
                           padding: const EdgeInsets.symmetric(horizontal: 16),
-                          itemCount: _mechanics.length,
+                          itemCount: _towProviders.length,
                           itemBuilder: (context, index) {
-                            final mech = _mechanics[index];
+                            final tow = _towProviders[index];
                             final isSelected =
-                                _selectedMechanic?['id'] == mech['id'];
-                            return _mechanicCard(mech, isSelected, dark);
+                                _selectedProvider?['id'] == tow['id'];
+                            return _towCard(tow, isSelected, dark);
                           },
                         ),
                       ),
@@ -522,11 +547,11 @@ class _SearchingMechanicsScreenState extends State<SearchingMechanicsScreen> {
                     Padding(
                       padding: const EdgeInsets.symmetric(horizontal: 24),
                       child: ElevatedButton(
-                        onPressed: (_selectedMechanic == null || _isRequesting)
+                        onPressed: (_selectedProvider == null || _isRequesting)
                             ? null
                             : _sendRequest,
                         style: ElevatedButton.styleFrom(
-                          backgroundColor: AppColors.primaryBlue,
+                          backgroundColor: AppColors.emergencyRed,
                           foregroundColor: Colors.white,
                           disabledBackgroundColor: Colors.grey[300],
                           disabledForegroundColor: Colors.grey[600],
@@ -539,9 +564,9 @@ class _SearchingMechanicsScreenState extends State<SearchingMechanicsScreen> {
                         child: Text(
                           _isRequesting
                               ? 'Requesting...'
-                              : (_selectedMechanic != null
-                                  ? 'Confirm Request'
-                                  : 'Select a Mechanic'),
+                              : (_selectedProvider != null
+                                  ? 'Request This Tow Truck'
+                                  : 'Select a Tow Truck'),
                           style: const TextStyle(
                             fontSize: 16,
                             fontWeight: FontWeight.bold,
@@ -566,7 +591,7 @@ class _SearchingMechanicsScreenState extends State<SearchingMechanicsScreen> {
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
       decoration: BoxDecoration(
         color: active
-            ? AppColors.primaryBlue
+            ? AppColors.emergencyRed
             : (dark ? const Color(0xFF1E3350) : Colors.grey[100]),
         borderRadius: BorderRadius.circular(20),
       ),
@@ -583,21 +608,20 @@ class _SearchingMechanicsScreenState extends State<SearchingMechanicsScreen> {
     );
   }
 
-  Widget _mechanicCard(Map<String, dynamic> mech, bool selected, bool dark) {
+  Widget _towCard(Map<String, dynamic> tow, bool selected, bool dark) {
     return GestureDetector(
       onTap: () {
-        setState(() => _selectedMechanic = mech);
+        setState(() => _selectedProvider = tow);
         Future.delayed(const Duration(milliseconds: 50), () {
           if (mounted) {
             try {
-              _mapController.move(LatLng(mech['lat'], mech['lng']), 14);
+              _mapController.move(LatLng(tow['lat'], tow['lng']), 14);
             } catch (_) {}
           }
         });
       },
       child: Container(
-        width: MediaQuery.of(context).size.width *
-            0.81, // Show a hint of the next card
+        width: MediaQuery.of(context).size.width * 0.81,
         margin: const EdgeInsets.only(right: 12),
         padding: const EdgeInsets.all(16),
         decoration: BoxDecoration(
@@ -605,14 +629,14 @@ class _SearchingMechanicsScreenState extends State<SearchingMechanicsScreen> {
           borderRadius: BorderRadius.circular(16),
           border: Border.all(
             color: selected
-                ? AppColors.primaryBlue
+                ? AppColors.emergencyRed
                 : (dark ? Colors.grey[800]! : Colors.grey[200]!),
             width: 2,
           ),
           boxShadow: [
             if (selected)
               BoxShadow(
-                color: AppColors.primaryBlue.withAlpha(25),
+                color: AppColors.emergencyRed.withAlpha(25),
                 blurRadius: 10,
                 offset: const Offset(0, 4),
               ),
@@ -620,22 +644,22 @@ class _SearchingMechanicsScreenState extends State<SearchingMechanicsScreen> {
         ),
         child: Row(
           children: [
-            // Profile Pic
+            // Profile Pic / Truck Icon
             Container(
               width: 60,
               height: 60,
               decoration: BoxDecoration(
                 color: dark ? Colors.grey[800] : Colors.grey[200],
                 borderRadius: BorderRadius.circular(12),
-                image: (mech['photoUrl'] != null && mech['photoUrl'].toString().isNotEmpty)
+                image: (tow['photoUrl'] != null && tow['photoUrl'].toString().isNotEmpty)
                     ? DecorationImage(
-                        image: NetworkImage(mech['photoUrl']),
+                        image: NetworkImage(tow['photoUrl']),
                         fit: BoxFit.cover,
                       )
                     : null,
               ),
-              child: (mech['photoUrl'] == null || mech['photoUrl'].toString().isEmpty)
-                  ? const Icon(Icons.person, color: Colors.grey)
+              child: (tow['photoUrl'] == null || tow['photoUrl'].toString().isEmpty)
+                  ? const Icon(Icons.local_shipping, color: Colors.grey)
                   : null,
             ),
             const SizedBox(width: 12),
@@ -650,7 +674,7 @@ class _SearchingMechanicsScreenState extends State<SearchingMechanicsScreen> {
                     children: [
                       Expanded(
                         child: Text(
-                          mech['name'],
+                          tow['name'],
                           style: TextStyle(
                             fontWeight: FontWeight.bold,
                             fontSize: 16,
@@ -660,67 +684,31 @@ class _SearchingMechanicsScreenState extends State<SearchingMechanicsScreen> {
                           overflow: TextOverflow.ellipsis,
                         ),
                       ),
-                      Text(
-                        'Rs. ${mech['price']}',
-                        style: const TextStyle(
-                          color: AppColors.primaryBlue,
-                          fontWeight: FontWeight.bold,
+                      if (tow['plate'].toString().isNotEmpty)
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 8, vertical: 2),
+                          decoration: BoxDecoration(
+                            color: AppColors.emergencyRed.withAlpha(25),
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          child: Text(
+                            tow['plate'],
+                            style: const TextStyle(
+                              color: AppColors.emergencyRed,
+                              fontWeight: FontWeight.bold,
+                              fontSize: 11,
+                            ),
+                          ),
                         ),
-                      ),
                     ],
                   ),
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      Text(
-                        mech['specialty'],
-                        style: TextStyle(
-                          fontSize: 12,
-                          color: Colors.grey[500],
-                        ),
-                      ),
-                      GestureDetector(
-                        onTap: () {
-                          Navigator.pushNamed(
-                            context,
-                            '/mechanic-details',
-                            arguments: mech['id'],
-                          );
-                        },
-                        child: Text(
-                          'View Profile',
-                          style: TextStyle(
-                            fontSize: 12,
-                            color: AppColors.primaryBlue,
-                            fontWeight: FontWeight.bold,
-                            decoration: TextDecoration.underline,
-                          ),
-                        ),
-                      ),
-                      const SizedBox(width: 8),
-                      GestureDetector(
-                        onTap: () {
-                          Navigator.pushNamed(
-                            context,
-                            '/user-shop-view',
-                            arguments: {
-                              'mechanicId': mech['id'],
-                              'mechanicName': mech['name'],
-                              'requestId': _currentRequestId,
-                            },
-                          );
-                        },
-                        child: Text(
-                          'View Shop',
-                          style: TextStyle(
-                            fontSize: 12,
-                            color: Colors.green,
-                            fontWeight: FontWeight.bold,
-                            decoration: TextDecoration.underline,
-                          ),
-                        ),
-                      ),
-                    ],
+                  Text(
+                    tow['truckModel'],
+                    style: TextStyle(
+                      fontSize: 12,
+                      color: Colors.grey[500],
+                    ),
                   ),
                   const SizedBox(height: 8),
                   Row(
@@ -729,23 +717,28 @@ class _SearchingMechanicsScreenState extends State<SearchingMechanicsScreen> {
                           color: AppColors.brandYellow, size: 14),
                       const SizedBox(width: 4),
                       Text(
-                        '${mech['rating']} (${mech['reviews']})',
+                        '${tow['rating']} (${tow['reviews']})',
                         style: TextStyle(
                           fontSize: 12,
                           color: dark ? Colors.grey[400] : Colors.grey[600],
                         ),
                       ),
-                      const Spacer(), // Push distance to the end
-                      Icon(Icons.location_on,
-                          color: Colors.grey[400], size: 14),
-                      const SizedBox(width: 4),
-                      Text(
-                        '2.5 km',
-                        style: TextStyle(
-                          fontSize: 12,
-                          color: dark ? Colors.grey[400] : Colors.grey[600],
+                      const Spacer(),
+                      if (tow['towingCapacity'].toString().isNotEmpty)
+                        Row(
+                          children: [
+                            Icon(Icons.straighten,
+                                color: Colors.grey[400], size: 14),
+                            const SizedBox(width: 4),
+                            Text(
+                              '${tow['towingCapacity']} Tons',
+                              style: TextStyle(
+                                fontSize: 12,
+                                color: dark ? Colors.grey[400] : Colors.grey[600],
+                              ),
+                            ),
+                          ],
                         ),
-                      ),
                     ],
                   ),
                 ],

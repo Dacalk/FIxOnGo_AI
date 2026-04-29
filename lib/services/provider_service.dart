@@ -32,6 +32,7 @@ class ProviderService {
 
     final Map<String, dynamic> updates = {
       'roles.${role.toLowerCase()}.isOnline': true,
+      'roles.${role.toLowerCase()}.isAvailable': true, // Reset to available when going online
       'roles.${role.toLowerCase()}.lastSeen': FieldValue.serverTimestamp(),
     };
 

@@ -19,7 +19,7 @@ class _TowingStatusScreenState extends State<TowingStatusScreen> {
   final List<String> _statuses = [
     "Request Received",
     "Driver Assigned",
-    "Truck En Route",
+    "Truck Arrived",
     "Vehicle Picked Up"
   ];
 
@@ -76,7 +76,7 @@ class _TowingStatusScreenState extends State<TowingStatusScreen> {
             case 'accepted':
               _currentStep = 1;
               break;
-            case 'arriving':
+            case 'arrived':
               _currentStep = 2;
               break;
             case 'picked_up':
@@ -90,6 +90,26 @@ class _TowingStatusScreenState extends State<TowingStatusScreen> {
           if (data['mechanicId'] != null) {
             _listenToDriver(data['mechanicId']);
             _driverName = data['mechanicName'] ?? "Driver Assigned";
+          }
+
+          if (status == 'completed') {
+            _requestSub?.cancel();
+            _driverSub?.cancel();
+            Future.microtask(() {
+              if (mounted) {
+                Navigator.pushReplacementNamed(context, '/payment-successful',
+                    arguments: {
+                      'role': 'user',
+                      'type': 'towing',
+                      'requestId': widget.requestId,
+                      'itemName': 'Towing Service',
+                      'totalPrice': _totalAmount,
+                      'mechanicId':
+                          data['assignedProviderId'] ?? data['mechanicId'],
+                      'mechanicName': _driverName,
+                    });
+              }
+            });
           }
         });
       }
@@ -117,10 +137,14 @@ class _TowingStatusScreenState extends State<TowingStatusScreen> {
             _driverPlate = towRole['plate'] ?? "";
             
             // Calculate ETR based on distance
-            final Distance distance = const Distance();
-            final double meter = distance.as(LengthUnit.Meter, _userLoc, _driverLoc);
-            final int mins = (meter / 300).toInt(); // Approx 20km/h in traffic
-            _etr = "$mins MIN";
+            if (_currentStep >= 2) {
+              _etr = "ARRIVED";
+            } else {
+              final Distance distance = const Distance();
+              final double meter = distance.as(LengthUnit.Meter, _userLoc, _driverLoc);
+              final int mins = (meter / 300).toInt(); // Approx 20km/h in traffic
+              _etr = "$mins MIN";
+            }
           });
         }
       }

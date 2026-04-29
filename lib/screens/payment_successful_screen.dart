@@ -11,13 +11,13 @@ class PaymentSuccessfulScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     final args =
         ModalRoute.of(context)?.settings.arguments as Map<String, dynamic>?;
-    final role = args?['role'] ?? 'user';
-    final isMechanic = role == 'mechanic';
+    final role = args?['role']?.toString().toLowerCase() ?? 'user';
+    final isProvider = ['mechanic', 'tow', 'seller', 'delivery'].contains(role);
     final type = args?['type'] ?? 'service';
     final isShopOrder = type == 'shop_order';
     final itemName = args?['itemName'] ?? 'Mechanical Repair';
     final requestId = args?['requestId'] ?? '#RQ-99231-EB';
-    final totalPrice = args?['totalPrice']?.toString() ?? (isMechanic ? '2,250.00' : '2,500.00');
+    final totalPrice = args?['totalPrice']?.toString() ?? (isProvider ? '2,250.00' : '2,500.00');
 
     final dark = isDarkMode(context);
     final bgColor = dark ? AppColors.darkBackground : Colors.white;
@@ -37,7 +37,7 @@ class PaymentSuccessfulScreen extends StatelessWidget {
         elevation: 0,
         centerTitle: true,
         title: Text(
-          isMechanic ? 'Job Summary' : 'Receipt',
+          isProvider ? 'Job Summary' : 'Receipt',
           style: TextStyle(
             fontSize: 17,
             fontWeight: FontWeight.bold,
@@ -112,7 +112,7 @@ class PaymentSuccessfulScreen extends StatelessWidget {
 
                   // ── Title ──
                   Text(
-                    isMechanic ? 'Job Completed!' : 'Payment Successful',
+                    isProvider ? 'Job Completed!' : 'Payment Successful',
                     style: TextStyle(
                       fontSize: 26,
                       fontWeight: FontWeight.bold,
@@ -121,7 +121,7 @@ class PaymentSuccessfulScreen extends StatelessWidget {
                   ),
                   const SizedBox(height: 8),
                   Text(
-                    isMechanic
+                    isProvider
                         ? 'The payout has been added to your wallet.'
                         : 'Your payment has been processed successfully.',
                     textAlign: TextAlign.center,
@@ -180,8 +180,8 @@ class PaymentSuccessfulScreen extends StatelessWidget {
                         ),
                         const SizedBox(height: 16),
                         _detailRow(
-                          isMechanic ? 'Commission Fee' : 'Payment Method',
-                          isMechanic ? 'Rs. 250.00' : 'Cash on Delivery',
+                          isProvider ? 'Commission Fee' : 'Payment Method',
+                          isProvider ? 'Rs. 250.00' : 'Cash on Delivery',
                           labelColor,
                           valueColor,
                         ),
@@ -193,7 +193,7 @@ class PaymentSuccessfulScreen extends StatelessWidget {
                           mainAxisAlignment: MainAxisAlignment.spaceBetween,
                           children: [
                             Text(
-                              isMechanic ? 'Total Payout' : 'Total Amount Paid',
+                              isProvider ? 'Total Payout' : 'Total Amount Paid',
                               style: TextStyle(
                                 fontSize: 14,
                                 fontWeight: FontWeight.w600,
@@ -228,7 +228,7 @@ class PaymentSuccessfulScreen extends StatelessWidget {
               child: ElevatedButton(
                 onPressed: () {
                   // Primary action
-                  if (isMechanic) {
+                  if (isProvider) {
                     Navigator.pushNamedAndRemoveUntil(
                         context, '/', (route) => false);
                   } else {
@@ -254,14 +254,14 @@ class PaymentSuccessfulScreen extends StatelessWidget {
                   elevation: 0,
                 ),
                 child: Text(
-                  isMechanic ? 'BACK TO DASHBOARD' : 'RATE EXPERIENCE',
+                  isProvider ? 'BACK TO DASHBOARD' : 'RATE EXPERIENCE',
                   style: const TextStyle(
                       fontWeight: FontWeight.bold, fontSize: 16),
                 ),
               ),
             ),
           ),
-          if (!isMechanic)
+          if (!isProvider)
             Padding(
               padding: const EdgeInsets.fromLTRB(24, 0, 24, 30),
               child: SizedBox(
