@@ -848,7 +848,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                         ? []
                         : [
                             BoxShadow(
-                                color: Colors.black.withValues(alpha: 0.05),
+                                color: Colors.black.withAlpha(12),
                                 blurRadius: 4,
                                 offset: const Offset(0, 2))
                           ]),
@@ -889,7 +889,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                   height: 1,
                   color: dark
                       ? Colors.white10
-                      : Colors.black.withValues(alpha: 0.05))),
+                      : Colors.black.withAlpha(12))),
       ],
     );
   }
@@ -969,7 +969,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                   height: 1,
                   color: dark
                       ? Colors.white10
-                      : Colors.black.withValues(alpha: 0.05))),
+                      : Colors.black.withAlpha(12))),
       ],
     );
   }

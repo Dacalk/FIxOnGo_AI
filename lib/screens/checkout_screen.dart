@@ -1,4 +1,9 @@
 import 'package:flutter/material.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+import 'package:latlong2/latlong.dart';
+import '../services/location_service.dart';
+import '../services/provider_service.dart';
 import '../theme_provider.dart';
 
 /// Checkout screen — review tool delivery order, select payment method,
@@ -13,6 +18,14 @@ class CheckoutScreen extends StatefulWidget {
 
 class _CheckoutScreenState extends State<CheckoutScreen> {
   int _selectedPayment = 0; // 0 = Credit/Debit, 1 = Cash on Delivery
+  bool _isProcessing = false;
+  Map<String, dynamic>? _args;
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    _args ??= ModalRoute.of(context)?.settings.arguments as Map<String, dynamic>?;
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -25,6 +38,12 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
     final labelColor = dark ? Colors.grey[500]! : Colors.grey[600]!;
     final btnColor = dark ? AppColors.brandYellow : AppColors.primaryBlue;
     final btnTextColor = dark ? Colors.black : Colors.white;
+
+    final itemName = _args?['itemName'] ?? 'Item';
+    final num priceVal = (_args?['itemPrice'] is num) ? _args!['itemPrice'] : (double.tryParse(_args?['itemPrice']?.toString() ?? '') ?? 0.0);
+    final double itemPrice = priceVal.toDouble();
+    final double deliveryFee = 350.0;
+    final double totalAmount = itemPrice + deliveryFee;
 
     return Scaffold(
       backgroundColor: bgColor,
@@ -122,7 +141,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             Text(
-                              'Battery (12ft, 4 Gauge)',
+                              itemName,
                               style: TextStyle(
                                 fontSize: 14,
                                 fontWeight: FontWeight.w600,
@@ -131,13 +150,13 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                             ),
                             const SizedBox(height: 2),
                             Text(
-                              'Universal Fit Model',
+                              'Qty: 1',
                               style: TextStyle(fontSize: 12, color: subColor),
                             ),
                           ],
                         ),
                         Text(
-                          'Rs. 5,000',
+                          'Rs. ${itemPrice.toStringAsFixed(0)}',
                           style: TextStyle(
                             fontSize: 15,
                             fontWeight: FontWeight.bold,
@@ -212,8 +231,8 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                     ),
                     decoration: BoxDecoration(
                       color: dark
-                          ? AppColors.primaryBlue.withValues(alpha: 0.2)
-                          : AppColors.primaryBlue.withValues(alpha: 0.1),
+                          ? AppColors.primaryBlue.withAlpha(51)
+                          : AppColors.primaryBlue.withAlpha(25),
                       borderRadius: BorderRadius.circular(8),
                     ),
                     child: Row(
@@ -290,11 +309,11 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                     ),
                   ),
                   const SizedBox(height: 14),
-                  _summaryRow('Subtotal', 'Rs. 5,000', labelColor, titleColor),
+                  _summaryRow('Subtotal', 'Rs. ${itemPrice.toStringAsFixed(0)}', labelColor, titleColor),
                   const SizedBox(height: 10),
                   _summaryRow(
                     'Delivery Fee',
-                    'Rs. 250',
+                    'Rs. ${deliveryFee.toStringAsFixed(0)}',
                     labelColor,
                     titleColor,
                   ),
@@ -313,7 +332,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                         ),
                       ),
                       Text(
-                        'Rs. 5,250',
+                        'Rs. ${totalAmount.toStringAsFixed(0)}',
                         style: TextStyle(
                           fontSize: 18,
                           fontWeight: FontWeight.bold,
@@ -335,9 +354,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
             child: SizedBox(
               width: double.infinity,
               child: ElevatedButton(
-                onPressed: () {
-                  Navigator.pushNamed(context, '/order-tracking');
-                },
+                onPressed: _isProcessing ? null : _placeOrder,
                 style: ElevatedButton.styleFrom(
                   backgroundColor: btnColor,
                   foregroundColor: btnTextColor,
@@ -346,26 +363,150 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                     borderRadius: BorderRadius.circular(14),
                   ),
                 ),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Text(
-                      'Pay & Confirm Order',
-                      style: const TextStyle(
-                        fontWeight: FontWeight.bold,
-                        fontSize: 15,
+                child: _isProcessing
+                    ? const SizedBox(height: 20, width: 20, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+                    : Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Text(
+                            'Pay & Confirm Order',
+                            style: const TextStyle(
+                              fontWeight: FontWeight.bold,
+                              fontSize: 15,
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          const Icon(Icons.arrow_forward, size: 18),
+                        ],
                       ),
-                    ),
-                    const SizedBox(width: 8),
-                    const Icon(Icons.arrow_forward, size: 18),
-                  ],
-                ),
               ),
             ),
           ),
         ],
       ),
     );
+  }
+
+  Future<void> _placeOrder() async {
+    if (_args == null) return;
+    final productId = _args!['productId'];
+    final name = _args!['itemName'];
+    final num priceVal = (_args!['itemPrice'] is num) ? _args!['itemPrice'] : (double.tryParse(_args!['itemPrice']?.toString() ?? '') ?? 0.0);
+    final itemPrice = priceVal.toDouble();
+    final _mechanicId = _args!['mechanicId'];
+    final _mechanicName = _args!['mechanicName'];
+
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null) return;
+
+    setState(() => _isProcessing = true);
+    String? createdRequestId;
+
+    try {
+      LatLng userLoc;
+      try {
+        userLoc = await LocationService.instance.getCurrentLatLng();
+      } catch (e) {
+        userLoc = LatLng(6.9271, 79.8612);
+      }
+
+      final driver = await ProviderService.instance.findNearestAvailableDriver(userLoc);
+      final deliveryFee = 350.0;
+      final totalAmount = itemPrice + deliveryFee;
+
+      await FirebaseFirestore.instance.runTransaction((transaction) async {
+        final productRef = FirebaseFirestore.instance
+            .collection('users')
+            .doc(_mechanicId)
+            .collection('products')
+            .doc(productId);
+
+        final pSnap = await transaction.get(productRef);
+        if (!pSnap.exists) throw Exception("Product no longer available.");
+
+        final currentStock = pSnap.data()?['stockCount'] ?? 0;
+        if (currentStock <= 0) throw Exception("Out of stock.");
+
+        transaction.update(productRef, {'stockCount': currentStock - 1});
+
+        final requestRef = FirebaseFirestore.instance.collection('requests').doc();
+        createdRequestId = requestRef.id;
+
+        transaction.set(requestRef, {
+          'targetRole': 'seller',
+          'assignedProviderId': _mechanicId,
+          'sellerId': _mechanicId,
+          'sellerName': _mechanicName ?? 'Seller',
+          'userId': user.uid,
+          'userName': user.displayName ?? 'User',
+          'type': 'shop_order',
+          'status': 'paid',
+          'productName': name,
+          'productId': productId,
+          'itemPrice': itemPrice,
+          'deliveryFee': deliveryFee,
+          'totalPrice': totalAmount,
+          'createdAt': FieldValue.serverTimestamp(),
+          'userLocation': {'lat': userLoc.latitude, 'lng': userLoc.longitude},
+        });
+
+        final deliveryRef = FirebaseFirestore.instance.collection('deliveries').doc();
+        transaction.set(deliveryRef, {
+          'sourceRole': 'seller',
+          'targetRole': 'delivery',
+          'senderId': _mechanicId,
+          'senderName': _mechanicName ?? 'Seller',
+          'assignedProviderId': driver?['uid'],
+          'driverId': driver?['uid'],
+          'driverName': driver?['name'],
+          'itemName': name,
+          'itemCategory': pSnap.data()?['category'] ?? 'Tools',
+          'itemPrice': itemPrice,
+          'pickupAddress': 'Seller Location',
+          'dropAddress': 'Your Location',
+          'pickupLat': 6.9271,
+          'pickupLng': 79.8612,
+          'dropLat': userLoc.latitude,
+          'dropLng': userLoc.longitude,
+          'status': 'pending',
+          'earnings': deliveryFee,
+          'orderId': createdRequestId,
+          'createdAt': FieldValue.serverTimestamp(),
+        });
+
+        final paymentRef = FirebaseFirestore.instance.collection('payments').doc();
+        transaction.set(paymentRef, {
+          'userId': user.uid,
+          'userName': user.displayName ?? 'User',
+          'sellerId': _mechanicId,
+          'providerId': _mechanicId,
+          'sellerName': _mechanicName ?? 'Seller',
+          'driverId': driver?['uid'],
+          'amount': totalAmount,
+          'itemPrice': itemPrice,
+          'deliveryFee': deliveryFee,
+          'itemName': name,
+          'currency': 'LKR',
+          'status': 'completed',
+          'type': 'shop_order',
+          'method': _selectedPayment == 0 ? 'Card' : 'Cash on Delivery',
+          'requestId': createdRequestId,
+          'createdAt': FieldValue.serverTimestamp(),
+        });
+      });
+
+      if (mounted) {
+        if (createdRequestId != null) {
+          Navigator.pushReplacementNamed(context, '/order-tracking', arguments: createdRequestId);
+        }
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: ${e.toString()}')));
+      }
+    } finally {
+      if (mounted) setState(() => _isProcessing = false);
+    }
   }
 
   Widget _paymentOption({

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:latlong2/latlong.dart';
 import 'package:flutter_map/flutter_map.dart';
 import '../theme_provider.dart';
@@ -63,6 +64,25 @@ class _ActiveDeliveryScreenState extends State<ActiveDeliveryScreen> {
             .collection('requests')
             .doc(orderId)
             .update({'status': 'delivered'});
+
+        // Create payment record for the driver
+        final earnings = (_data?['earnings'] ?? 350).toDouble();
+        final driverId = FirebaseAuth.instance.currentUser?.uid;
+        final sellerId = _data?['sellerId'];
+        final userId = _data?['userId'];
+
+        await FirebaseFirestore.instance.collection('payments').add({
+          'driverId': driverId,
+          'providerId': driverId,
+          'userId': userId,
+          'sellerId': sellerId,
+          'amount': earnings,
+          'type': 'delivery',
+          'orderId': orderId,
+          'createdAt': FieldValue.serverTimestamp(),
+          'status': 'completed',
+          'itemName': _data?['itemName'] ?? 'Shop Delivery',
+        });
       }
 
       if (newStatus == 'delivered') {
@@ -158,7 +178,7 @@ class _ActiveDeliveryScreenState extends State<ActiveDeliveryScreen> {
                         Container(
                           padding: const EdgeInsets.all(12),
                           decoration: BoxDecoration(
-                            color: Colors.blue.withValues(alpha: 0.2),
+                            color: Colors.blue.withAlpha(51),
                             shape: BoxShape.circle,
                           ),
                           child: const Icon(Icons.local_shipping,

@@ -236,4 +236,105 @@ class ProviderService {
 
     await setAvailable(role);
   }
+
+  // ─────────────────────────────────────────────────────────────
+  //  DELIVERY LOGIC
+  // ─────────────────────────────────────────────────────────────
+
+  /// Find the nearest available and online delivery driver.
+  Future<Map<String, dynamic>?> findNearestAvailableDriver(LatLng pickupLoc) async {
+    debugPrint('[ProviderService] findNearestAvailableDriver pickup=$pickupLoc');
+    
+    try {
+      final snap = await _db
+          .collection('users')
+          .where('roles.delivery', isNotEqualTo: null)
+          .get();
+
+      Map<String, dynamic>? nearest;
+      double minDistance = double.infinity;
+
+      final distance = const Distance();
+
+      for (var doc in snap.docs) {
+        final data = doc.data();
+        final deliv = data['roles']?['delivery'] as Map<String, dynamic>?;
+        
+        if (deliv == null) continue;
+        
+        final isOnline = deliv['isOnline'] as bool? ?? true;
+        final isAvailable = deliv['isAvailable'] as bool? ?? true;
+        
+        if (!isOnline || !isAvailable) continue;
+
+        final loc = deliv['location'] as Map<String, dynamic>?;
+        if (loc == null) continue;
+
+        final driverLoc = LatLng(loc['lat'], loc['lng']);
+        final d = distance.as(LengthUnit.Meter, pickupLoc, driverLoc);
+
+        if (d < minDistance) {
+          minDistance = d;
+          nearest = {
+            'uid': doc.id,
+            'name': deliv['fullName'] ?? data['fullName'] ?? 'Driver',
+            'location': loc,
+            'distance': d,
+          };
+        }
+      }
+
+      return nearest;
+    } catch (e) {
+      debugPrint('[ProviderService] Error finding driver: $e');
+      return null;
+    }
+  }
+
+  /// Create a delivery request and assign it to a driver.
+  Future<String> createDeliveryRequest({
+    required String sourceRole, // 'seller' or 'mechanic'
+    required String senderId,
+    required String senderName,
+    required String? driverId,
+    required String? driverName,
+    required String itemName,
+    required String itemCategory,
+    required double itemPrice,
+    required String pickupAddress,
+    required String dropAddress,
+    required Map<String, double> pickupLocation,
+    required Map<String, double> dropLocation,
+    String? notes,
+    num earnings = 350,
+    String? orderId,
+  }) async {
+    debugPrint('[ProviderService] createDeliveryRequest sender=$senderName driver=$driverName');
+
+    final ref = await _db.collection('deliveries').add({
+      'sourceRole': sourceRole,
+      'targetRole': 'delivery',
+      'senderId': senderId,
+      'senderName': senderName,
+      'assignedProviderId': driverId, // The UID of the driver
+      'driverId': driverId,
+      'driverName': driverName,
+      'itemName': itemName,
+      'itemCategory': itemCategory,
+      'itemPrice': itemPrice,
+      'pickupAddress': pickupAddress,
+      'dropAddress': dropAddress,
+      'pickupLat': pickupLocation['lat'],
+      'pickupLng': pickupLocation['lng'],
+      'dropLat': dropLocation['lat'],
+      'dropLng': dropLocation['lng'],
+      'notes': notes,
+      'status': 'pending',
+      'earnings': earnings,
+      'orderId': orderId,
+      'createdAt': FieldValue.serverTimestamp(),
+    });
+
+    return ref.id;
+  }
 }

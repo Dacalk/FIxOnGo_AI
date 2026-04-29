@@ -246,7 +246,7 @@ class _SellerChatScreenState extends State<SellerChatScreen> {
             children: [
               CircleAvatar(
                 radius: 22,
-                backgroundColor: AppColors.primaryBlue.withValues(alpha: 0.15),
+                backgroundColor: AppColors.primaryBlue.withAlpha(38),
                 child: Text(
                   widget.otherUserName.isNotEmpty
                       ? widget.otherUserName[0].toUpperCase()

@@ -25,7 +25,7 @@ class WalletScreen extends StatelessWidget {
       body: StreamBuilder<QuerySnapshot>(
         stream: FirebaseFirestore.instance
             .collection('payments')
-            .where(role == 'Seller' ? 'sellerId' : 'mechanicId', isEqualTo: user?.uid)
+            .where('providerId', isEqualTo: user?.uid)
             .orderBy('createdAt', descending: true)
             .snapshots(),
         builder: (context, snapshot) {
@@ -100,7 +100,7 @@ class WalletScreen extends StatelessWidget {
         borderRadius: BorderRadius.circular(24),
         boxShadow: [
           BoxShadow(
-            color: Colors.blue.withValues(alpha: 0.3),
+            color: Colors.blue.withAlpha(76),
             blurRadius: 20,
             offset: const Offset(0, 10),
           ),
@@ -119,7 +119,7 @@ class WalletScreen extends StatelessWidget {
               Container(
                 padding: const EdgeInsets.all(8),
                 decoration: BoxDecoration(
-                  color: Colors.white.withValues(alpha: 0.2),
+                  color: Colors.white.withAlpha(51),
                   shape: BoxShape.circle,
                 ),
                 child: const Icon(Icons.account_balance_wallet, color: Colors.white, size: 20),
@@ -166,7 +166,7 @@ class WalletScreen extends StatelessWidget {
           Container(
             padding: const EdgeInsets.all(10),
             decoration: BoxDecoration(
-              color: Colors.green.withValues(alpha: 0.1),
+              color: Colors.green.withAlpha(25),
               borderRadius: BorderRadius.circular(12),
             ),
             child: const Icon(Icons.arrow_downward, color: Colors.green, size: 20),

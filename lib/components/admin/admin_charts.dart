@@ -141,7 +141,7 @@ class AdminCharts {
                 backDrawRodData: BackgroundBarChartRodData(
                   show: true,
                   toY: maxY,
-                  color: Colors.white.withValues(alpha: 0.05),
+                  color: Colors.white.withAlpha(12),
                 ),
               ),
             ],

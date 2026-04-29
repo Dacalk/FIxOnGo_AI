@@ -351,7 +351,7 @@ class _MechanicChatScreenState extends State<MechanicChatScreen> {
               CircleAvatar(
                 radius: 22,
                 backgroundColor:
-                    AppColors.primaryBlue.withValues(alpha: 0.15),
+                    AppColors.primaryBlue.withAlpha(38),
                 child: Text(
                   _otherUserName.isNotEmpty
                       ? _otherUserName[0].toUpperCase()

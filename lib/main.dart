@@ -32,6 +32,7 @@ import 'screens/mechanic_shop_screen.dart';
 import 'screens/payment_history_screen.dart';
 import 'screens/help_support_screen.dart';
 import 'screens/profile_screen.dart';
+import 'screens/browse_shops_screen.dart';
 import 'screens/rate_experience_screen.dart';
 import 'screens/user_shop_view_screen.dart';
 import 'screens/job_history_screen.dart';
@@ -214,6 +215,8 @@ class FixOnGoApp extends StatelessWidget {
                 const AuthGuard(child: HelpSupportScreen()),
             '/user-shop-view': (context) =>
                 const AuthGuard(child: UserShopViewScreen()),
+            '/browse-shops': (context) =>
+                const AuthGuard(child: BrowseShopsScreen()),
             '/rate-experience': (context) =>
                 const AuthGuard(child: RateExperienceScreen()),
             '/job-history': (context) {

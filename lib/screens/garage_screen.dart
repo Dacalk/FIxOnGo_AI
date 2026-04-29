@@ -133,7 +133,7 @@ class _GarageScreenState extends State<GarageScreen> {
 
     // Status Badge Colors
     final primaryBg = dark
-        ? AppColors.brandYellow.withValues(alpha: 0.2)
+        ? AppColors.brandYellow.withAlpha(51)
         : const Color(0xFFFFF9C4);
     final primaryText = dark ? AppColors.brandYellow : Colors.orange[800]!;
 
@@ -307,7 +307,7 @@ class _GarageScreenState extends State<GarageScreen> {
             ? null
             : [
                 BoxShadow(
-                  color: Colors.black.withValues(alpha: 0.03),
+                  color: Colors.black.withAlpha(7),
                   blurRadius: 10,
                   spreadRadius: 1,
                   offset: const Offset(0, 4),
@@ -448,7 +448,7 @@ class _GarageScreenState extends State<GarageScreen> {
         color: dark ? const Color(0xFF1A2432) : Colors.white,
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withValues(alpha: 0.05),
+            color: Colors.black.withAlpha(12),
             blurRadius: 10,
             offset: const Offset(0, -5),
           ),

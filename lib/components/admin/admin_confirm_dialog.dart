@@ -61,7 +61,7 @@ class _AdminConfirmDialog extends StatelessWidget {
             Text(
               message,
               style: TextStyle(
-                color: Colors.white.withValues(alpha: 0.6),
+                color: Colors.white.withAlpha(153),
                 fontSize: 14,
                 height: 1.5,
               ),
@@ -78,7 +78,7 @@ class _AdminConfirmDialog extends StatelessWidget {
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(12),
                         side: BorderSide(
-                            color: Colors.white.withValues(alpha: 0.15)),
+                            color: Colors.white.withAlpha(38)),
                       ),
                     ),
                     child: const Text('Cancel',

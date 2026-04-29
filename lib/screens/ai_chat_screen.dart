@@ -370,7 +370,7 @@ class _AiChatScreenState extends State<AiChatScreen> {
         decoration: BoxDecoration(
           color: dark
               ? AppColors.darkSurface
-              : AppColors.primaryBlue.withValues(alpha: 0.1),
+              : AppColors.primaryBlue.withAlpha(25),
           borderRadius: BorderRadius.circular(20),
         ),
         child: Text(

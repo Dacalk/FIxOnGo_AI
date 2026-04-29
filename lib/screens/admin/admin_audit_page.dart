@@ -59,13 +59,13 @@ class AdminAuditPage extends StatelessWidget {
               decoration: BoxDecoration(
                 color: const Color(0xFF111D35),
                 borderRadius: BorderRadius.circular(12),
-                border: Border.all(color: Colors.white.withValues(alpha: 0.06)),
+                border: Border.all(color: Colors.white.withAlpha(15)),
               ),
               child: Row(children: [
                 Container(
                   width: 36, height: 36,
                   decoration: BoxDecoration(
-                    color: color.withValues(alpha: 0.15),
+                    color: color.withAlpha(38),
                     borderRadius: BorderRadius.circular(10),
                   ),
                   child: Icon(_actionIcon(action), color: color, size: 18),

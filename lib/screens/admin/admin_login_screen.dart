@@ -78,7 +78,7 @@ class _AdminLoginScreenState extends State<AdminLoginScreen> {
                             borderRadius: BorderRadius.circular(24),
                             boxShadow: [
                               BoxShadow(
-                                color: const Color(0xFF1A4DBE).withValues(alpha: 0.4),
+                                color: const Color(0xFF1A4DBE).withAlpha(102),
                                 blurRadius: 30,
                                 offset: const Offset(0, 10),
                               ),
@@ -101,9 +101,9 @@ class _AdminLoginScreenState extends State<AdminLoginScreen> {
                         Container(
                           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
                           decoration: BoxDecoration(
-                            color: const Color(0xFF1A4DBE).withValues(alpha: 0.2),
+                            color: const Color(0xFF1A4DBE).withAlpha(51),
                             borderRadius: BorderRadius.circular(20),
-                            border: Border.all(color: const Color(0xFF1A4DBE).withValues(alpha: 0.4)),
+                            border: Border.all(color: const Color(0xFF1A4DBE).withAlpha(102)),
                           ),
                           child: const Text(
                             'ADMIN CONSOLE',
@@ -155,14 +155,14 @@ class _AdminLoginScreenState extends State<AdminLoginScreen> {
                       Text(
                         'Sign in to access the admin console',
                         style: TextStyle(
-                          color: Colors.white.withValues(alpha: 0.5),
+                          color: Colors.white.withAlpha(127),
                           fontSize: 14,
                         ),
                       ),
                       const SizedBox(height: 40),
 
                       // Email
-                      Text('Email', style: TextStyle(color: Colors.white.withValues(alpha: 0.7), fontSize: 13, fontWeight: FontWeight.w500)),
+                      Text('Email', style: TextStyle(color: Colors.white.withAlpha(178), fontSize: 13, fontWeight: FontWeight.w500)),
                       const SizedBox(height: 8),
                       TextFormField(
                         controller: _emailCtrl,
@@ -177,7 +177,7 @@ class _AdminLoginScreenState extends State<AdminLoginScreen> {
                       const SizedBox(height: 20),
 
                       // Password
-                      Text('Password', style: TextStyle(color: Colors.white.withValues(alpha: 0.7), fontSize: 13, fontWeight: FontWeight.w500)),
+                      Text('Password', style: TextStyle(color: Colors.white.withAlpha(178), fontSize: 13, fontWeight: FontWeight.w500)),
                       const SizedBox(height: 8),
                       TextFormField(
                         controller: _passCtrl,
@@ -202,9 +202,9 @@ class _AdminLoginScreenState extends State<AdminLoginScreen> {
                         Container(
                           padding: const EdgeInsets.all(12),
                           decoration: BoxDecoration(
-                            color: const Color(0xFFEF5350).withValues(alpha: 0.1),
+                            color: const Color(0xFFEF5350).withAlpha(25),
                             borderRadius: BorderRadius.circular(10),
-                            border: Border.all(color: const Color(0xFFEF5350).withValues(alpha: 0.3)),
+                            border: Border.all(color: const Color(0xFFEF5350).withAlpha(76)),
                           ),
                           child: Row(
                             children: [
@@ -239,7 +239,7 @@ class _AdminLoginScreenState extends State<AdminLoginScreen> {
                       Center(
                         child: Text(
                           'FixOnGo Admin Console v1.0',
-                          style: TextStyle(color: Colors.white.withValues(alpha: 0.2), fontSize: 12),
+                          style: TextStyle(color: Colors.white.withAlpha(51), fontSize: 12),
                         ),
                       ),
                     ],
@@ -269,7 +269,7 @@ class _InfoRow extends StatelessWidget {
         Flexible(
           child: Text(
             label,
-            style: TextStyle(color: Colors.white.withValues(alpha: 0.6), fontSize: 14),
+            style: TextStyle(color: Colors.white.withAlpha(153), fontSize: 14),
             overflow: TextOverflow.ellipsis,
           ),
         ),
@@ -282,7 +282,7 @@ class _GridPainter extends CustomPainter {
   @override
   void paint(Canvas canvas, Size size) {
     final paint = Paint()
-      ..color = Colors.white.withValues(alpha: 0.03)
+      ..color = Colors.white.withAlpha(7)
       ..strokeWidth = 1;
     const step = 40.0;
     for (double x = 0; x < size.width; x += step) {

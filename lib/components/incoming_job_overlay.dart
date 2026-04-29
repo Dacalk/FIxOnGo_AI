@@ -39,7 +39,7 @@ class _IncomingJobOverlayState extends State<IncomingJobOverlay> {
         borderRadius: const BorderRadius.vertical(top: Radius.circular(30)),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withValues(alpha: 0.2),
+            color: Colors.black.withAlpha(51),
             blurRadius: 20,
             offset: const Offset(0, -5),
           ),
@@ -65,7 +65,7 @@ class _IncomingJobOverlayState extends State<IncomingJobOverlay> {
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
               decoration: BoxDecoration(
-                color: Colors.red.withValues(alpha: 0.1),
+                color: Colors.red.withAlpha(25),
                 borderRadius: BorderRadius.circular(20),
               ),
               child: const Row(
@@ -186,7 +186,7 @@ class _IncomingJobOverlayState extends State<IncomingJobOverlay> {
                         borderRadius: BorderRadius.circular(16),
                         boxShadow: [
                           BoxShadow(
-                            color: AppColors.brandYellow.withValues(alpha: 0.3),
+                            color: AppColors.brandYellow.withAlpha(76),
                             blurRadius: 10,
                             offset: const Offset(0, 4),
                           ),

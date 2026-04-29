@@ -104,7 +104,7 @@ class AdminApp extends StatelessWidget {
         elevation: 0,
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(16),
-          side: BorderSide(color: Colors.white.withValues(alpha: 0.06)),
+          side: BorderSide(color: Colors.white.withAlpha(15)),
         ),
       ),
       inputDecorationTheme: InputDecorationTheme(
@@ -112,19 +112,19 @@ class AdminApp extends StatelessWidget {
         fillColor: const Color(0xFF111D35),
         border: OutlineInputBorder(
           borderRadius: BorderRadius.circular(12),
-          borderSide: BorderSide(color: Colors.white.withValues(alpha: 0.12)),
+          borderSide: BorderSide(color: Colors.white.withAlpha(30)),
         ),
         enabledBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(12),
-          borderSide: BorderSide(color: Colors.white.withValues(alpha: 0.12)),
+          borderSide: BorderSide(color: Colors.white.withAlpha(30)),
         ),
         focusedBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(12),
           borderSide:
               const BorderSide(color: Color(0xFF1A4DBE), width: 1.5),
         ),
-        labelStyle: TextStyle(color: Colors.white.withValues(alpha: 0.5)),
-        hintStyle: TextStyle(color: Colors.white.withValues(alpha: 0.3)),
+        labelStyle: TextStyle(color: Colors.white.withAlpha(127)),
+        hintStyle: TextStyle(color: Colors.white.withAlpha(76)),
       ),
     );
   }

@@ -24,16 +24,24 @@ class _OrderTrackingScreenState extends State<OrderTrackingScreen> {
   String? _requestId;
   Map<String, dynamic>? _requestData;
   StreamSubscription? _requestSub;
+  StreamSubscription? _deliverySub;
+  bool _mapReady = false;
+  bool _isUpdatingRoute = false;
 
   @override
   void initState() {
     super.initState();
     _initData();
+    // Delay map rendering to avoid Flutter Web engine assertion loop
+    Future.delayed(const Duration(milliseconds: 500), () {
+      if (mounted) setState(() => _mapReady = true);
+    });
   }
 
   @override
   void dispose() {
     _requestSub?.cancel();
+    _deliverySub?.cancel();
     _mapController.dispose();
     super.dispose();
   }
@@ -70,6 +78,11 @@ class _OrderTrackingScreenState extends State<OrderTrackingScreen> {
           if (!mounted) return;
           setState(() => _requestData = data);
 
+          // If it's a shop order, we might need to track the delivery instead
+          if (data['type'] == 'shop_order') {
+            _listenToDeliveryForOrder();
+          }
+
           final mLoc = data['mechanicLocation'] as Map<String, dynamic>?;
           if (mLoc != null) {
             final newPos = LatLng(mLoc['lat'], mLoc['lng']);
@@ -78,15 +91,20 @@ class _OrderTrackingScreenState extends State<OrderTrackingScreen> {
           }
 
           // If status completed, navigate to success or show arrived notification
-          if (data['status'] == 'completed') {
+          if (data['status'] == 'completed' || data['status'] == 'delivered') {
             Navigator.pushReplacementNamed(
               context,
               '/payment-successful',
               arguments: {
                 'role': 'user',
                 'requestId': _requestId,
-                'mechanicId': data['mechanicId'],
-                'mechanicName': data['mechanicName'],
+                'mechanicId': data['mechanicId'] ?? data['sellerId'],
+                'mechanicName': data['mechanicName'] ?? data['sellerName'],
+                'type': data['type'],
+                'itemName': data['productName'],
+                'itemPrice': data['itemPrice'],
+                'deliveryFee': data['deliveryFee'],
+                'totalPrice': data['totalPrice'],
               },
             );
           }
@@ -95,9 +113,37 @@ class _OrderTrackingScreenState extends State<OrderTrackingScreen> {
     });
   }
 
-  Future<void> _updateRoute() async {
-    if (_userLatLng == null || _mechanicLatLng == null) return;
+  void _listenToDeliveryForOrder() {
+    if (_deliverySub != null) return;
+    
+    _deliverySub = FirebaseFirestore.instance
+        .collection('deliveries')
+        .where('orderId', isEqualTo: _requestId)
+        .snapshots()
+        .listen((snap) {
+      if (snap.docs.isNotEmpty && mounted) {
+        final delivData = snap.docs.first.data();
+        final dLoc = delivData['driverLocation'] as Map<String, dynamic>?;
+        if (dLoc != null) {
+          final newPos = LatLng(dLoc['lat'], dLoc['lng']);
+          setState(() {
+            _mechanicLatLng = newPos;
+            // Update the display name to the driver name if we have it
+            if (delivData['driverName'] != null) {
+              _requestData?['mechanicName'] = delivData['driverName'];
+            }
+            _requestData?['status'] = delivData['status'];
+          });
+          _updateRoute();
+        }
+      }
+    });
+  }
 
+  Future<void> _updateRoute() async {
+    if (_userLatLng == null || _mechanicLatLng == null || _isUpdatingRoute) return;
+
+    _isUpdatingRoute = true;
     try {
       final route = await MapService.instance
           .getDirections(_mechanicLatLng!, _userLatLng!);
@@ -111,7 +157,10 @@ class _OrderTrackingScreenState extends State<OrderTrackingScreen> {
           }
         });
       }
-    } catch (_) {}
+    } catch (_) {
+    } finally {
+      _isUpdatingRoute = false;
+    }
   }
 
   @override
@@ -135,14 +184,17 @@ class _OrderTrackingScreenState extends State<OrderTrackingScreen> {
             flex: 4,
             child: Stack(
               children: [
-                OsmMapWidget(
-                  center: _userLatLng ?? const LatLng(6.9271, 79.8612),
-                  zoom: 14,
-                  mapController: _mapController,
-                  showLocateButton: false,
-                  polylinePoints: _routePoints.isNotEmpty ? _routePoints : null,
-                  markers: _buildMarkers(dark),
-                ),
+                if (_mapReady)
+                  OsmMapWidget(
+                    center: _userLatLng ?? const LatLng(6.9271, 79.8612),
+                    zoom: 14,
+                    mapController: _mapController,
+                    showLocateButton: false,
+                    polylinePoints: _routePoints.isNotEmpty ? _routePoints : null,
+                    markers: _buildMarkers(dark),
+                  )
+                else
+                  const Center(child: CircularProgressIndicator()),
 
                 // Top Badge
                 if (_mechanicLatLng != null)
@@ -159,7 +211,7 @@ class _OrderTrackingScreenState extends State<OrderTrackingScreen> {
                           borderRadius: BorderRadius.circular(16),
                           boxShadow: [
                             BoxShadow(
-                                color: Colors.black.withValues(alpha: 0.2),
+                                color: Colors.black.withAlpha(51),
                                 blurRadius: 10),
                           ],
                         ),
@@ -210,7 +262,7 @@ class _OrderTrackingScreenState extends State<OrderTrackingScreen> {
                     topRight: Radius.circular(32)),
                 boxShadow: [
                   BoxShadow(
-                      color: Colors.black.withValues(alpha: 0.1),
+                      color: Colors.black.withAlpha(25),
                       blurRadius: 20,
                       offset: const Offset(0, -5)),
                 ],
@@ -234,7 +286,7 @@ class _OrderTrackingScreenState extends State<OrderTrackingScreen> {
                           padding: const EdgeInsets.symmetric(
                               horizontal: 12, vertical: 6),
                           decoration: BoxDecoration(
-                            color: Colors.green.withValues(alpha: 0.1),
+                            color: Colors.green.withAlpha(25),
                             borderRadius: BorderRadius.circular(12),
                           ),
                           child: Text(
@@ -261,7 +313,7 @@ class _OrderTrackingScreenState extends State<OrderTrackingScreen> {
                           CircleAvatar(
                             radius: 25,
                             backgroundColor:
-                                AppColors.primaryBlue.withValues(alpha: 0.1),
+                                AppColors.primaryBlue.withAlpha(25),
                             child: const Icon(Icons.person,
                                 color: AppColors.primaryBlue),
                           ),
@@ -278,7 +330,9 @@ class _OrderTrackingScreenState extends State<OrderTrackingScreen> {
                                       color: titleColor),
                                 ),
                                 Text(
-                                  'Top Rated Mechanic',
+                                  _requestData?['type'] == 'shop_order'
+                                      ? 'Delivery Professional'
+                                      : 'Top Rated Mechanic',
                                   style:
                                       TextStyle(fontSize: 13, color: subColor),
                                 ),
@@ -296,7 +350,7 @@ class _OrderTrackingScreenState extends State<OrderTrackingScreen> {
 
                     // Timeline
                     _timelineStep('Request Accepted',
-                        'The mechanic is notified', true, false, dark),
+                        _requestData?['type'] == 'shop_order' ? 'The driver is notified' : 'The mechanic is notified', true, false, dark),
                     _timelineStep('On the way', 'Live tracking enabled',
                         status != 'pending', false, dark),
                     _timelineStep('Arrived', 'Ready to start the job',

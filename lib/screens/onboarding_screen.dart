@@ -114,7 +114,7 @@ class OnboardingContent extends StatelessWidget {
                 borderRadius: BorderRadius.circular(28),
                 boxShadow: [
                   BoxShadow(
-                    color: Colors.black.withValues(alpha: isDark ? 0.3 : 0.05),
+                    color: Colors.black.withAlpha(((isDark ? 0.3 : 0.05) * 255).toInt()),
                     blurRadius: 20,
                     offset: const Offset(0, 10),
                   ),

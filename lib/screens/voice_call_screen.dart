@@ -43,7 +43,7 @@ class _VoiceCallScreenState extends State<VoiceCallScreen>
     final headerColor = dark ? Colors.white : AppColors.primaryBlue;
     final avatarRingColor = dark
         ? Colors.grey[700]!
-        : AppColors.primaryBlue.withValues(alpha: 0.2);
+        : AppColors.primaryBlue.withAlpha(51);
 
     return Scaffold(
       backgroundColor: bgColor,
@@ -193,7 +193,7 @@ class _VoiceCallScreenState extends State<VoiceCallScreen>
                 borderRadius: BorderRadius.circular(28),
                 boxShadow: [
                   BoxShadow(
-                    color: Colors.black.withValues(alpha: 0.08),
+                    color: Colors.black.withAlpha(20),
                     blurRadius: 16,
                     offset: const Offset(0, 4),
                   ),
@@ -284,7 +284,7 @@ class _VoiceCallScreenState extends State<VoiceCallScreen>
             height: 48,
             decoration: BoxDecoration(
               color: isActive
-                  ? Colors.grey.withValues(alpha: 0.2)
+                  ? Colors.grey.withAlpha(51)
                   : Colors.transparent,
               shape: BoxShape.circle,
             ),

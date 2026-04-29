@@ -252,7 +252,7 @@ class _MechanicNavToUserScreenState extends State<MechanicNavToUserScreen> {
                     borderRadius: BorderRadius.circular(24),
                     boxShadow: [
                       BoxShadow(
-                        color: Colors.black.withValues(alpha: 0.1),
+                        color: Colors.black.withAlpha(25),
                         blurRadius: 15,
                         offset: const Offset(0, 5),
                       ),
@@ -265,7 +265,7 @@ class _MechanicNavToUserScreenState extends State<MechanicNavToUserScreen> {
                           CircleAvatar(
                             radius: 30,
                             backgroundColor:
-                                AppColors.primaryBlue.withValues(alpha: 0.1),
+                                AppColors.primaryBlue.withAlpha(25),
                             child: const Icon(Icons.person,
                                 color: AppColors.primaryBlue, size: 30),
                           ),
@@ -292,7 +292,7 @@ class _MechanicNavToUserScreenState extends State<MechanicNavToUserScreen> {
                             padding: const EdgeInsets.symmetric(
                                 horizontal: 12, vertical: 6),
                             decoration: BoxDecoration(
-                              color: Colors.blue.withValues(alpha: 0.1),
+                              color: Colors.blue.withAlpha(25),
                               borderRadius: BorderRadius.circular(12),
                             ),
                             child: Text(

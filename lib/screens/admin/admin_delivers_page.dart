@@ -54,13 +54,13 @@ class AdminDeliversPage extends StatelessWidget {
               decoration: BoxDecoration(
                 color: const Color(0xFF111D35),
                 borderRadius: BorderRadius.circular(14),
-                border: Border.all(color: Colors.white.withValues(alpha: 0.06)),
+                border: Border.all(color: Colors.white.withAlpha(15)),
               ),
               child: Row(children: [
                 Container(
                   width: 40, height: 40,
                   decoration: BoxDecoration(
-                    color: const Color(0xFF29B6F6).withValues(alpha: 0.15),
+                    color: const Color(0xFF29B6F6).withAlpha(38),
                     borderRadius: BorderRadius.circular(10),
                   ),
                   child: const Icon(Icons.delivery_dining_rounded, color: Color(0xFF81D4FA), size: 20),

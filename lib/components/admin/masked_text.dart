@@ -79,10 +79,10 @@ class _MaskedTextState extends State<MaskedText> {
               padding:
                   const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
               decoration: BoxDecoration(
-                color: const Color(0xFF1A4DBE).withValues(alpha: 0.2),
+                color: const Color(0xFF1A4DBE).withAlpha(51),
                 borderRadius: BorderRadius.circular(4),
                 border: Border.all(
-                    color: const Color(0xFF1A4DBE).withValues(alpha: 0.4)),
+                    color: const Color(0xFF1A4DBE).withAlpha(102)),
               ),
               child: const Text(
                 'Reveal',

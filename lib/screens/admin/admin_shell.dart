@@ -175,7 +175,7 @@ class _SidebarContent extends StatelessWidget {
           padding: EdgeInsets.symmetric(horizontal: expanded ? 20 : 0),
           alignment: expanded ? Alignment.centerLeft : Alignment.center,
           decoration: BoxDecoration(
-            border: Border(bottom: BorderSide(color: Colors.white.withValues(alpha: 0.06))),
+            border: Border(bottom: BorderSide(color: Colors.white.withAlpha(15))),
           ),
           child: Row(
             mainAxisSize: MainAxisSize.min,
@@ -212,7 +212,7 @@ class _SidebarContent extends StatelessWidget {
         Container(
           padding: const EdgeInsets.all(12),
           decoration: BoxDecoration(
-            border: Border(top: BorderSide(color: Colors.white.withValues(alpha: 0.06))),
+            border: Border(top: BorderSide(color: Colors.white.withAlpha(15))),
           ),
           child: _LogoutTile(expanded: expanded),
         ),
@@ -244,15 +244,15 @@ class _NavTile extends StatelessWidget {
             padding: EdgeInsets.symmetric(horizontal: expanded ? 14 : 0, vertical: 12),
             decoration: BoxDecoration(
               color: isActive
-                  ? const Color(0xFF1A4DBE).withValues(alpha: 0.15)
+                  ? const Color(0xFF1A4DBE).withAlpha(38)
                   : Colors.transparent,
               borderRadius: BorderRadius.circular(12),
               border: isActive
-                  ? Border.all(color: const Color(0xFF1A4DBE).withValues(alpha: 0.5))
+                  ? Border.all(color: const Color(0xFF1A4DBE).withAlpha(127))
                   : Border.all(color: Colors.transparent),
               boxShadow: isActive ? [
                 BoxShadow(
-                  color: const Color(0xFF1A4DBE).withValues(alpha: 0.2),
+                  color: const Color(0xFF1A4DBE).withAlpha(51),
                   blurRadius: 8,
                   offset: const Offset(0, 2),
                 )
@@ -308,7 +308,7 @@ class _LogoutTile extends StatelessWidget {
           children: [
             CircleAvatar(
               radius: 16,
-              backgroundColor: const Color(0xFF1A4DBE).withValues(alpha: 0.3),
+              backgroundColor: const Color(0xFF1A4DBE).withAlpha(76),
               child: Text(
                 (user?.email?.isNotEmpty == true)
                     ? user!.email![0].toUpperCase()
@@ -353,11 +353,11 @@ class _TopBar extends StatelessWidget {
       height: 72,
       padding: const EdgeInsets.symmetric(horizontal: 24),
       decoration: BoxDecoration(
-        color: const Color(0xFF0D1626).withValues(alpha: 0.95), // Slight transparency for modern feel
-        border: Border(bottom: BorderSide(color: Colors.white.withValues(alpha: 0.06))),
+        color: const Color(0xFF0D1626).withAlpha(242), // Slight transparency for modern feel
+        border: Border(bottom: BorderSide(color: Colors.white.withAlpha(15))),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withValues(alpha: 0.1),
+            color: Colors.black.withAlpha(25),
             blurRadius: 10,
             offset: const Offset(0, 4),
           )
@@ -426,9 +426,9 @@ class _QuickActionButton extends StatelessWidget {
         child: Container(
           padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
           decoration: BoxDecoration(
-            color: Colors.white.withValues(alpha: 0.05),
+            color: Colors.white.withAlpha(12),
             borderRadius: BorderRadius.circular(8),
-            border: Border.all(color: Colors.white.withValues(alpha: 0.1)),
+            border: Border.all(color: Colors.white.withAlpha(25)),
           ),
           child: Row(
             children: [

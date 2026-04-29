@@ -80,7 +80,7 @@ class OrderDeliveredScreen extends StatelessWidget {
                       color: Colors.green[500],
                       boxShadow: [
                         BoxShadow(
-                          color: Colors.green.withValues(alpha: 0.3),
+                          color: Colors.green.withAlpha(76),
                           blurRadius: 20,
                           spreadRadius: 4,
                         ),
@@ -150,13 +150,13 @@ class OrderDeliveredScreen extends StatelessWidget {
                                 Icon(
                                   Icons.local_shipping,
                                   size: 48,
-                                  color: Colors.white.withValues(alpha: 0.5),
+                                  color: Colors.white.withAlpha(127),
                                 ),
                                 const SizedBox(height: 6),
                                 Icon(
                                   Icons.handyman,
                                   size: 36,
-                                  color: Colors.white.withValues(alpha: 0.4),
+                                  color: Colors.white.withAlpha(102),
                                 ),
                               ],
                             ),

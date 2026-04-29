@@ -22,42 +22,63 @@ class JobHistoryScreen extends StatefulWidget {
 
 class _JobHistoryScreenState extends State<JobHistoryScreen> {
   String _selectedFilter = 'All Time';
+  
+  bool get isProviderView => widget.isMechanicView || 
+      (widget.role != null && ['mechanic', 'seller', 'delivery'].contains(widget.role!.toLowerCase()));
 
   Future<Map<String, dynamic>> _fetchJobHistory() async {
     final user = FirebaseAuth.instance.currentUser;
     if (user == null) return {'rating': 0.0, 'jobs': []};
 
+    final role = (widget.role ?? '').toLowerCase();
+    final isProvider = widget.isMechanicView || role == 'mechanic' || role == 'seller' || role == 'delivery';
+
     double rating = 0.0;
 
     try {
-      // Fetch user doc for rating (only relevant for mechanics)
-      if (widget.isMechanicView) {
+      // Fetch user doc for rating (only relevant for mechanics/providers)
+      if (isProvider) {
         final userDoc = await FirebaseFirestore.instance
             .collection('users')
             .doc(user.uid)
             .get();
         if (userDoc.exists) {
           final data = userDoc.data()!;
-          if (data['roles'] != null && data['roles']['mechanic'] != null) {
-            rating = (data['roles']['mechanic']['rating'] ?? 0.0).toDouble();
+          final rData = data['roles']?[role == 'seller' ? 'seller' : (role == 'delivery' ? 'delivery' : 'mechanic')];
+          if (rData != null) {
+            rating = (rData['rating'] ?? 0.0).toDouble();
           }
         }
       }
 
-      // Fetch jobs — single where clause to avoid needing a composite index,
-      // then filter for 'completed' status client-side.
+      // Determine the ID field based on role
+      String idField = 'userId';
+      if (isProvider) {
+        if (role == 'seller') {
+          idField = 'sellerId';
+        } else if (role == 'delivery') {
+          idField = 'driverId';
+        } else {
+          idField = 'mechanicId';
+        }
+      }
+
       final requestsSnap = await FirebaseFirestore.instance
           .collection('requests')
-          .where(
-            widget.isMechanicView ? 'mechanicId' : 'userId',
-            isEqualTo: user.uid,
-          )
+          .where(idField, isEqualTo: user.uid)
           .get();
 
-      // Filter completed client-side
-      final completedDocs = requestsSnap.docs
-          .where((d) => (d.data()['status'] ?? '') == 'completed')
-          .toList();
+      // Filter completed client-side (include all shop_orders, or non-pending normal requests)
+      final completedDocs = requestsSnap.docs.where((d) {
+        final data = d.data();
+        final status = data['status'] ?? '';
+        final type = data['type'] ?? '';
+        
+        if (type == 'shop_order') {
+          return true; // Show all shop orders in history for now, or maybe only delivered/completed
+        }
+        return status == 'completed' || status == 'delivered';
+      }).toList();
 
       // Fetch all reviews (only for mechanic view)
       final reviewsMap = <String, Map<String, dynamic>>{};
@@ -198,7 +219,7 @@ class _JobHistoryScreenState extends State<JobHistoryScreen> {
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
                     Text(
-                      widget.isMechanicView ? 'Job History' : 'Activities',
+                      isProviderView ? 'Job History' : 'Activities',
                       style: TextStyle(
                         fontSize: 18,
                         fontWeight: FontWeight.bold,
@@ -328,7 +349,7 @@ class _JobHistoryScreenState extends State<JobHistoryScreen> {
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
                         Text(
-                          widget.isMechanicView ? 'Recent Jobs' : 'Recent Services',
+                          isProviderView ? 'Recent Jobs' : 'Recent Services',
                           style: TextStyle(
                             fontSize: 14,
                             fontWeight: FontWeight.bold,
@@ -415,7 +436,7 @@ class _JobHistoryScreenState extends State<JobHistoryScreen> {
         elevation: 0,
         centerTitle: true,
         title: Text(
-          widget.isMechanicView ? 'Job History' : 'Activities',
+          isProviderView ? 'Job History' : 'Activities',
           style: TextStyle(
             fontSize: 17,
             fontWeight: FontWeight.bold,
@@ -459,7 +480,7 @@ class _JobHistoryScreenState extends State<JobHistoryScreen> {
       // For user view, display mechanic name if available.
       // For mechanic view, display user name.
       String personName = 'Unknown';
-      if (widget.isMechanicView) {
+      if (isProviderView) {
         personName = job['userName'] ?? 'Unknown Client';
       } else {
         personName = job['mechanicName'] ?? 'Mechanic';
@@ -522,7 +543,7 @@ class _JobHistoryScreenState extends State<JobHistoryScreen> {
             ? null
             : [
                 BoxShadow(
-                  color: Colors.black.withValues(alpha: 0.03),
+                  color: Colors.black.withAlpha(7),
                   blurRadius: 10,
                   spreadRadius: 1,
                   offset: const Offset(0, 4),
@@ -537,7 +558,7 @@ class _JobHistoryScreenState extends State<JobHistoryScreen> {
             children: [
               CircleAvatar(
                 radius: 20,
-                backgroundColor: AppColors.primaryBlue.withValues(alpha: 0.2),
+                backgroundColor: AppColors.primaryBlue.withAlpha(51),
                 child: Text(
                   personName.isNotEmpty ? personName[0].toUpperCase() : 'U',
                   style: const TextStyle(
@@ -572,7 +593,7 @@ class _JobHistoryScreenState extends State<JobHistoryScreen> {
                   ],
                 ),
               ),
-              if (rating > 0 && widget.isMechanicView) // Usually users don't need to see the rating they left prominently, or they can
+              if (rating > 0 && isProviderView) // Usually users don't need to see the rating they left prominently, or they can
                 Row(
                   children: List.generate(5, (index) {
                     return Icon(
@@ -607,7 +628,7 @@ class _JobHistoryScreenState extends State<JobHistoryScreen> {
               ],
             ),
           ),
-          if (rating > 0 && widget.isMechanicView) ...[
+          if (rating > 0 && isProviderView) ...[
             const SizedBox(height: 12),
             Text(
               '"$review"',
@@ -637,7 +658,7 @@ class _JobHistoryScreenState extends State<JobHistoryScreen> {
         color: dark ? const Color(0xFF1A2432) : Colors.white,
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withValues(alpha: 0.05),
+            color: Colors.black.withAlpha(12),
             blurRadius: 10,
             offset: const Offset(0, -5),
           ),

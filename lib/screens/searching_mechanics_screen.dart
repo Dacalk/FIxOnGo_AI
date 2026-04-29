@@ -364,7 +364,7 @@ class _SearchingMechanicsScreenState extends State<SearchingMechanicsScreen> {
                   shape: BoxShape.circle,
                   boxShadow: [
                     BoxShadow(
-                      color: Colors.black.withValues(alpha: 0.1),
+                      color: Colors.black.withAlpha(25),
                       blurRadius: 8,
                       offset: const Offset(0, 2),
                     ),
@@ -420,7 +420,7 @@ class _SearchingMechanicsScreenState extends State<SearchingMechanicsScreen> {
                 ),
                 boxShadow: [
                   BoxShadow(
-                    color: Colors.black.withValues(alpha: 0.15),
+                    color: Colors.black.withAlpha(38),
                     blurRadius: 20,
                     offset: const Offset(0, -5),
                   ),
@@ -613,7 +613,7 @@ class _SearchingMechanicsScreenState extends State<SearchingMechanicsScreen> {
           boxShadow: [
             if (selected)
               BoxShadow(
-                color: AppColors.primaryBlue.withValues(alpha: 0.1),
+                color: AppColors.primaryBlue.withAlpha(25),
                 blurRadius: 10,
                 offset: const Offset(0, 4),
               ),

@@ -70,7 +70,7 @@ class _AdminUsersPageState extends State<AdminUsersPage> {
                     label: Text(f == 'all' ? 'All' : f[0].toUpperCase() + f.substring(1)),
                     selected: active,
                     onSelected: (_) => setState(() => _filter = f),
-                    selectedColor: const Color(0xFF1A4DBE).withValues(alpha: 0.3),
+                    selectedColor: const Color(0xFF1A4DBE).withAlpha(76),
                     checkmarkColor: const Color(0xFF90CAF9),
                     backgroundColor: const Color(0xFF111D35),
                     labelStyle: TextStyle(color: active ? const Color(0xFF90CAF9) : Colors.white54, fontSize: 12),
@@ -127,13 +127,13 @@ class _UserTile extends StatelessWidget {
         color: const Color(0xFF111D35),
         borderRadius: BorderRadius.circular(14),
         border: Border.all(color: banned
-            ? const Color(0xFFEF5350).withValues(alpha: 0.3)
-            : Colors.white.withValues(alpha: 0.06)),
+            ? const Color(0xFFEF5350).withAlpha(76)
+            : Colors.white.withAlpha(15)),
       ),
       child: Row(children: [
         CircleAvatar(
           radius: 22,
-          backgroundColor: const Color(0xFF1A4DBE).withValues(alpha: 0.3),
+          backgroundColor: const Color(0xFF1A4DBE).withAlpha(76),
           backgroundImage: photoUrl.isNotEmpty ? NetworkImage(photoUrl) : null,
           child: photoUrl.isEmpty ? Text(name[0].toUpperCase(),
               style: const TextStyle(color: Color(0xFF90CAF9), fontWeight: FontWeight.bold)) : null,
@@ -145,7 +145,7 @@ class _UserTile extends StatelessWidget {
             if (banned) ...[
               const SizedBox(width: 8),
               Container(padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                decoration: BoxDecoration(color: const Color(0xFFEF5350).withValues(alpha: 0.15),
+                decoration: BoxDecoration(color: const Color(0xFFEF5350).withAlpha(38),
                     borderRadius: BorderRadius.circular(4)),
                 child: const Text('BANNED', style: TextStyle(color: Color(0xFFEF9A9A), fontSize: 10, fontWeight: FontWeight.bold))),
             ],

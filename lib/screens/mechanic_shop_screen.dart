@@ -261,7 +261,7 @@ class _MechanicShopScreenState extends State<MechanicShopScreen>
             ? []
             : [
                 BoxShadow(
-                  color: Colors.black.withValues(alpha: 0.03),
+                  color: Colors.black.withAlpha(7),
                   blurRadius: 10,
                   offset: const Offset(0, 4),
                 )
@@ -379,7 +379,7 @@ class _MechanicShopScreenState extends State<MechanicShopScreen>
                   padding:
                       const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                   decoration: BoxDecoration(
-                    color: stockColor.withValues(alpha: 0.1),
+                    color: stockColor.withAlpha(25),
                     borderRadius: BorderRadius.circular(8),
                   ),
                   child: Row(
@@ -491,7 +491,7 @@ class _MechanicShopScreenState extends State<MechanicShopScreen>
         color: dark ? const Color(0xFF111D35) : Colors.white,
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withValues(alpha: dark ? 0.3 : 0.08),
+            color: Colors.black.withAlpha(((dark ? 0.3 : 0.08) * 255).toInt()),
             blurRadius: 16,
             offset: const Offset(0, -4),
           ),
@@ -600,7 +600,7 @@ class _MechanicShopScreenState extends State<MechanicShopScreen>
                         Container(
                           padding: const EdgeInsets.all(10),
                           decoration: BoxDecoration(
-                            color: Colors.orange.withValues(alpha: 0.1),
+                            color: Colors.orange.withAlpha(25),
                             borderRadius: BorderRadius.circular(12),
                           ),
                           child: const Icon(Icons.delivery_dining,

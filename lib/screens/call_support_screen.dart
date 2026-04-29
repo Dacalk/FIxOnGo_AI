@@ -106,7 +106,7 @@ class CallSupportScreen extends StatelessWidget {
                     ? null
                     : [
                         BoxShadow(
-                          color: Colors.black.withValues(alpha: 0.03),
+                          color: Colors.black.withAlpha(7),
                           blurRadius: 20,
                         ),
                       ],
@@ -125,9 +125,7 @@ class CallSupportScreen extends StatelessWidget {
                           shape: BoxShape.circle,
                           boxShadow: [
                             BoxShadow(
-                              color: AppColors.brandYellow.withValues(
-                                alpha: 0.8,
-                              ),
+                              color: AppColors.brandYellow.withAlpha((0.8 * 255).toInt()),
                               blurRadius: 30,
                               spreadRadius: 4,
                             ),
@@ -403,7 +401,7 @@ class CallSupportScreen extends StatelessWidget {
               ? null
               : [
                   BoxShadow(
-                    color: Colors.black.withValues(alpha: 0.03),
+                    color: Colors.black.withAlpha(7),
                     blurRadius: 15,
                   ),
                 ],
@@ -416,8 +414,8 @@ class CallSupportScreen extends StatelessWidget {
               height: 48,
               decoration: BoxDecoration(
                 color: dark
-                    ? iconBgColor.withValues(alpha: 0.2)
-                    : iconBgColor.withValues(alpha: 0.1),
+                    ? iconBgColor.withAlpha(51)
+                    : iconBgColor.withAlpha(25),
                 shape: BoxShape.circle,
               ),
               child: Icon(

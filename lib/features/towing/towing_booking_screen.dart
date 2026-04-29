@@ -191,7 +191,7 @@ class _TowingBookingScreenState extends State<TowingBookingScreen> {
                 decoration: BoxDecoration(
                   color: dark ? AppColors.darkSurface : Colors.white,
                   borderRadius: BorderRadius.circular(16),
-                  boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.1), blurRadius: 10)],
+                  boxShadow: [BoxShadow(color: Colors.black.withAlpha(25), blurRadius: 10)],
                 ),
                 child: Column(
                   children: _suggestions.map((p) => ListTile(
@@ -382,7 +382,7 @@ class _TowingBookingScreenState extends State<TowingBookingScreen> {
                     borderRadius: BorderRadius.circular(20),
                   ),
                   elevation: 8,
-                  shadowColor: AppColors.emergencyRed.withValues(alpha: 0.4),
+                  shadowColor: AppColors.emergencyRed.withAlpha(102),
                 ),
                 child: _isSubmitting 
                   ? const CircularProgressIndicator(color: Colors.white)

@@ -13,6 +13,11 @@ class PaymentSuccessfulScreen extends StatelessWidget {
         ModalRoute.of(context)?.settings.arguments as Map<String, dynamic>?;
     final role = args?['role'] ?? 'user';
     final isMechanic = role == 'mechanic';
+    final type = args?['type'] ?? 'service';
+    final isShopOrder = type == 'shop_order';
+    final itemName = args?['itemName'] ?? 'Mechanical Repair';
+    final requestId = args?['requestId'] ?? '#RQ-99231-EB';
+    final totalPrice = args?['totalPrice']?.toString() ?? (isMechanic ? '2,250.00' : '2,500.00');
 
     final dark = isDarkMode(context);
     final bgColor = dark ? AppColors.darkBackground : Colors.white;
@@ -90,7 +95,7 @@ class PaymentSuccessfulScreen extends StatelessWidget {
                       color: Colors.green[500],
                       boxShadow: [
                         BoxShadow(
-                          color: Colors.green.withValues(alpha: 0.3),
+                          color: Colors.green.withAlpha(76),
                           blurRadius: 20,
                           spreadRadius: 4,
                         ),
@@ -154,29 +159,29 @@ class PaymentSuccessfulScreen extends StatelessWidget {
                     child: Column(
                       children: [
                         _detailRow(
-                          'Service Type',
-                          'Mechanical Repair',
+                          isShopOrder ? 'Item Name' : 'Service Type',
+                          isShopOrder ? itemName : 'Mechanical Repair',
                           labelColor,
                           valueColor,
                         ),
                         const SizedBox(height: 16),
                         _detailRow(
                           'Reference ID',
-                          '#RQ-99231-EB',
+                          '#${requestId.toString().substring(0, 8).toUpperCase()}',
                           labelColor,
                           valueColor,
                         ),
                         const SizedBox(height: 16),
                         _detailRow(
                           'Date & Time',
-                          'May 20, 2024 • 10:45 PM',
+                          'Just Now', // Should ideally pass timestamp
                           labelColor,
                           valueColor,
                         ),
                         const SizedBox(height: 16),
                         _detailRow(
                           isMechanic ? 'Commission Fee' : 'Payment Method',
-                          isMechanic ? 'Rs. 250.00' : '•••• 8182',
+                          isMechanic ? 'Rs. 250.00' : 'Cash on Delivery',
                           labelColor,
                           valueColor,
                         ),
@@ -196,7 +201,7 @@ class PaymentSuccessfulScreen extends StatelessWidget {
                               ),
                             ),
                             Text(
-                              isMechanic ? 'Rs. 2,250.00' : 'Rs. 2,500.00',
+                              'Rs. $totalPrice',
                               style: TextStyle(
                                 fontSize: 22,
                                 fontWeight: FontWeight.bold,
