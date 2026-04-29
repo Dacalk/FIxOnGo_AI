@@ -2,48 +2,110 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
-    // ── Users collection ──────────────────────────────────────────────────
-    // Any authenticated user can read any user document (needed for
-    // mechanic search, profile viewing, shop browsing, etc.)
-    // Only the document owner can write to their own document.
-    match /users/{userId} {
-      allow read: if request.auth != null;
-      allow write: if request.auth != null && request.auth.uid == userId;
+    // ─── Helper: check admin role ───
+    function isAdmin() {
+      return request.auth != null &&
+        'admin' in get(/databases/$(database)/documents/users/$(request.auth.uid)).data.roles;
+    }
 
+    // ─── Users ───
+    match /users/{userId} {
+      // Any authenticated user can READ any user profile
+      allow read: if request.auth != null;
+
+      // Allow any authenticated user to update it (needed so customers can 
+      // update the mechanic's overall rating when submitting feedback)
+      allow update: if request.auth != null;
+
+      allow create: if request.auth != null;
+      allow delete: if isAdmin();
+
+      // Explicitly allow deeply nested subcollections for role and cards
+      match /role/{roleId} {
+        allow read: if request.auth != null;
+        allow write: if request.auth != null && (request.auth.uid == userId || isAdmin());
+
+        match /cards/{cardId} {
+          allow read: if request.auth != null;
+          allow write: if request.auth != null && (request.auth.uid == userId || isAdmin());
+        }
+      }
+
+      // Subcollections under users (products, reviews, etc.)
       match /{subcollection}/{docId} {
         allow read: if request.auth != null;
-        allow write: if request.auth != null && request.auth.uid == userId;
+        
+        // Allow customers to write to reviews AND products (to update stock)
+        allow write: if request.auth != null &&
+          (request.auth.uid == userId || isAdmin() || 
+           subcollection == 'reviews' || subcollection == 'products');
       }
     }
 
-    // ── Conversations collection ───────────────────────────────────────────
-    // Any participant (seller or customer) may read and write the conversation doc.
-    // Any authenticated user may create a new conversation.
+    // ─── Conversations ───
     match /conversations/{convoId} {
+
+      // Only participants OR admin
       allow read, update, delete: if request.auth != null && (
-        resource.data.sellerId   == request.auth.uid ||
-        resource.data.customerId == request.auth.uid
+        resource.data.sellerId == request.auth.uid ||
+        resource.data.customerId == request.auth.uid ||
+        isAdmin()
       );
+
       allow create: if request.auth != null;
 
-      // Sub-collection: messages
       match /messages/{msgId} {
-        allow read, write: if request.auth != null;
+        // Better security: only participants OR admin
+        allow read, write: if request.auth != null && (
+          get(/databases/$(database)/documents/conversations/$(convoId)).data.sellerId == request.auth.uid ||
+          get(/databases/$(database)/documents/conversations/$(convoId)).data.customerId == request.auth.uid ||
+          isAdmin()
+        );
       }
     }
 
-    // ── Requests collection ────────────────────────────────────────────────
-    // Any authenticated user can create/view/update requests
-    // (mechanics accept, customers view their own, etc.)
+    // ─── Requests ───
     match /requests/{reqId} {
+      allow read, create: if request.auth != null;
+
+      // Optional: restrict update if needed
+      allow update: if request.auth != null;
+
+      allow delete: if isAdmin();
+    }
+
+    // ─── Payments ───
+    match /payments/{paymentId} {
+      allow read: if request.auth != null;
+      allow create: if request.auth != null;
+      allow update: if isAdmin();
+      allow delete: if false;
+    }
+
+    // ─── Deliveries ───
+    match /deliveries/{deliveryId} {
       allow read, write: if request.auth != null;
     }
 
-    // ── Public mechanic/shop listings ─────────────────────────────────────
-    // A mechanic's public shop products readable by any authenticated user
+    // ─── Shops ───
     match /shops/{shopId} {
       allow read: if request.auth != null;
-      allow write: if request.auth != null && request.auth.uid == shopId;
+
+      // Owner OR admin
+      allow write: if request.auth != null &&
+        (request.auth.uid == shopId || isAdmin());
+    }
+
+    // ─── Audit Logs ───
+    match /audit_logs/{logId} {
+      allow create, read: if isAdmin();
+      allow update, delete: if false;
+    }
+
+    // ─── App Settings ───
+    match /app_settings/{doc} {
+      allow read: if request.auth != null;
+      allow write: if isAdmin();
     }
   }
 }
