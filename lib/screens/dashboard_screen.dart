@@ -284,11 +284,14 @@ class _DashboardScreenState extends State<DashboardScreen> {
     });
 
     try {
+      final activeRole = currentRole?.toLowerCase() ?? 'mechanic';
       await FirebaseFirestore.instance
           .collection('users')
           .doc(user.uid)
           .update({
-        'roles.mechanic.isActive': value,
+        'roles.$activeRole.isActive': value,
+        'roles.$activeRole.isOnline': value,
+        'roles.$activeRole.isAvailable': value,
       });
     } catch (e) {
       if (mounted) {
@@ -323,8 +326,11 @@ class _DashboardScreenState extends State<DashboardScreen> {
                     ? MechanicShopScreen(isEmbedded: true, role: role)
                     : role.toLowerCase() == 'delivery'
                         ? const DeliveryJobsScreen(isEmbedded: true)
-                        : const JobHistoryScreen(
-                            isEmbedded: true, isMechanicView: false),
+                        : JobHistoryScreen(
+                            isEmbedded: true, 
+                            isMechanicView: role.toLowerCase() == 'tow',
+                            role: role,
+                          ),
                 role.toLowerCase() == 'delivery'
                     ? const DeliveryHistoryScreen(isEmbedded: true)
                     : PaymentHistoryScreen(
@@ -1609,6 +1615,52 @@ class _DashboardScreenState extends State<DashboardScreen> {
           ),
           const SizedBox(height: 24),
 
+          // Availability toggle
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 20),
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
+              decoration: BoxDecoration(
+                color: dark ? AppColors.darkSurface : Colors.white,
+                borderRadius: BorderRadius.circular(18),
+                border: Border.all(
+                  color: _isMechanicActive
+                      ? Colors.green.withAlpha(102)
+                      : Colors.grey.withAlpha(102),
+                ),
+              ),
+              child: Row(
+                children: [
+                  Container(
+                    width: 10,
+                    height: 10,
+                    decoration: BoxDecoration(
+                      color: _isMechanicActive ? Colors.green : Colors.grey,
+                      shape: BoxShape.circle,
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Text(
+                      _isMechanicActive ? 'You are Online' : 'You are Offline',
+                      style: TextStyle(
+                        fontSize: 15,
+                        fontWeight: FontWeight.w600,
+                        color: dark ? Colors.white : Colors.black87,
+                      ),
+                    ),
+                  ),
+                  Switch(
+                    value: _isMechanicActive,
+                    onChanged: _toggleMechanicActive,
+                    activeColor: Colors.green,
+                  ),
+                ],
+              ),
+            ),
+          ),
+          const SizedBox(height: 24),
+
           // Live Tracking Map
           _buildLiveTrackingMap(dark, _towIncomingRequestsStream,
               Icons.local_shipping, Icons.car_crash, Colors.red),
@@ -1788,6 +1840,52 @@ class _DashboardScreenState extends State<DashboardScreen> {
                   ),
                 ),
               ],
+            ),
+          ),
+          const SizedBox(height: 24),
+
+          // Availability toggle
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 20),
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
+              decoration: BoxDecoration(
+                color: dark ? AppColors.darkSurface : Colors.white,
+                borderRadius: BorderRadius.circular(18),
+                border: Border.all(
+                  color: _isMechanicActive
+                      ? Colors.green.withAlpha(102)
+                      : Colors.grey.withAlpha(102),
+                ),
+              ),
+              child: Row(
+                children: [
+                  Container(
+                    width: 10,
+                    height: 10,
+                    decoration: BoxDecoration(
+                      color: _isMechanicActive ? Colors.green : Colors.grey,
+                      shape: BoxShape.circle,
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Text(
+                      _isMechanicActive ? 'You are Online' : 'You are Offline',
+                      style: TextStyle(
+                        fontSize: 15,
+                        fontWeight: FontWeight.w600,
+                        color: dark ? Colors.white : Colors.black87,
+                      ),
+                    ),
+                  ),
+                  Switch(
+                    value: _isMechanicActive,
+                    onChanged: _toggleMechanicActive,
+                    activeColor: Colors.green,
+                  ),
+                ],
+              ),
             ),
           ),
           const SizedBox(height: 24),

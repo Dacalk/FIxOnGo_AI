@@ -1,14 +1,15 @@
 import 'package:flutter/material.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:latlong2/latlong.dart';
+import 'package:flutter_map/flutter_map.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import '../../../theme_provider.dart';
 import 'models/towing_service.dart';
 import 'widgets/service_card.dart';
-import 'towing_status_screen.dart';
-import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:firebase_auth/firebase_auth.dart';
 import 'dart:async';
 import '../../services/map_service.dart';
+import '../../../components/osm_map_widget.dart';
 
 class TowingBookingScreen extends StatefulWidget {
   const TowingBookingScreen({super.key});
@@ -20,7 +21,6 @@ class TowingBookingScreen extends StatefulWidget {
 class _TowingBookingScreenState extends State<TowingBookingScreen> {
   final List<TowingService> _services = TowingService.getMockServices();
   String _selectedServiceId = 'emergency_tow';
-  bool _isSubmitting = false;
 
   final TextEditingController _pickupController = TextEditingController(text: "Fetching current location...");
   final TextEditingController _destinationController = TextEditingController();
@@ -36,11 +36,59 @@ class _TowingBookingScreenState extends State<TowingBookingScreen> {
   List<GeocodedPlace> _suggestions = [];
   Timer? _debounce;
   bool _isSearching = false;
+  bool _isLoadingVehicle = true;
+  bool _showMapPicker = false;
+  bool _mapReady = false;
+
+  // Map picker state
+  LatLng _mapPickerCenter = const LatLng(6.9271, 79.8612);
+  final MapController _mapPickerController = MapController();
 
   @override
   void initState() {
     super.initState();
     _getCurrentLocation();
+    _loadUserVehicle();
+  }
+
+  /// Load user's primary vehicle from Firestore and auto-fill
+  Future<void> _loadUserVehicle() async {
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null) {
+      if (mounted) setState(() => _isLoadingVehicle = false);
+      return;
+    }
+
+    try {
+      final doc = await FirebaseFirestore.instance
+          .collection('users')
+          .doc(user.uid)
+          .get();
+
+      if (doc.exists && mounted) {
+        final roles = doc.data()?['roles'] as Map<String, dynamic>? ?? {};
+        // Try user role first, then mechanic for fallback
+        final userRole = roles['user'] as Map<String, dynamic>? ??
+            roles['mechanic'] as Map<String, dynamic>? ??
+            {};
+
+        setState(() {
+          final type = userRole['vehicleType']?.toString() ?? '';
+          final plate = userRole['plate']?.toString() ?? '';
+          final color = userRole['color']?.toString() ?? '';
+
+          if (type.isNotEmpty) _makeModelController.text = type;
+          if (plate.isNotEmpty) _plateController.text = plate;
+          if (color.isNotEmpty) _colorController.text = color;
+          _isLoadingVehicle = false;
+        });
+      } else {
+        if (mounted) setState(() => _isLoadingVehicle = false);
+      }
+    } catch (e) {
+      debugPrint('[TowingBooking] Error loading vehicle: $e');
+      if (mounted) setState(() => _isLoadingVehicle = false);
+    }
   }
 
   Future<void> _getCurrentLocation() async {
@@ -55,14 +103,37 @@ class _TowingBookingScreenState extends State<TowingBookingScreen> {
       }
 
       final position = await Geolocator.getCurrentPosition();
-      setState(() {
-        _pickupCoords = LatLng(position.latitude, position.longitude);
-        _pickupController.text = "Current Location (${position.latitude.toStringAsFixed(4)}, ${position.longitude.toStringAsFixed(4)})";
-      });
+      final coords = LatLng(position.latitude, position.longitude);
+      
+      if (mounted) {
+        setState(() {
+          _pickupCoords = coords;
+          _pickupController.text = "Fetching address...";
+        });
+      }
+
+      // Reverse geocode to get address name
+      try {
+        final address = await MapService.instance.reverseGeocode(coords);
+        if (mounted) {
+          setState(() {
+            _pickupController.text = address;
+          });
+        }
+      } catch (e) {
+        debugPrint('[TowingBooking] Reverse geocode error: $e');
+        if (mounted) {
+          setState(() {
+            _pickupController.text = "Current Location";
+          });
+        }
+      }
     } catch (e) {
-      setState(() {
-        _pickupController.text = "Error fetching location";
-      });
+      if (mounted) {
+        setState(() {
+          _pickupController.text = "Error fetching location";
+        });
+      }
     }
   }
 
@@ -108,6 +179,44 @@ class _TowingBookingScreenState extends State<TowingBookingScreen> {
     FocusScope.of(context).unfocus();
   }
 
+  /// Open a full-screen map picker to select drop-off location by tapping
+  void _openMapPicker() {
+    setState(() {
+      _showMapPicker = true;
+      _mapReady = false;
+      // Start at pickup location or default
+      _mapPickerCenter = _pickupCoords ?? const LatLng(6.9271, 79.8612);
+    });
+    Future.delayed(const Duration(milliseconds: 300), () {
+      if (mounted) setState(() => _mapReady = true);
+    });
+  }
+
+  /// Confirm pin location from map and reverse geocode
+  Future<void> _confirmMapLocation(LatLng point) async {
+    setState(() {
+      _destinationCoords = point;
+      _destinationController.text = "Fetching address...";
+      _showMapPicker = false;
+    });
+
+    try {
+      final address = await MapService.instance.reverseGeocode(point);
+      if (mounted) {
+        setState(() {
+          _destinationController.text = address;
+        });
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() {
+          _destinationController.text = "Selected Location (${point.latitude.toStringAsFixed(4)}, ${point.longitude.toStringAsFixed(4)})";
+        });
+      }
+    }
+    _calculateDistance();
+  }
+
   @override
   void dispose() {
     _debounce?.cancel();
@@ -117,6 +226,7 @@ class _TowingBookingScreenState extends State<TowingBookingScreen> {
     _colorController.dispose();
     _plateController.dispose();
     _notesController.dispose();
+    _mapPickerController.dispose();
     super.dispose();
   }
 
@@ -124,6 +234,11 @@ class _TowingBookingScreenState extends State<TowingBookingScreen> {
   Widget build(BuildContext context) {
     final dark = isDarkMode(context);
     final bgColor = dark ? AppColors.darkBackground : const Color(0xFFF8F9FE);
+
+    // If map picker is open, show it full-screen
+    if (_showMapPicker) {
+      return _buildMapPickerView(dark);
+    }
 
     return Scaffold(
       backgroundColor: bgColor,
@@ -175,13 +290,42 @@ class _TowingBookingScreenState extends State<TowingBookingScreen> {
               dark: dark,
             ),
             const SizedBox(height: 16),
-            _buildLocationInput(
-              controller: _destinationController,
-              label: "Drop-off Location",
-              icon: Icons.location_on,
-              hint: "Where to? (e.g. Home, Repair Shop)",
-              dark: dark,
-              onChanged: _onDestinationChanged,
+
+            // Drop-off: text search + map picker button
+            Row(
+              children: [
+                Expanded(
+                  child: _buildLocationInput(
+                    controller: _destinationController,
+                    label: "Drop-off Location",
+                    icon: Icons.location_on,
+                    hint: "Search or pick on map",
+                    dark: dark,
+                    onChanged: _onDestinationChanged,
+                  ),
+                ),
+                const SizedBox(width: 8),
+                // Map picker button
+                GestureDetector(
+                  onTap: _openMapPicker,
+                  child: Container(
+                    width: 56,
+                    height: 56,
+                    decoration: BoxDecoration(
+                      color: AppColors.emergencyRed,
+                      borderRadius: BorderRadius.circular(16),
+                      boxShadow: [
+                        BoxShadow(
+                          color: AppColors.emergencyRed.withAlpha(76),
+                          blurRadius: 8,
+                          offset: const Offset(0, 3),
+                        ),
+                      ],
+                    ),
+                    child: const Icon(Icons.map_rounded, color: Colors.white, size: 26),
+                  ),
+                ),
+              ],
             ),
             
             // Suggestions List
@@ -204,17 +348,58 @@ class _TowingBookingScreenState extends State<TowingBookingScreen> {
             if (_estimatedDistance != null)
               Padding(
                 padding: const EdgeInsets.only(top: 8, left: 12),
-                child: Text(
-                  "Estimated Distance: ${_estimatedDistance!.toStringAsFixed(1)} km",
-                  style: const TextStyle(
-                    color: AppColors.emergencyRed,
-                    fontWeight: FontWeight.bold,
-                  ),
+                child: Row(
+                  children: [
+                    const Icon(Icons.straighten, size: 16, color: AppColors.emergencyRed),
+                    const SizedBox(width: 6),
+                    Text(
+                      "Estimated Distance: ${_estimatedDistance!.toStringAsFixed(1)} km",
+                      style: const TextStyle(
+                        color: AppColors.emergencyRed,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ],
                 ),
               ),
             const SizedBox(height: 32),
-            _buildSectionTitle("Vehicle Details", dark),
-            const SizedBox(height: 16),
+
+            // Vehicle Details section with auto-fill indicator
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                _buildSectionTitle("Vehicle Details", dark),
+                if (!_isLoadingVehicle && _makeModelController.text.isNotEmpty)
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                    decoration: BoxDecoration(
+                      color: Colors.green.withAlpha(25),
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        const Icon(Icons.check_circle, color: Colors.green, size: 14),
+                        const SizedBox(width: 4),
+                        Text(
+                          "Auto-filled",
+                          style: TextStyle(
+                            fontSize: 11,
+                            fontWeight: FontWeight.bold,
+                            color: Colors.green[700],
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+              ],
+            ),
+            const SizedBox(height: 6),
+            Text(
+              "Pre-filled from your primary vehicle. You can edit if needed.",
+              style: TextStyle(fontSize: 12, color: Colors.grey[500]),
+            ),
+            const SizedBox(height: 12),
             Row(
               children: [
                 Expanded(
@@ -256,77 +441,21 @@ class _TowingBookingScreenState extends State<TowingBookingScreen> {
               width: double.infinity,
               height: 64,
               child: ElevatedButton(
-                onPressed: () async {
-                  final user = FirebaseAuth.instance.currentUser;
-                  if (user == null) return;
-
-                  setState(() => _isSubmitting = true);
-
-                  try {
-                    // ── Find nearest available tow provider ──────────────
-                    String? nearestTowUid;
-                    String? nearestTowName;
-
-                    final towSnap = await FirebaseFirestore.instance
-                        .collection('users')
-                        .where('roles.tow', isNotEqualTo: null)
-                        .get();
-
-                    double minDist = double.infinity;
-                    for (final doc in towSnap.docs) {
-                      final roles = doc.data()['roles'] as Map<String, dynamic>? ?? {};
-                      final towData = roles['tow'] as Map<String, dynamic>? ?? {};
-                      final isAvailable = towData['isAvailable'] as bool? ?? true;
-                      final isOnline = towData['isOnline'] as bool? ?? true;
-                      if (!isAvailable || !isOnline) continue;
-
-                      final loc = towData['location'] as Map<String, dynamic>?;
-                      if (loc == null) continue;
-
-                      if (_pickupCoords != null) {
-                        final d = Geolocator.distanceBetween(
-                          _pickupCoords!.latitude, _pickupCoords!.longitude,
-                          (loc['lat'] as num).toDouble(), (loc['lng'] as num).toDouble(),
-                        );
-                        if (d < minDist) {
-                          minDist = d;
-                          nearestTowUid = doc.id;
-                          nearestTowName = towData['fullName'] as String? ?? 'Tow Driver';
-                        }
-                      }
-                    }
-
-                    debugPrint('[TowingBooking] userId=${user.uid} '
-                        'nearest tow UID=$nearestTowUid dist=$minDist');
-
-                    // Guard: if no tow provider found, show error and stop
-                    if (nearestTowUid == null) {
-                      debugPrint('[TowingBooking] No available tow provider found — aborting booking');
-                      if (mounted) {
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(
-                            content: Text('No tow driver available right now. Please try again shortly.'),
-                            backgroundColor: Colors.red,
-                          ),
-                        );
-                      }
-                      return;
-                    }
-
-                    final Map<String, dynamic> requestData = {
-                      'targetRole': 'tow',
-                      'assignedProviderId': nearestTowUid,
-                      'mechanicId': nearestTowUid,
-                      'mechanicName': nearestTowName,
-                      'userId': user.uid,
-                      'userName': user.displayName ?? 'User',
-                      'type': 'towing',
+                onPressed: () {
+                  // Navigate to SearchingTowsScreen with booking details
+                  Navigator.pushNamed(
+                    context,
+                    '/searching-tows',
+                    arguments: {
                       'serviceType': _services.firstWhere((s) => s.id == _selectedServiceId).title,
-                      'status': 'pending',
-                      'userLocation': {
-                        'lat': _pickupCoords?.latitude ?? 0,
-                        'lng': _pickupCoords?.longitude ?? 0,
-                      },
+                      'basePrice': _services.firstWhere((s) => s.id == _selectedServiceId).basePrice,
+                      'pickupCoords': _pickupCoords != null
+                          ? {'lat': _pickupCoords!.latitude, 'lng': _pickupCoords!.longitude}
+                          : null,
+                      'destinationCoords': _destinationCoords != null
+                          ? {'lat': _destinationCoords!.latitude, 'lng': _destinationCoords!.longitude}
+                          : null,
+                      'destinationAddress': _destinationController.text,
                       'userAddress': _pickupController.text,
                       'destination': {
                         'lat': _destinationCoords?.latitude ?? 0,
@@ -340,40 +469,8 @@ class _TowingBookingScreenState extends State<TowingBookingScreen> {
                       },
                       'notes': _notesController.text,
                       'estimatedDistance': _estimatedDistance ?? 0,
-                      'basePrice': _services.firstWhere((s) => s.id == _selectedServiceId).basePrice,
-                      'createdAt': FieldValue.serverTimestamp(),
-                    };
-
-                    debugPrint('[TowingBooking] Creating request: '
-                        'assignedProviderId=${requestData['assignedProviderId']} '
-                        'tow UID=$nearestTowUid '
-                        'targetRole=${requestData['targetRole']} '
-                        'status=${requestData['status']}');
-
-                    final ref = await FirebaseFirestore.instance
-                        .collection('requests')
-                        .add(requestData);
-
-                    debugPrint('[TowingBooking] request created requestId=${ref.id} tow UID=$nearestTowUid');
-
-                    if (mounted) {
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (context) => TowingStatusScreen(requestId: ref.id),
-                        ),
-                      );
-                    }
-                  } catch (e) {
-                    debugPrint('[TowingBooking] Error: $e');
-                    if (mounted) {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        SnackBar(content: Text("Error: $e")),
-                      );
-                    }
-                  } finally {
-                    if (mounted) setState(() => _isSubmitting = false);
-                  }
+                    },
+                  );
                 },
                 style: ElevatedButton.styleFrom(
                   backgroundColor: AppColors.emergencyRed,
@@ -384,10 +481,8 @@ class _TowingBookingScreenState extends State<TowingBookingScreen> {
                   elevation: 8,
                   shadowColor: AppColors.emergencyRed.withAlpha(102),
                 ),
-                child: _isSubmitting 
-                  ? const CircularProgressIndicator(color: Colors.white)
-                  : const Text(
-                      "CONFIRM BOOKING",
+                child: const Text(
+                      "FIND NEARBY TOW TRUCKS",
                       style: TextStyle(
                         fontSize: 18,
                         fontWeight: FontWeight.bold,
@@ -399,6 +494,146 @@ class _TowingBookingScreenState extends State<TowingBookingScreen> {
             const SizedBox(height: 40),
           ],
         ),
+      ),
+    );
+  }
+
+  // ─── MAP PICKER VIEW ──────────────────────────────────────────────
+  Widget _buildMapPickerView(bool dark) {
+    return Scaffold(
+      body: Stack(
+        children: [
+          // Full-screen map
+          Positioned.fill(
+            child: _mapReady
+                ? OsmMapWidget(
+                    center: _mapPickerCenter,
+                    zoom: 15,
+                    mapController: _mapPickerController,
+                    onTap: (tapPosition, point) {
+                      setState(() {
+                        _mapPickerCenter = point;
+                      });
+                    },
+                    markers: [
+                      // Pin at selected location
+                      Marker(
+                        point: _mapPickerCenter,
+                        width: 50,
+                        height: 50,
+                        child: const Icon(
+                          Icons.location_on,
+                          color: AppColors.emergencyRed,
+                          size: 50,
+                        ),
+                      ),
+                      // User location
+                      if (_pickupCoords != null)
+                        Marker(
+                          point: _pickupCoords!,
+                          width: 30,
+                          height: 30,
+                          child: Container(
+                            decoration: BoxDecoration(
+                              color: Colors.blue,
+                              shape: BoxShape.circle,
+                              border: Border.all(color: Colors.white, width: 2),
+                            ),
+                            child: const Icon(Icons.person, color: Colors.white, size: 16),
+                          ),
+                        ),
+                    ],
+                    showLocateButton: false,
+                  )
+                : Container(
+                    color: dark ? AppColors.darkBackground : const Color(0xFFE8E8E8),
+                    child: const Center(child: CircularProgressIndicator()),
+                  ),
+          ),
+
+          // Instruction card at top
+          Positioned(
+            top: MediaQuery.of(context).padding.top + 12,
+            left: 16,
+            right: 16,
+            child: Container(
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                color: dark ? AppColors.darkSurface : Colors.white,
+                borderRadius: BorderRadius.circular(16),
+                boxShadow: [
+                  BoxShadow(color: Colors.black.withAlpha(25), blurRadius: 10),
+                ],
+              ),
+              child: Row(
+                children: [
+                  GestureDetector(
+                    onTap: () => setState(() => _showMapPicker = false),
+                    child: Container(
+                      width: 36,
+                      height: 36,
+                      decoration: BoxDecoration(
+                        color: dark ? Colors.grey[800] : Colors.grey[100],
+                        shape: BoxShape.circle,
+                      ),
+                      child: Icon(Icons.arrow_back, size: 18,
+                          color: dark ? Colors.white : Colors.black),
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          "Select Drop-off Location",
+                          style: TextStyle(
+                            fontWeight: FontWeight.bold,
+                            fontSize: 15,
+                            color: dark ? Colors.white : Colors.black,
+                          ),
+                        ),
+                        Text(
+                          "Tap on the map to place your pin",
+                          style: TextStyle(fontSize: 12, color: Colors.grey[500]),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+
+          // Confirm button at bottom
+          Positioned(
+            bottom: 30,
+            left: 20,
+            right: 20,
+            child: ElevatedButton.icon(
+              onPressed: () => _confirmMapLocation(_mapPickerCenter),
+              icon: const Icon(Icons.check_circle, size: 22),
+              label: const Text(
+                "CONFIRM LOCATION",
+                style: TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.bold,
+                  letterSpacing: 1,
+                ),
+              ),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: AppColors.emergencyRed,
+                foregroundColor: Colors.white,
+                padding: const EdgeInsets.symmetric(vertical: 18),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(20),
+                ),
+                elevation: 8,
+                shadowColor: AppColors.emergencyRed.withAlpha(102),
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }

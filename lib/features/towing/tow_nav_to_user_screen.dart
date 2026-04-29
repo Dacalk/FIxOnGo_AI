@@ -156,6 +156,7 @@ class _TowNavToUserScreenState extends State<TowNavToUserScreen> {
       'requestId': _requestId,
       'userId': _requestData?['userId'],
       'mechanicId': _requestData?['mechanicId'],
+      'providerId': towUid, // Standard field for earnings
       'amount': _requestData?['basePrice'] ?? 2000,
       'type': 'towing',
       'createdAt': FieldValue.serverTimestamp(),
@@ -173,7 +174,12 @@ class _TowNavToUserScreenState extends State<TowNavToUserScreen> {
 
     setState(() => _isProcessing = false);
     if (mounted) {
-      Navigator.pushReplacementNamed(context, '/payment-successful', arguments: {'role': 'tow'});
+      Navigator.pushReplacementNamed(context, '/payment-successful', arguments: {
+        'role': 'tow',
+        'requestId': _requestId,
+        'totalPrice': _requestData?['basePrice'] ?? 2000,
+        'itemName': 'Towing Service',
+      });
     }
   }
 

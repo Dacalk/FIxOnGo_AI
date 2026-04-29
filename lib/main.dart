@@ -40,6 +40,7 @@ import 'screens/tow_vehicle_screen.dart';
 import 'features/towing/towing_booking_screen.dart';
 import 'features/towing/towing_status_screen.dart';
 import 'features/towing/tow_nav_to_user_screen.dart';
+import 'features/towing/searching_tows_screen.dart';
 import 'screens/delivery_history_screen.dart';
 import 'screens/active_delivery_screen.dart';
 import 'screens/delivery_jobs_screen.dart';
@@ -237,6 +238,8 @@ class FixOnGoApp extends StatelessWidget {
                 const AuthGuard(child: TowingStatusScreen()),
             '/tow-nav-to-user': (context) =>
                 const AuthGuard(child: TowNavToUserScreen()),
+            '/searching-tows': (context) =>
+                const AuthGuard(child: SearchingTowsScreen()),
             '/tow-vehicle': (context) =>
                 const AuthGuard(child: TowVehicleScreen()),
           },

@@ -24,14 +24,14 @@ class _JobHistoryScreenState extends State<JobHistoryScreen> {
   String _selectedFilter = 'All Time';
   
   bool get isProviderView => widget.isMechanicView || 
-      (widget.role != null && ['mechanic', 'seller', 'delivery'].contains(widget.role!.toLowerCase()));
+      (widget.role != null && ['mechanic', 'seller', 'delivery', 'tow'].contains(widget.role!.toLowerCase()));
 
   Future<Map<String, dynamic>> _fetchJobHistory() async {
     final user = FirebaseAuth.instance.currentUser;
     if (user == null) return {'rating': 0.0, 'jobs': []};
 
     final role = (widget.role ?? '').toLowerCase();
-    final isProvider = widget.isMechanicView || role == 'mechanic' || role == 'seller' || role == 'delivery';
+    final isProvider = widget.isMechanicView || role == 'mechanic' || role == 'seller' || role == 'delivery' || role == 'tow';
 
     double rating = 0.0;
 
