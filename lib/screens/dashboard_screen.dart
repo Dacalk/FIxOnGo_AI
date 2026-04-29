@@ -60,6 +60,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
   bool _isNavigating = false;
   bool _isOverlayShown = false;
   bool _isInitialized = false;
+  bool _mapReady = false; // Delay map render to avoid Flutter Web assertion
 
   // Real-time data streams
   Stream<List<Map<String, dynamic>>>? _ongoingRequestsStream;
@@ -77,20 +78,26 @@ class _DashboardScreenState extends State<DashboardScreen> {
     currentRole = widget.role; // Initial value
     loadUserData();
     _fetchInitialLocation();
+    
+    // Delay map rendering to avoid Flutter Web engine assertion loop
+    Future.delayed(const Duration(milliseconds: 300), () {
+      if (mounted) setState(() => _mapReady = true);
+    });
   }
 
   Future<void> _fetchInitialLocation() async {
     try {
       final loc = await LocationService.instance.getCurrentLatLng();
       if (mounted) {
-        WidgetsBinding.instance.addPostFrameCallback((_) {
-          if (mounted) {
-            setState(() => _userLocation = loc);
-          }
-        });
+        setState(() => _userLocation = loc);
+        _trySpawnMockMechanic();
       }
     } catch (e) {
-      print("Error fetching dashboard location: $e");
+      debugPrint("Error fetching dashboard location: $e");
+      if (mounted) {
+        setState(() => _userLocation = const LatLng(6.9271, 79.8612));
+        _trySpawnMockMechanic(); // Still try to spawn even with fallback
+      }
     }
   }
 
@@ -130,7 +137,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
           rd = rolesMap[role] as Map<String, dynamic>? ?? {};
         }
 
-        WidgetsBinding.instance.addPostFrameCallback((_) {
+        Future.microtask(() {
           if (mounted) {
             setState(() {
               allRoles = rolesMap;
@@ -173,12 +180,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                 userEmail == 'mock@fixongo.test';
 
             if (isMechanic) {
-              if (userEmail == 'mock@fixongo.test' && _userLocation != null) {
-                TestService.instance.cleanupMocks();
-                TestService.instance.removeDuplicateMocks(user.uid);
-                TestService.instance
-                    .makeMeMockMechanic(user.uid, _userLocation!);
-              }
+              _trySpawnMockMechanic();
               _initMechanicServices(user.uid);
               _initMechanicDataStreams(user.uid);
             }
@@ -207,7 +209,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
         });
       } else {
         // No Firestore doc — use Google profile data
-        WidgetsBinding.instance.addPostFrameCallback((_) {
+        Future.microtask(() {
           if (mounted) {
             setState(() {
               userName = user.displayName ?? 'User';
@@ -229,7 +231,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
     } catch (e) {
       print("Dashboard load error: ${e.toString()}");
       // Fallback to Google profile on any error
-      WidgetsBinding.instance.addPostFrameCallback((_) {
+      Future.microtask(() {
         if (mounted) {
           setState(() {
             userName = user.displayName ?? 'User';
@@ -245,6 +247,13 @@ class _DashboardScreenState extends State<DashboardScreen> {
   // Helper to get a role field with a fallback
   String _rd(String key, [String fallback = '']) =>
       roleData[key]?.toString() ?? fallback;
+
+  void _trySpawnMockMechanic() {
+    final user = FirebaseAuth.instance.currentUser;
+    if (user != null && userEmail == 'mock@fixongo.test' && _userLocation != null) {
+       TestService.instance.makeMeMockMechanic(user.uid, _userLocation!);
+    }
+  }
 
   Future<void> _toggleMechanicActive(bool value) async {
     final user = FirebaseAuth.instance.currentUser;
@@ -268,7 +277,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
       ),
     );
 
-    WidgetsBinding.instance.addPostFrameCallback((_) {
+    Future.microtask(() {
       if (mounted) {
         setState(() => _isMechanicActive = value);
       }
@@ -286,7 +295,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text("Error updating status: $e")),
         );
-        WidgetsBinding.instance.addPostFrameCallback((_) {
+        Future.microtask(() {
           if (mounted) {
             setState(() => _isMechanicActive = !value);
           }
@@ -486,10 +495,18 @@ class _DashboardScreenState extends State<DashboardScreen> {
     _towPaymentHistoryStream = FirebaseFirestore.instance
         .collection('payments')
         .where('mechanicId', isEqualTo: uid)
-        .orderBy('createdAt', descending: true)
         .snapshots()
-        .map((snap) =>
-            snap.docs.map((doc) => {'id': doc.id, ...doc.data()}).toList());
+        .map((snap) {
+      final list =
+          snap.docs.map((doc) => {'id': doc.id, ...doc.data()}).toList();
+      list.sort((a, b) {
+        final aTime = a['createdAt'] as Timestamp?;
+        final bTime = b['createdAt'] as Timestamp?;
+        if (aTime == null || bTime == null) return 0;
+        return bTime.compareTo(aTime);
+      });
+      return list;
+    });
   }
 
   void _initUserDataStreams(String uid) {
@@ -506,10 +523,18 @@ class _DashboardScreenState extends State<DashboardScreen> {
     _paymentHistoryStream = FirebaseFirestore.instance
         .collection('payments')
         .where('userId', isEqualTo: uid)
-        .orderBy('createdAt', descending: true)
         .snapshots()
-        .map((snap) =>
-            snap.docs.map((doc) => {'id': doc.id, ...doc.data()}).toList());
+        .map((snap) {
+      final list =
+          snap.docs.map((doc) => {'id': doc.id, ...doc.data()}).toList();
+      list.sort((a, b) {
+        final aTime = a['createdAt'] as Timestamp?;
+        final bTime = b['createdAt'] as Timestamp?;
+        if (aTime == null || bTime == null) return 0;
+        return bTime.compareTo(aTime);
+      });
+      return list;
+    });
   }
 
   void _initMechanicDataStreams(String uid) {
@@ -517,10 +542,18 @@ class _DashboardScreenState extends State<DashboardScreen> {
     _paymentHistoryStream = FirebaseFirestore.instance
         .collection('payments')
         .where('mechanicId', isEqualTo: uid)
-        .orderBy('createdAt', descending: true)
         .snapshots()
-        .map((snap) =>
-            snap.docs.map((doc) => {'id': doc.id, ...doc.data()}).toList());
+        .map((snap) {
+      final list =
+          snap.docs.map((doc) => {'id': doc.id, ...doc.data()}).toList();
+      list.sort((a, b) {
+        final aTime = a['createdAt'] as Timestamp?;
+        final bTime = b['createdAt'] as Timestamp?;
+        if (aTime == null || bTime == null) return 0;
+        return bTime.compareTo(aTime);
+      });
+      return list;
+    });
 
     // Incoming Requests for mechanic: targetRole + assignedProviderId (CORE RULE)
     debugPrint('[Dashboard] _initMechanicDataStreams: currentUserUid=$uid');
@@ -550,7 +583,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
         .collection('deliveries')
         .where('driverId', isEqualTo: uid)
         .where('status', isEqualTo: 'delivered')
-        .orderBy('deliveredAt', descending: true)
+        
         .snapshots()
         .map((s) => s.docs.map((d) => {'id': d.id, ...d.data()}).toList());
 
@@ -742,7 +775,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
     debugPrint('[Dashboard] _showNewRequestDialog reqId=${req["id"]} uid=${user.uid}');
 
-    WidgetsBinding.instance.addPostFrameCallback((_) {
+    Future.microtask(() {
       if (mounted) {
         setState(() => _isOverlayShown = true);
       }
@@ -785,7 +818,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
             Navigator.pop(context);
           }
           if (mounted) {
-            WidgetsBinding.instance.addPostFrameCallback((_) {
+            Future.microtask(() {
               if (mounted) {
                 if (_isNavigating) return;
                 String? targetRoute;
@@ -835,7 +868,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
       ),
     ).then((_) {
       if (mounted) {
-        WidgetsBinding.instance.addPostFrameCallback((_) {
+        Future.microtask(() {
           if (mounted) {
             setState(() => _isOverlayShown = false);
           }
@@ -846,7 +879,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
   void _showNewDeliveryDialog(Map<String, dynamic> req) {
     if (_isOverlayShown) return;
-    WidgetsBinding.instance.addPostFrameCallback((_) {
+    Future.microtask(() {
       if (mounted) {
         setState(() => _isOverlayShown = true);
       }
@@ -915,7 +948,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
       ),
     ).then((_) {
       if (mounted) {
-        WidgetsBinding.instance.addPostFrameCallback((_) {
+        Future.microtask(() {
           if (mounted) setState(() => _isOverlayShown = false);
         });
       }
@@ -957,7 +990,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
         child: BottomNavigationBar(
           currentIndex: _currentIndex,
           onTap: (i) {
-            WidgetsBinding.instance.addPostFrameCallback((_) {
+            Future.microtask(() {
               if (mounted) {
                 setState(() {
                   _currentIndex = i;
@@ -1061,7 +1094,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                     color: dark ? Colors.grey[800]! : Colors.grey[300]!,
                   ),
                 ),
-                child: _userLocation == null
+                child: _userLocation == null || !_mapReady
                     ? const Center(child: CircularProgressIndicator())
                     : Stack(
                         children: [
@@ -1156,7 +1189,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                         title: 'AI Assistant',
                         color: const Color(0xFF2E7D32),
                         onTap: () {
-                          WidgetsBinding.instance.addPostFrameCallback((_) {
+                          Future.microtask(() {
                             if (mounted)
                               Navigator.pushNamed(context, '/ai-chat');
                           });
@@ -1171,7 +1204,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                         title: 'Mechanic',
                         color: const Color(0xFFE65100),
                         onTap: () {
-                          WidgetsBinding.instance.addPostFrameCallback((_) {
+                          Future.microtask(() {
                             if (mounted) {
                               Navigator.pushNamed(
                                   context, '/searching-mechanics');
@@ -1193,7 +1226,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                         color: const Color(0xFF1B5E20),
                         onTap: () {
                           // Redirect to searching for mechanics who have products/shops
-                          WidgetsBinding.instance.addPostFrameCallback((_) {
+                          Future.microtask(() {
                             if (mounted) {
                               Navigator.pushNamed(
                                   context, '/searching-mechanics');
@@ -1210,7 +1243,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                         title: 'Call Support',
                         color: const Color(0xFF1A2940),
                         onTap: () {
-                          WidgetsBinding.instance.addPostFrameCallback((_) {
+                          Future.microtask(() {
                             if (mounted) {
                               Navigator.pushNamed(context, '/call-support');
                             }
@@ -1230,7 +1263,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                         title: 'Towing & Roadside',
                         color: AppColors.emergencyRed,
                         onTap: () {
-                          WidgetsBinding.instance.addPostFrameCallback((_) {
+                          Future.microtask(() {
                             if (mounted) {
                               Navigator.pushNamed(context, '/towing-booking');
                             }
@@ -1617,7 +1650,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                     title: 'My Tow Truck',
                     color: const Color(0xFFE65100),
                     onTap: () {
-                      WidgetsBinding.instance.addPostFrameCallback((_) {
+                      Future.microtask(() {
                         if (mounted)
                           Navigator.pushNamed(context, '/tow-vehicle');
                       });
@@ -1632,7 +1665,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                     title: 'Support',
                     color: const Color(0xFF1A2940),
                     onTap: () {
-                      WidgetsBinding.instance.addPostFrameCallback((_) {
+                      Future.microtask(() {
                         if (mounted)
                           Navigator.pushNamed(context, '/call-support');
                       });
@@ -2369,7 +2402,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                     title: 'New Delivery',
                     color: const Color(0xFF2E7D32),
                     onTap: () {
-                      WidgetsBinding.instance.addPostFrameCallback((_) {
+                      Future.microtask(() {
                         if (mounted)
                           Navigator.pushNamed(context, '/order-tracking');
                       });
@@ -2384,7 +2417,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                     title: 'View Route',
                     color: const Color(0xFF1565C0),
                     onTap: () {
-                      WidgetsBinding.instance.addPostFrameCallback((_) {
+                      Future.microtask(() {
                         if (mounted) Navigator.pushNamed(context, '/location');
                       });
                     },
@@ -2767,7 +2800,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
           ),
           ElevatedButton(
             onPressed: () {
-              WidgetsBinding.instance.addPostFrameCallback((_) {
+              Future.microtask(() {
                 if (!mounted) return;
                 if (status == 'pending') {
                   Navigator.pushNamed(context, '/searching-mechanics',
@@ -2909,7 +2942,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
         ),
         child: ClipRRect(
           borderRadius: BorderRadius.circular(24),
-          child: _userLocation == null
+          child: _userLocation == null || !_mapReady
               ? const Center(child: CircularProgressIndicator())
               : StreamBuilder<List<Map<String, dynamic>>>(
                   stream: stream,

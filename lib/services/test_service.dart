@@ -67,6 +67,9 @@ class TestService {
             'rating': 4.9,
             'reviews': 250,
             'priceBase': 3500,
+            'isActive': true,
+            'isOnline': true,
+            'isAvailable': true,
           }
         }
       }, SetOptions(merge: true));

@@ -1,4 +1,4 @@
-﻿import 'package:flutter/material.dart';
+import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
 import '../theme_provider.dart';
@@ -191,7 +191,7 @@ class _MechanicAcceptedScreenState extends State<MechanicAcceptedScreen> {
       backgroundColor: bgColor,
       body: Stack(
         children: [
-          // â”€â”€ Map area (top portion) â”€â”€
+          // ── Map area (top portion) ──
           Positioned(
             top: 0,
             left: 0,
@@ -200,7 +200,7 @@ class _MechanicAcceptedScreenState extends State<MechanicAcceptedScreen> {
             child: _buildMap(dark),
           ),
 
-          // â”€â”€ Back button â”€â”€
+          // ── Back button ──
           Positioned(
             top: MediaQuery.of(context).padding.top + 8,
             left: 16,
@@ -228,7 +228,7 @@ class _MechanicAcceptedScreenState extends State<MechanicAcceptedScreen> {
             ),
           ),
 
-          // â”€â”€ Bottom scrollable content â”€â”€
+          // ── Bottom scrollable content ──
           DraggableScrollableSheet(
             initialChildSize: 0.70,
             minChildSize: 0.55,
@@ -268,7 +268,7 @@ class _MechanicAcceptedScreenState extends State<MechanicAcceptedScreen> {
                     ),
                     const SizedBox(height: 10),
 
-                    // ── Status Header ──
+                    // -- Status Header --
                     Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
@@ -338,7 +338,7 @@ class _MechanicAcceptedScreenState extends State<MechanicAcceptedScreen> {
                     const SizedBox(height: 24),
                     const SizedBox(height: 4),
 
-                    // â”€â”€ Mechanic info card â”€â”€
+                    // ── Mechanic info card ──
                     Container(
                       padding: const EdgeInsets.all(14),
                       decoration: BoxDecoration(
@@ -502,7 +502,7 @@ class _MechanicAcceptedScreenState extends State<MechanicAcceptedScreen> {
                     ),
                     const SizedBox(height: 14),
 
-                    // â”€â”€ Current Location â”€â”€
+                    // ── Current Location ──
                     Row(
                       children: [
                         Icon(Icons.circle, size: 10, color: Colors.green),
@@ -526,7 +526,7 @@ class _MechanicAcceptedScreenState extends State<MechanicAcceptedScreen> {
                     ),
                     const SizedBox(height: 14),
 
-                    // â”€â”€ Request Tools â”€â”€
+                    // ── Request Tools ──
                     GestureDetector(
                       onTap: () {
                         if (_mechanicId != null) {
@@ -581,7 +581,7 @@ class _MechanicAcceptedScreenState extends State<MechanicAcceptedScreen> {
                     ),
                     const SizedBox(height: 16),
 
-                    // â”€â”€ Total Price breakdown â”€â”€
+                    // ── Total Price breakdown ──
                     Container(
                       padding: const EdgeInsets.all(14),
                       decoration: BoxDecoration(
@@ -696,7 +696,7 @@ class _MechanicAcceptedScreenState extends State<MechanicAcceptedScreen> {
                     ),
                     const SizedBox(height: 16),
 
-                    // â”€â”€ Payment Method â”€â”€
+                    // ── Payment Method ──
                     Container(
                       padding: const EdgeInsets.all(14),
                       decoration: BoxDecoration(
@@ -767,7 +767,7 @@ class _MechanicAcceptedScreenState extends State<MechanicAcceptedScreen> {
                     ),
                     const SizedBox(height: 20),
 
-                    // â”€â”€ Confirm + Cancel buttons â”€â”€
+                    // ── Confirm + Cancel buttons ──
                     Row(
                       children: [
                         Expanded(
@@ -793,7 +793,7 @@ class _MechanicAcceptedScreenState extends State<MechanicAcceptedScreen> {
                             ),
                             child: Center(
                               child: Text(
-                                'Rs. 2,000+',
+                                'Rs. ',
                                 style: TextStyle(
                                   color: Colors.white,
                                   fontSize: 14,

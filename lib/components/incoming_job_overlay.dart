@@ -89,6 +89,45 @@ class _IncomingJobOverlayState extends State<IncomingJobOverlay> {
             const SizedBox(height: 24),
 
             const SizedBox(height: 16),
+            
+            // User Details
+            Row(
+              children: [
+                CircleAvatar(
+                  radius: 20,
+                  backgroundColor: dark ? Colors.grey[800] : Colors.grey[200],
+                  backgroundImage: (widget.requestData['userPhotoUrl'] != null && widget.requestData['userPhotoUrl'].toString().isNotEmpty)
+                      ? NetworkImage(widget.requestData['userPhotoUrl'])
+                      : null,
+                  child: (widget.requestData['userPhotoUrl'] == null || widget.requestData['userPhotoUrl'].toString().isEmpty)
+                      ? Icon(Icons.person, color: Colors.grey[400], size: 20)
+                      : null,
+                ),
+                const SizedBox(width: 12),
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      widget.requestData['userName'] ?? 'Unknown User',
+                      style: TextStyle(
+                        fontSize: 15,
+                        fontWeight: FontWeight.bold,
+                        color: dark ? Colors.white : Colors.black,
+                      ),
+                    ),
+                    Text(
+                      'Customer',
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: dark ? Colors.grey[500] : Colors.grey[600],
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+
+            const SizedBox(height: 16),
             Row(
               children: [
                 const Icon(Icons.location_on, color: Colors.red, size: 18),
