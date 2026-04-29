@@ -4,6 +4,7 @@ import 'package:latlong2/latlong.dart';
 import '../theme_provider.dart';
 import '../components/osm_map_widget.dart';
 import '../services/location_service.dart';
+import '../services/provider_service.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'dart:async';
@@ -86,12 +87,22 @@ class _SearchingMechanicsScreenState extends State<SearchingMechanicsScreen> {
         .snapshots()
         .listen((snap) {
       final list = <Map<String, dynamic>>[];
+      debugPrint('[SearchingMechanics] mechanic snapshot docs=${snap.docs.length}');
       for (var doc in snap.docs) {
         final data = doc.data();
         final m = data['roles']['mechanic'] as Map<String, dynamic>?;
         if (m != null) {
+          // Filter: only show active, online, available mechanics with location
           final isActive = m['isActive'] ?? true;
           if (!isActive) continue;
+
+          final isOnline = m['isOnline'] as bool? ?? true;  // default true for legacy accounts
+          final isAvailable = m['isAvailable'] as bool? ?? true;
+          // Skip if explicitly offline or unavailable
+          if (!isOnline || !isAvailable) {
+            debugPrint('[SearchingMechanics] Skipping mechanic ${doc.id} isOnline=$isOnline isAvailable=$isAvailable');
+            continue;
+          }
 
           final loc = m['location'] as Map<String, dynamic>?;
           if (loc != null) {
@@ -106,6 +117,8 @@ class _SearchingMechanicsScreenState extends State<SearchingMechanicsScreen> {
               'lng': loc['lng'],
               'lastSeen': m['lastSeen'],
             });
+          } else {
+            debugPrint('[SearchingMechanics] Mechanic ${doc.id} has no location — skipping');
           }
         }
       }
@@ -147,35 +160,54 @@ class _SearchingMechanicsScreenState extends State<SearchingMechanicsScreen> {
     final user = FirebaseAuth.instance.currentUser;
     if (user == null) return;
 
+    final mechanicUid = _selectedMechanic!['id'] as String;
+    debugPrint('[SearchingMechanics] _sendRequest '
+        'userId=${user.uid} '
+        'mechanic UID=$mechanicUid '
+        'assignedProviderId=$mechanicUid');
+
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted) {
         setState(() => _isRequesting = true);
       }
     });
 
-    final ref = await FirebaseFirestore.instance.collection('requests').add({
-      'userId': user.uid,
-      'userName': _userName ?? user.displayName ?? 'User',
-      'userLocation': {
-        'lat': _userLatLng!.latitude,
-        'lng': _userLatLng!.longitude
-      },
-      'mechanicId': _selectedMechanic!['id'],
-      'mechanicName': _selectedMechanic!['name'],
-      'serviceType': _serviceType ?? 'General Service',
-      'status': 'pending',
-      'basePrice': 2000,
-      'totalPrice': 2000,
-      'tools': [],
-      'createdAt': FieldValue.serverTimestamp(),
-    });
+    // Use ProviderService to create request with targetRole + assignedProviderId
+    try {
+      _currentRequestId = await ProviderService.instance.createMechanicRequest(
+        mechanicUid: mechanicUid,
+        mechanicName: _selectedMechanic!['name'],
+        userName: _userName ?? user.displayName ?? 'User',
+        userId: user.uid,
+        userLocation: {
+          'lat': _userLatLng!.latitude,
+          'lng': _userLatLng!.longitude,
+        },
+        serviceType: _serviceType ?? 'General Service',
+        basePrice: 2000,
+      );
+    } catch (e) {
+      debugPrint('[SearchingMechanics] Failed to create request: $e');
+      if (mounted) {
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (mounted) setState(() => _isRequesting = false);
+        });
+      }
+      return;
+    }
 
-    _currentRequestId = ref.id;
+    debugPrint('[SearchingMechanics] Request created '
+        'requestId=$_currentRequestId '
+        'assignedProviderId=$mechanicUid mechanic UID=$mechanicUid');
 
-    // Listen for acceptance
+    // Listen for acceptance — real-time via .snapshots()
+    final ref = FirebaseFirestore.instance.collection('requests').doc(_currentRequestId);
     _requestSub = ref.snapshots().listen((snap) {
       if (snap.exists) {
         final status = snap.data()?['status'];
+        final assignedId = snap.data()?['assignedProviderId'];
+        debugPrint('[SearchingMechanics] status listener: '
+            'status=$status assignedProviderId=$assignedId mechanic UID=$mechanicUid result count=1');
         if (status == 'accepted') {
           if (_isNavigating) return;
           _isNavigating = true;
@@ -190,6 +222,7 @@ class _SearchingMechanicsScreenState extends State<SearchingMechanicsScreen> {
             });
           }
         } else if (status == 'rejected') {
+          debugPrint('[SearchingMechanics] Request rejected by mechanic UID=$mechanicUid');
           if (mounted) {
             WidgetsBinding.instance.addPostFrameCallback((_) {
               if (mounted) {

@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import '../theme_provider.dart';
 
 /// A reusable role selection dropdown that expands in-place (no popup jump).
-/// Options: User, Mechanic, Tow, Seller, Driver.
+/// Options: User, Mechanic, Tow, Seller, Delivery.
 class RoleDropdown extends StatefulWidget {
   final ValueChanged<String?>? onChanged;
   final String? initialValue;
@@ -32,7 +32,6 @@ class _RoleDropdownState extends State<RoleDropdown> {
     'Mechanic',
     'Tow',
     'Seller',
-    'Driver',
     'Delivery',
   ];
 

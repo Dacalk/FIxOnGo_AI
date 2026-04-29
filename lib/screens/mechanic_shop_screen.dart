@@ -674,6 +674,31 @@ class _MechanicShopScreenState extends State<MechanicShopScreen>
                                 }
                                 setSheetState(() => sending = true);
 
+                                // ── Find nearest available delivery driver ──
+                                String? nearestDriverUid;
+                                String? nearestDriverName;
+                                try {
+                                  final driverSnap = await FirebaseFirestore.instance
+                                      .collection('users')
+                                      .where('roles.delivery', isNotEqualTo: null)
+                                      .get();
+
+                                  for (final doc in driverSnap.docs) {
+                                    final roles = doc.data()['roles'] as Map<String, dynamic>? ?? {};
+                                    final delivData = roles['delivery'] as Map<String, dynamic>? ?? {};
+                                    final isAvailable = delivData['isAvailable'] as bool? ?? true;
+                                    final isOnline = delivData['isOnline'] as bool? ?? true;
+                                    if (!isAvailable || !isOnline) continue;
+                                    nearestDriverUid = doc.id;
+                                    nearestDriverName = delivData['fullName'] as String? ?? 'Driver';
+                                    break; // First available is fine; could sort by distance later
+                                  }
+                                } catch (e) {
+                                  debugPrint('[MechanicShop] Error finding driver: $e');
+                                }
+
+                                debugPrint('[MechanicShop] senderId=$uid assignedProviderId=$nearestDriverUid');
+
                                 // Get mechanic info
                                 final userDoc = await FirebaseFirestore.instance
                                     .collection('users')
@@ -688,18 +713,30 @@ class _MechanicShopScreenState extends State<MechanicShopScreen>
                                     uData['fullName'] ??
                                     'Mechanic';
 
+                                debugPrint('[MechanicShop] Creating delivery request: '
+                                    'assignedProviderId=$nearestDriverUid '
+                                    'targetRole=delivery '
+                                    'status=pending');
+
                                 await FirebaseFirestore.instance
                                     .collection('deliveries')
                                     .add({
                                   'sourceRole': 'mechanic',
+                                  'targetRole': 'delivery',
                                   'senderId': uid,
                                   'senderName': senderName,
+                                  'assignedProviderId': nearestDriverUid,  // Nearest driver UID (or null)
+                                  'driverName': nearestDriverName,
                                   'itemName': product['name'] ?? 'Item',
                                   'itemCategory':
                                       product['category'] ?? 'Tools',
                                   'itemPrice': product['price'] ?? 0,
                                   'pickupAddress': pickupCtrl.text.trim(),
                                   'dropAddress': dropCtrl.text.trim(),
+                                  'pickupLat': 6.9271, // dummy
+                                  'pickupLng': 79.8612,
+                                  'dropLat': 6.8900,
+                                  'dropLng': 79.8500,
                                   'notes': notesCtrl.text.trim(),
                                   'status': 'pending',
                                   'earnings': _estimateFee(

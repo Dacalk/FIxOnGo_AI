@@ -10,6 +10,7 @@ import 'package:latlong2/latlong.dart';
 import '../components/osm_map_widget.dart';
 import '../components/incoming_job_overlay.dart';
 import '../services/location_service.dart';
+import '../services/provider_service.dart';
 import '../services/test_service.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'dart:async';
@@ -52,6 +53,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
   StreamSubscription? _requestSubscription;
   StreamSubscription? _towRequestSubscription; // Separate sub for towing
   StreamSubscription? _deliverySubscription;
+  StreamSubscription? _sellerRequestSubscription; // Separate sub for seller
   Timer? _posTimer;
   String? _lastDialogRequestId;
   String? _lastDialogDeliveryId;
@@ -110,8 +112,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
       if (doc.exists) {
         final data = doc.data();
         final rolesMap = data?['roles'] as Map<String, dynamic>? ?? {};
-        final towRole = rolesMap['tow'] ??
-            rolesMap['mechanic']; // Fix: use 'tow' instead of 'tow owner'
 
         // 🧠 DYNAMIC ROLE RESOLUTION
         // If we were passed "User" (the default) but the user has other roles,
@@ -188,6 +188,12 @@ class _DashboardScreenState extends State<DashboardScreen> {
             if (isTowOwner) {
               _initTowServices(user.uid);
               _initTowDataStreams(user.uid);
+            }
+
+            // 🏪 START SELLER SERVICES IF ROLE EXISTS
+            final isSeller = rolesMap.containsKey('seller');
+            if (isSeller) {
+              _initSellerServices(user.uid);
             }
 
             // 🚚 INIT DELIVERY STREAMS IF DELIVERY ROLE EXISTS
@@ -368,35 +374,32 @@ class _DashboardScreenState extends State<DashboardScreen> {
   // ─── MECHANIC LOGIC ───────────────────────────────────────────
 
   void _initMechanicServices(String uid) {
-    // 1. Update location periodically
+    // 1. Go online immediately
+    ProviderService.instance.goOnline('mechanic');
+
+    // 2. Update location periodically
     _posTimer?.cancel();
     _posTimer = Timer.periodic(const Duration(seconds: 30), (timer) async {
       final loc = await LocationService.instance.getCurrentLatLng();
       if (mounted) {
         setState(() => _userLocation = loc);
       }
-      // Use dot notation to avoid overwriting the whole role map
-      await FirebaseFirestore.instance.collection('users').doc(uid).update({
-        'roles.mechanic.location': {'lat': loc.latitude, 'lng': loc.longitude},
-        'roles.mechanic.lastSeen': FieldValue.serverTimestamp(),
-      });
+      await ProviderService.instance.updateLocation('mechanic', loc);
     });
 
-    // 2. Listen for requests
+    // 3. Listen for requests using targetRole + assignedProviderId (CORE RULE)
+    debugPrint('[Dashboard] _initMechanicServices: mechanic UID=$uid');
     _requestSubscription?.cancel();
-    _requestSubscription = FirebaseFirestore.instance
-        .collection('requests')
-        .where('mechanicId', isEqualTo: uid)
-        .where('status', isEqualTo: 'pending')
-        .snapshots()
-        .listen((snap) {
-      if (snap.docs.isNotEmpty) {
-        final req = snap.docs.first.data();
-        final reqId = snap.docs.first.id;
+    _requestSubscription = ProviderService.instance
+        .pendingRequestsStream(targetRole: 'mechanic', providerUid: uid)
+        .listen((docs) {
+      debugPrint('[Dashboard] mechanic pendingRequests: mechanic UID=$uid result count=${docs.length}');
+      if (docs.isNotEmpty) {
+        final req = docs.first;
+        final reqId = req['id'] as String;
 
         if (_lastDialogRequestId != reqId && !_isOverlayShown) {
           _lastDialogRequestId = reqId;
-          req['id'] = reqId;
           _showNewRequestDialog(req);
         }
       }
@@ -404,35 +407,65 @@ class _DashboardScreenState extends State<DashboardScreen> {
   }
 
   void _initTowServices(String uid) {
-    // 1. Update location periodically for Tow role
+    // 1. Go online immediately for tow role
+    ProviderService.instance.goOnline('tow');
+
+    // 2. Update location periodically for Tow role
     _posTimer?.cancel();
     _posTimer = Timer.periodic(const Duration(seconds: 30), (timer) async {
       final loc = await LocationService.instance.getCurrentLatLng();
       if (mounted) {
         setState(() => _userLocation = loc);
       }
-      await FirebaseFirestore.instance.collection('users').doc(uid).update({
-        'roles.tow.location': {'lat': loc.latitude, 'lng': loc.longitude},
-        'roles.tow.lastSeen': FieldValue.serverTimestamp(),
-      });
+      await ProviderService.instance.updateLocation('tow', loc);
     });
 
-    // 2. Listen for Towing Requests (Broadcasts: mechanicId == null)
+    // 3. Listen for tow requests using targetRole + assignedProviderId (CORE RULE)
+    debugPrint('[Dashboard] _initTowServices: tow UID=$uid');
     _towRequestSubscription?.cancel();
-    _towRequestSubscription = FirebaseFirestore.instance
-        .collection('requests')
-        .where('type', isEqualTo: 'towing')
-        .where('status', isEqualTo: 'pending')
-        .where('mechanicId', isNull: true)
-        .snapshots()
-        .listen((snap) {
-      if (snap.docs.isNotEmpty) {
-        final req = snap.docs.first.data();
-        final reqId = snap.docs.first.id;
+    _towRequestSubscription = ProviderService.instance
+        .pendingRequestsStream(targetRole: 'tow', providerUid: uid)
+        .listen((docs) {
+      debugPrint('[Dashboard] tow pendingRequests: tow UID=$uid result count=${docs.length}');
+      if (docs.isNotEmpty) {
+        final req = docs.first;
+        final reqId = req['id'] as String;
 
         if (_lastDialogRequestId != reqId && !_isOverlayShown) {
           _lastDialogRequestId = reqId;
-          req['id'] = reqId;
+          _showNewRequestDialog(req);
+        }
+      }
+    });
+  }
+
+  void _initSellerServices(String uid) {
+    // 1. Go online immediately for seller role
+    ProviderService.instance.goOnline('seller');
+
+    // 2. Update location periodically (optional for seller, but good practice)
+    _posTimer?.cancel();
+    _posTimer = Timer.periodic(const Duration(seconds: 30), (timer) async {
+      final loc = await LocationService.instance.getCurrentLatLng();
+      if (mounted) {
+        setState(() => _userLocation = loc);
+      }
+      await ProviderService.instance.updateLocation('seller', loc);
+    });
+
+    // 3. Listen for seller requests using targetRole + assignedProviderId
+    debugPrint('[Dashboard] _initSellerServices: seller UID=$uid');
+    _sellerRequestSubscription?.cancel();
+    _sellerRequestSubscription = ProviderService.instance
+        .pendingRequestsStream(targetRole: 'seller', providerUid: uid)
+        .listen((docs) {
+      debugPrint('[Dashboard] seller pendingRequests: seller UID=$uid result count=${docs.length}');
+      if (docs.isNotEmpty) {
+        final req = docs.first;
+        final reqId = req['id'] as String;
+
+        if (_lastDialogRequestId != reqId && !_isOverlayShown) {
+          _lastDialogRequestId = reqId;
           _showNewRequestDialog(req);
         }
       }
@@ -440,15 +473,14 @@ class _DashboardScreenState extends State<DashboardScreen> {
   }
 
   void _initTowDataStreams(String uid) {
-    // Incoming Broadcast Requests for Tow: status == pending, type == towing, mechanicId == null
-    _towIncomingRequestsStream = FirebaseFirestore.instance
-        .collection('requests')
-        .where('type', isEqualTo: 'towing')
-        .where('status', isEqualTo: 'pending')
-        .where('mechanicId', isNull: true)
-        .snapshots()
-        .map((snap) =>
-            snap.docs.map((doc) => {'id': doc.id, ...doc.data()}).toList());
+    debugPrint('[Dashboard] _initTowDataStreams: currentUserUid=$uid');
+    // Incoming tow requests assigned to this tow driver (CORE RULE)
+    _towIncomingRequestsStream = ProviderService.instance
+        .pendingRequestsStream(targetRole: 'tow', providerUid: uid)
+        .map((list) {
+      debugPrint('[Dashboard] towIncomingRequests: currentUserUid=$uid count=${list.length}');
+      return list;
+    });
 
     // Payment History for Tow
     _towPaymentHistoryStream = FirebaseFirestore.instance
@@ -490,17 +522,21 @@ class _DashboardScreenState extends State<DashboardScreen> {
         .map((snap) =>
             snap.docs.map((doc) => {'id': doc.id, ...doc.data()}).toList());
 
-    // Incoming Requests for mechanic: status == pending
-    _mechanicIncomingRequestsStream = FirebaseFirestore.instance
-        .collection('requests')
-        .where('mechanicId', isEqualTo: uid)
-        .where('status', isEqualTo: 'pending')
-        .snapshots()
-        .map((snap) =>
-            snap.docs.map((doc) => {'id': doc.id, ...doc.data()}).toList());
+    // Incoming Requests for mechanic: targetRole + assignedProviderId (CORE RULE)
+    debugPrint('[Dashboard] _initMechanicDataStreams: currentUserUid=$uid');
+    _mechanicIncomingRequestsStream = ProviderService.instance
+        .pendingRequestsStream(targetRole: 'mechanic', providerUid: uid)
+        .map((list) {
+      debugPrint('[Dashboard] mechanicIncomingRequests: currentUserUid=$uid count=${list.length}');
+      return list;
+    });
   }
 
   void _initDeliveryDataStreams(String uid) {
+    // Go online for delivery role
+    ProviderService.instance.goOnline('delivery');
+    debugPrint('[Dashboard] _initDeliveryDataStreams uid=$uid');
+
     // Active deliveries (accepted or en_route — assigned to this driver)
     _ongoingRequestsStream = FirebaseFirestore.instance
         .collection('deliveries')
@@ -518,30 +554,31 @@ class _DashboardScreenState extends State<DashboardScreen> {
         .snapshots()
         .map((s) => s.docs.map((d) => {'id': d.id, ...d.data()}).toList());
 
-    // Unassigned jobs from Seller or Mechanic
+    // Available jobs: pending deliveries assigned to THIS driver via assignedProviderId
+    // Filtered by targetRole='delivery' + assignedProviderId=uid + status='pending'
+    debugPrint('[Dashboard] _initDeliveryDataStreams: setting up availableJobsStream currentUserUid=$uid');
     _availableJobsStream = FirebaseFirestore.instance
         .collection('deliveries')
+        .where('targetRole', isEqualTo: 'delivery')
+        .where('assignedProviderId', isEqualTo: uid)
         .where('status', isEqualTo: 'pending')
-        .where('sourceRole', whereIn: ['seller', 'mechanic'])
         .snapshots()
-        .map((s) => s.docs.map((d) => {'id': d.id, ...d.data()}).toList());
+        .map((s) {
+          debugPrint('[Dashboard] availableJobsStream: currentUserUid=$uid count=${s.docs.length}');
+          return s.docs.map((d) => {'id': d.id, ...d.data()}).toList();
+        });
 
-    // Listen for incoming delivery jobs to show pop-up
+    // Listen for incoming delivery jobs assigned to THIS driver via assignedProviderId
     _deliverySubscription?.cancel();
-    _deliverySubscription = FirebaseFirestore.instance
-        .collection('deliveries')
-        .where('status', isEqualTo: 'pending')
-        .where('sourceRole', whereIn: ['seller', 'mechanic'])
-        .snapshots()
-        .listen((snap) {
-          if (snap.docs.isNotEmpty && _isDeliveryActive) {
-            // Iterate to find a job we haven't popped up for yet
-            for (var doc in snap.docs) {
-              final reqId = doc.id;
-              final req = doc.data();
+    _deliverySubscription = ProviderService.instance
+        .pendingDeliveriesStream(providerUid: uid)
+        .listen((docs) {
+          debugPrint('[Dashboard] pendingDeliveries count=${docs.length} uid=$uid');
+          if (docs.isNotEmpty && _isDeliveryActive) {
+            for (var req in docs) {
+              final reqId = req['id'] as String;
               if (_lastDialogDeliveryId != reqId && !_isOverlayShown) {
                 _lastDialogDeliveryId = reqId;
-                req['id'] = reqId;
                 _showNewDeliveryDialog(req);
                 break;
               }
@@ -672,6 +709,10 @@ class _DashboardScreenState extends State<DashboardScreen> {
                   'status': 'accepted',
                   'acceptedAt': FieldValue.serverTimestamp(),
                 });
+                
+                try {
+                  await ProviderService.instance.setUnavailable('delivery');
+                } catch (_) {}
                 if (mounted) {
                   Navigator.pushNamed(context, '/active-delivery',
                       arguments: job['id']);
@@ -696,6 +737,11 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
   void _showNewRequestDialog(Map<String, dynamic> req) {
     if (_isOverlayShown) return;
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null) return;
+
+    debugPrint('[Dashboard] _showNewRequestDialog reqId=${req["id"]} uid=${user.uid}');
+
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted) {
         setState(() => _isOverlayShown = true);
@@ -719,36 +765,69 @@ class _DashboardScreenState extends State<DashboardScreen> {
           }
         },
         onAccept: () async {
-          final user = FirebaseAuth.instance.currentUser;
-          if (user == null) return;
+          final role = req['targetRole'] as String? ?? 'mechanic';
 
-          // If it's a broadcast request, claim it!
-          await FirebaseFirestore.instance
-              .collection('requests')
-              .doc(req['id'])
-              .update({
-            'mechanicId': user.uid,
-            'mechanicName': userName,
-            'status': 'accepted',
-            'acceptedAt': FieldValue.serverTimestamp(),
-          });
+          // Accept via ProviderService — also sets isAvailable=false
+          await ProviderService.instance.acceptRequest(
+            requestId: req['id'],
+            providerUid: user.uid,
+            providerName: userName,
+            role: role,
+          );
+
+          debugPrint('[Dashboard] accepted reqId=${req["id"]} mechanic UID=${user.uid} role=$role');
+
           _requestSubscription?.cancel();
-          _towRequestSubscription?.cancel(); // Cancel both on accept
+          _towRequestSubscription?.cancel();
           _lastDialogRequestId = null;
 
           if (mounted) {
             Navigator.pop(context);
           }
-          // Navigate to tracking screen
           if (mounted) {
             WidgetsBinding.instance.addPostFrameCallback((_) {
               if (mounted) {
                 if (_isNavigating) return;
-                _isNavigating = true;
-                final targetRoute = req['type'] == 'towing'
-                    ? '/tow-nav-to-user'
-                    : '/mechanic-nav-to-user';
-                Navigator.pushNamed(context, targetRoute, arguments: req['id']);
+                String? targetRoute;
+                if (req['type'] == 'towing' || role == 'tow') {
+                  targetRoute = '/tow-nav-to-user';
+                } else if (role == 'seller') {
+                  // Sellers don't have a specific nav screen right now
+                  targetRoute = null; 
+                } else {
+                  targetRoute = '/mechanic-nav-to-user';
+                }
+
+                if (targetRoute != null) {
+                  Navigator.pushNamed(context, targetRoute, arguments: req['id'])
+                      .then((_) {
+                    _isNavigating = false;
+                    _lastDialogRequestId = null;
+                    _isOverlayShown = false;
+                    final uid2 = FirebaseAuth.instance.currentUser?.uid;
+                    if (uid2 != null && mounted) {
+                      if (role == 'tow') {
+                        debugPrint('[Dashboard] returned from tow job — restarting tow listener tow UID=$uid2');
+                        _initTowServices(uid2);
+                      } else {
+                        debugPrint('[Dashboard] returned from mechanic job — restarting mechanic listener mechanic UID=$uid2');
+                        _initMechanicServices(uid2);
+                      }
+                    }
+                  });
+                } else {
+                   // Seller doesn't navigate, just reset and restart listener
+                   _isNavigating = false;
+                   _lastDialogRequestId = null;
+                   _isOverlayShown = false;
+                   final uid2 = FirebaseAuth.instance.currentUser?.uid;
+                   if (uid2 != null && mounted) {
+                     if (role == 'seller') {
+                       debugPrint('[Dashboard] seller accepted order — restarting seller listener seller UID=$uid2');
+                       _initSellerServices(uid2);
+                     }
+                   }
+                }
               }
             });
           }
@@ -821,6 +900,10 @@ class _DashboardScreenState extends State<DashboardScreen> {
             'driverName': driverName,
             'acceptedAt': FieldValue.serverTimestamp(),
           });
+          
+          try {
+            await ProviderService.instance.setUnavailable('delivery');
+          } catch (_) {}
 
           if (mounted) {
             Navigator.pop(context);
@@ -1226,10 +1309,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
                 }),
           ),
           const SizedBox(height: 24),
-          _buildLiveTrackingMap(dark, _towIncomingRequestsStream,
-              Icons.local_shipping, Icons.car_crash, Colors.red),
-          const SizedBox(height: 24),
-          const SizedBox(height: 24),
 
           // Availability toggle
           Padding(
@@ -1338,7 +1417,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
     return StreamBuilder<QuerySnapshot>(
       stream: FirebaseFirestore.instance
           .collection('deliveries')
-          .where('mechanicId', isEqualTo: uid)
+          .where('senderId', isEqualTo: uid)  // Fixed: was 'mechanicId'
           .where('status', whereIn: ['accepted', 'en_route']).snapshots(),
       builder: (context, snapshot) {
         final docs = snapshot.data?.docs ?? [];
@@ -1595,8 +1674,9 @@ class _DashboardScreenState extends State<DashboardScreen> {
               children: [
                 StreamBuilder<QuerySnapshot>(
                   stream: FirebaseFirestore.instance
-                      .collection('orders')
+                      .collection('requests')
                       .where('sellerId', isEqualTo: user?.uid)
+                      .where('type', isEqualTo: 'shop_order')
                       .snapshots(),
                   builder: (context, snapshot) {
                     final count = snapshot.data?.docs.length ?? 0;
@@ -1660,8 +1740,9 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
           StreamBuilder<QuerySnapshot>(
             stream: FirebaseFirestore.instance
-                .collection('orders')
+                .collection('requests')
                 .where('sellerId', isEqualTo: user?.uid)
+                .where('type', isEqualTo: 'shop_order')
                 .orderBy('createdAt', descending: true)
                 .limit(3)
                 .snapshots(),
@@ -1680,10 +1761,12 @@ class _DashboardScreenState extends State<DashboardScreen> {
                   final data = doc.data() as Map<String, dynamic>;
                   return _orderCard(
                     data['productName'] ?? 'Product',
-                    'Order #${doc.id.substring(0, 5).toUpperCase()} • ${data['customerName'] ?? 'Customer'}',
+                    'Order #${doc.id.substring(0, 5).toUpperCase()} • ${data['userName'] ?? 'Customer'}',
                     data['status'] ?? 'Pending',
-                    data['status'] == 'Delivered' ? Colors.green : Colors.blue,
+                    data['status'] == 'delivered' ? Colors.green : Colors.blue,
                     dark,
+                    orderId: doc.id,
+                    orderData: data,
                   );
                 }).toList(),
               );
@@ -2440,8 +2523,10 @@ class _DashboardScreenState extends State<DashboardScreen> {
     String subtitle,
     String status,
     Color statusColor,
-    bool dark,
-  ) {
+    bool dark, {
+    String? orderId,
+    Map<String, dynamic>? orderData,
+  }) {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 5),
       child: Container(
@@ -2494,7 +2579,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                 borderRadius: BorderRadius.circular(10),
               ),
               child: Text(
-                status,
+                status.toUpperCase(),
                 style: TextStyle(
                   fontSize: 11,
                   fontWeight: FontWeight.bold,
@@ -2502,10 +2587,84 @@ class _DashboardScreenState extends State<DashboardScreen> {
                 ),
               ),
             ),
+            if (status == 'accepted' && orderId != null)
+              IconButton(
+                icon: const Icon(Icons.local_shipping, color: AppColors.primaryBlue),
+                tooltip: 'Request Delivery',
+                onPressed: () => _requestDeliveryForOrder(orderId, orderData ?? {}),
+              ),
           ],
         ),
       ),
     );
+  }
+
+  Future<void> _requestDeliveryForOrder(String orderId, Map<String, dynamic> orderData) async {
+    try {
+      final user = FirebaseAuth.instance.currentUser;
+      if (user == null) return;
+      
+      final uid = user.uid;
+      final senderName = userName;
+      
+      // find nearest delivery driver
+      String? nearestDriverUid;
+      String nearestDriverName = 'Driver';
+      
+      final driverSnap = await FirebaseFirestore.instance
+          .collection('users')
+          .where('roles.delivery', isNotEqualTo: null)
+          .get();
+
+      for (final doc in driverSnap.docs) {
+        final roles = doc.data()['roles'] as Map<String, dynamic>? ?? {};
+        final delivData = roles['delivery'] as Map<String, dynamic>? ?? {};
+        final isAvailable = delivData['isAvailable'] as bool? ?? true;
+        final isOnline = delivData['isOnline'] as bool? ?? true;
+        if (!isAvailable || !isOnline) continue;
+        nearestDriverUid = doc.id;
+        nearestDriverName = delivData['fullName'] as String? ?? 'Driver';
+        break; 
+      }
+      
+      if (nearestDriverUid == null) {
+        if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('No delivery drivers available')));
+        return;
+      }
+      
+      await FirebaseFirestore.instance.collection('deliveries').add({
+        'sourceRole': 'seller',
+        'targetRole': 'delivery',
+        'type': 'shop_delivery',
+        'senderId': uid,
+        'senderName': senderName,
+        'assignedProviderId': nearestDriverUid,
+        'driverName': nearestDriverName,
+        'itemName': orderData['productName'] ?? 'Order Item',
+        'itemCategory': 'Order Fulfillment',
+        'itemPrice': orderData['price'] ?? 0,
+        'pickupAddress': 'Seller Shop',
+        'dropAddress': 'Customer Location', // simplify for now
+        'pickupLat': 6.9271, // fallback/dummy
+        'pickupLng': 79.8612,
+        'dropLat': 6.8900,
+        'dropLng': 79.8500,
+        'notes': 'Order #${orderId.substring(0, 5).toUpperCase()}',
+        'status': 'pending',
+        'earnings': 500.0, // Fixed fee for now
+        'createdAt': FieldValue.serverTimestamp(),
+        'orderId': orderId, // Crucial for updating order status!
+      });
+      
+      // Update order status to show it is en route / dispatched
+      await FirebaseFirestore.instance.collection('requests').doc(orderId).update({
+        'status': 'dispatched',
+      });
+      
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Delivery requested!')));
+    } catch (e) {
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: $e')));
+    }
   }
 
   Widget _buildOngoingRequestsSection(bool dark) {

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import '../theme_provider.dart';
+import '../services/provider_service.dart';
 
 /// A dedicated Job Board for Delivery drivers to find and accept available requests.
 class DeliveryJobsScreen extends StatefulWidget {
@@ -23,20 +24,35 @@ class _DeliveryJobsScreenState extends State<DeliveryJobsScreen> {
   }
 
   void _initStream() {
+    final uid = FirebaseAuth.instance.currentUser?.uid;
+    if (uid == null) {
+      debugPrint('[DeliveryJobs] _initStream: no current user');
+      _availableJobsStream = const Stream.empty();
+      return;
+    }
+
+    debugPrint('[DeliveryJobs] _initStream: currentUserUid=$uid filter=$_filter');
+
+    // Core rule: targetRole == 'delivery' + assignedProviderId == uid + status == 'pending'
     Query query = FirebaseFirestore.instance
         .collection('deliveries')
+        .where('targetRole', isEqualTo: 'delivery')
+        .where('assignedProviderId', isEqualTo: uid)
         .where('status', isEqualTo: 'pending');
 
     if (_filter == 'Seller') {
       query = query.where('sourceRole', isEqualTo: 'seller');
     } else if (_filter == 'Mechanic') {
       query = query.where('sourceRole', isEqualTo: 'mechanic');
-    } else {
-      query = query.where('sourceRole', whereIn: ['seller', 'mechanic']);
     }
+    // 'All' — no extra sourceRole filter, shows both seller + mechanic deliveries
 
-    _availableJobsStream = query.snapshots().map(
-        (s) => s.docs.map((d) => {'id': d.id, ...(d.data() as Map<String, dynamic>)}).toList());
+    _availableJobsStream = query.snapshots().map((s) {
+      debugPrint('[DeliveryJobs] snapshot: currentUserUid=$uid count=${s.docs.length}');
+      return s.docs
+          .map((d) => {'id': d.id, ...(d.data() as Map<String, dynamic>)})
+          .toList();
+    });
   }
 
   @override
@@ -267,7 +283,9 @@ class _DeliveryJobsScreenState extends State<DeliveryJobsScreen> {
               onPressed: () async {
                 final uid = FirebaseAuth.instance.currentUser?.uid;
                 if (uid == null) return;
-                
+
+                debugPrint('[DeliveryJobs] Accepting job ${job["id"]} currentUserUid=$uid');
+
                 final doc = await FirebaseFirestore.instance.collection('users').doc(uid).get();
                 final dData = doc.data() ?? {};
                 final dRoles = dData['roles'] ?? {};
@@ -280,9 +298,24 @@ class _DeliveryJobsScreenState extends State<DeliveryJobsScreen> {
                     .update({
                   'status': 'accepted',
                   'driverId': uid,
+                  'assignedProviderId': uid,
                   'driverName': driverName,
                   'acceptedAt': FieldValue.serverTimestamp(),
                 });
+
+                try {
+                  await ProviderService.instance.setUnavailable('delivery');
+                } catch (_) {}
+
+                debugPrint('[DeliveryJobs] Job ${job["id"]} accepted — navigating to /active-delivery');
+
+                if (mounted) {
+                  Navigator.pushNamed(
+                    context,
+                    '/active-delivery',
+                    arguments: job['id'],
+                  );
+                }
               },
               style: ElevatedButton.styleFrom(
                 backgroundColor: AppColors.primaryBlue,

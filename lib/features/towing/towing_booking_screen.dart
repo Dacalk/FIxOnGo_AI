@@ -263,7 +263,61 @@ class _TowingBookingScreenState extends State<TowingBookingScreen> {
                   setState(() => _isSubmitting = true);
 
                   try {
-                    final ref = await FirebaseFirestore.instance.collection('requests').add({
+                    // ── Find nearest available tow provider ──────────────
+                    String? nearestTowUid;
+                    String? nearestTowName;
+
+                    final towSnap = await FirebaseFirestore.instance
+                        .collection('users')
+                        .where('roles.tow', isNotEqualTo: null)
+                        .get();
+
+                    double minDist = double.infinity;
+                    for (final doc in towSnap.docs) {
+                      final roles = doc.data()['roles'] as Map<String, dynamic>? ?? {};
+                      final towData = roles['tow'] as Map<String, dynamic>? ?? {};
+                      final isAvailable = towData['isAvailable'] as bool? ?? true;
+                      final isOnline = towData['isOnline'] as bool? ?? true;
+                      if (!isAvailable || !isOnline) continue;
+
+                      final loc = towData['location'] as Map<String, dynamic>?;
+                      if (loc == null) continue;
+
+                      if (_pickupCoords != null) {
+                        final d = Geolocator.distanceBetween(
+                          _pickupCoords!.latitude, _pickupCoords!.longitude,
+                          (loc['lat'] as num).toDouble(), (loc['lng'] as num).toDouble(),
+                        );
+                        if (d < minDist) {
+                          minDist = d;
+                          nearestTowUid = doc.id;
+                          nearestTowName = towData['fullName'] as String? ?? 'Tow Driver';
+                        }
+                      }
+                    }
+
+                    debugPrint('[TowingBooking] userId=${user.uid} '
+                        'nearest tow UID=$nearestTowUid dist=$minDist');
+
+                    // Guard: if no tow provider found, show error and stop
+                    if (nearestTowUid == null) {
+                      debugPrint('[TowingBooking] No available tow provider found — aborting booking');
+                      if (mounted) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(
+                            content: Text('No tow driver available right now. Please try again shortly.'),
+                            backgroundColor: Colors.red,
+                          ),
+                        );
+                      }
+                      return;
+                    }
+
+                    final Map<String, dynamic> requestData = {
+                      'targetRole': 'tow',
+                      'assignedProviderId': nearestTowUid,
+                      'mechanicId': nearestTowUid,
+                      'mechanicName': nearestTowName,
                       'userId': user.uid,
                       'userName': user.displayName ?? 'User',
                       'type': 'towing',
@@ -288,8 +342,19 @@ class _TowingBookingScreenState extends State<TowingBookingScreen> {
                       'estimatedDistance': _estimatedDistance ?? 0,
                       'basePrice': _services.firstWhere((s) => s.id == _selectedServiceId).basePrice,
                       'createdAt': FieldValue.serverTimestamp(),
-                      'mechanicId': null, // Explicitly null for broadcast
-                    });
+                    };
+
+                    debugPrint('[TowingBooking] Creating request: '
+                        'assignedProviderId=${requestData['assignedProviderId']} '
+                        'tow UID=$nearestTowUid '
+                        'targetRole=${requestData['targetRole']} '
+                        'status=${requestData['status']}');
+
+                    final ref = await FirebaseFirestore.instance
+                        .collection('requests')
+                        .add(requestData);
+
+                    debugPrint('[TowingBooking] request created requestId=${ref.id} tow UID=$nearestTowUid');
 
                     if (mounted) {
                       Navigator.push(
@@ -300,6 +365,7 @@ class _TowingBookingScreenState extends State<TowingBookingScreen> {
                       );
                     }
                   } catch (e) {
+                    debugPrint('[TowingBooking] Error: $e');
                     if (mounted) {
                       ScaffoldMessenger.of(context).showSnackBar(
                         SnackBar(content: Text("Error: $e")),

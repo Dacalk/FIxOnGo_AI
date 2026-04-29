@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import '../theme_provider.dart';
 
 class UserShopViewScreen extends StatefulWidget {
@@ -60,7 +61,16 @@ class _UserShopViewScreenState extends State<UserShopViewScreen> {
             return _emptyState(dark);
           }
 
-          final docs = snapshot.data!.docs;
+          // Filter out out-of-stock items if we only want to show available products
+          final docs = snapshot.data!.docs.where((doc) {
+            final data = doc.data() as Map<String, dynamic>;
+            final stock = data['stockCount'] ?? 0;
+            return stock > 0;
+          }).toList();
+
+          if (docs.isEmpty) {
+            return _emptyState(dark);
+          }
           return GridView.builder(
             padding: const EdgeInsets.all(20),
             gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
@@ -179,8 +189,14 @@ class _UserShopViewScreenState extends State<UserShopViewScreen> {
                   width: double.infinity,
                   child: ElevatedButton(
                     onPressed:
-                        (hasStock && !_isProcessing && _requestId != null)
-                            ? () => _handleRequestTool(id, name, price)
+                        (hasStock && !_isProcessing)
+                            ? () {
+                                if (_requestId != null) {
+                                  _handleRequestTool(id, name, price);
+                                } else {
+                                  _handleStandaloneOrder(id, name, price);
+                                }
+                              }
                             : null,
                     style: ElevatedButton.styleFrom(
                       backgroundColor: AppColors.primaryBlue,
@@ -190,20 +206,11 @@ class _UserShopViewScreenState extends State<UserShopViewScreen> {
                           borderRadius: BorderRadius.circular(10)),
                       elevation: 0,
                     ),
-                    child: Text(_requestId == null ? 'Browse Mode' : 'Request',
+                    child: Text(_requestId == null ? 'Buy Now' : 'Request',
                         style: const TextStyle(
                             fontSize: 12, fontWeight: FontWeight.bold)),
                   ),
                 ),
-                if (_requestId == null)
-                  Padding(
-                    padding: const EdgeInsets.only(top: 4),
-                    child: Text(
-                      'Request service first to buy',
-                      style: TextStyle(fontSize: 9, color: Colors.grey[500]),
-                      textAlign: TextAlign.center,
-                    ),
-                  ),
               ],
             ),
           ),
@@ -273,6 +280,81 @@ class _UserShopViewScreenState extends State<UserShopViewScreen> {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text('Successfully requested $name!')),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error: ${e.toString()}')),
+        );
+      }
+    } finally {
+      if (mounted) {
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (mounted) {
+            setState(() => _isProcessing = false);
+          }
+        });
+      }
+    }
+  }
+
+  Future<void> _handleStandaloneOrder(
+      String productId, String name, dynamic price) async {
+    if (_mechanicId == null) return;
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null) return;
+
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) setState(() => _isProcessing = true);
+    });
+
+    try {
+      await FirebaseFirestore.instance.runTransaction((transaction) async {
+        final productRef = FirebaseFirestore.instance
+            .collection('users')
+            .doc(_mechanicId)
+            .collection('products')
+            .doc(productId);
+
+        final pSnap = await transaction.get(productRef);
+
+        if (!pSnap.exists) {
+          throw Exception("Product no longer available.");
+        }
+
+        final currentStock = pSnap.data()?['stockCount'] ?? 0;
+        if (currentStock <= 0) {
+          throw Exception("Out of stock.");
+        }
+
+        // 1. Decrement Stock
+        transaction.update(productRef, {'stockCount': currentStock - 1});
+
+        // 2. Create standalone shop_order
+        final requestRef = FirebaseFirestore.instance.collection('requests').doc();
+        final num priceVal =
+            (price is num) ? price : (double.tryParse(price.toString()) ?? 0.0);
+
+        transaction.set(requestRef, {
+          'targetRole': 'seller',
+          'assignedProviderId': _mechanicId,
+          'sellerId': _mechanicId,
+          'sellerName': _mechanicName ?? 'Seller',
+          'userId': user.uid,
+          'userName': user.displayName ?? 'User',
+          'type': 'shop_order',
+          'status': 'pending',
+          'productName': name,
+          'productId': productId,
+          'price': priceVal.toDouble(),
+          'createdAt': FieldValue.serverTimestamp(),
+        });
+      });
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Successfully ordered $name!')),
         );
       }
     } catch (e) {

@@ -141,6 +141,8 @@ class _SignupScreenState extends State<SignupScreen> {
       'displayName': user.displayName ?? fullName,
       'roles': {
         role.toLowerCase(): {
+          'isOnline': true,
+          'isAvailable': true,
           'fullName': fullName,
           'vehicleType': vehicleType,
           'plate': plate,
@@ -533,6 +535,39 @@ class _SignupScreenState extends State<SignupScreen> {
     ];
   }
 
+  List<Widget> _towFields() {
+    return [
+      FormInput(
+          label: 'Full Name', hintText: 'Anna', onChanged: (v) => fullName = v),
+      const SizedBox(height: 20),
+      FormInput(
+          label: 'NIC / ID Number',
+          hintText: '123456789V',
+          onChanged: (v) => nic = v),
+      const SizedBox(height: 20),
+      FormDropdown(
+        label: 'Tow Truck Type',
+        hintText: 'Select Truck Type',
+        items: ['Flatbed', 'Wheel-Lift', 'Hook and Chain', 'Heavy Duty'],
+        onChanged: (v) => towingCapacity = v ?? '',
+      ),
+      const SizedBox(height: 20),
+      FormInput(
+          label: 'Truck Make/Model',
+          hintText: 'Isuzu NQR',
+          onChanged: (v) => truckModel = v),
+      const SizedBox(height: 20),
+      FormInput(
+          label: 'Truck Plate Number',
+          hintText: 'WP-1234',
+          onChanged: (v) => plate = v),
+      const SizedBox(height: 20),
+      FormInput(
+          label: 'Emergency Contact',
+          hintText: '07XXXXXXXX',
+          onChanged: (v) => emergency = v),
+    ];
+  }
 
 
   List<Widget> _deliveryFields() {
@@ -582,6 +617,8 @@ class _SignupScreenState extends State<SignupScreen> {
         return _mechanicFields();
       case 'delivery':
         return _deliveryFields();
+      case 'tow':
+        return _towFields();
       default:
         return _defaultUserFields();
     }

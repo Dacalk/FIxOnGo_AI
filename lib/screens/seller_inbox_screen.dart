@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import '../theme_provider.dart';
-import '../components/seller_bottom_nav.dart';
 import 'seller_chat_screen.dart';
 
 /// Seller Inbox — lists all real customer conversations from Firestore.

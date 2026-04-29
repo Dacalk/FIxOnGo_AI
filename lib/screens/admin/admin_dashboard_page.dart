@@ -20,7 +20,6 @@ class AdminDashboardPage extends StatelessWidget {
             label: 'Users & Roles',
             builder: (docs) {
               int users = 0, mechanics = 0, sellers = 0, delivers = 0, admins = 0, banned = 0;
-              int totalUsers = docs.length;
               for (final d in docs) {
                 final data = d.data() as Map<String, dynamic>;
                 final roles = (data['roles'] as Map<String, dynamic>?) ?? {};

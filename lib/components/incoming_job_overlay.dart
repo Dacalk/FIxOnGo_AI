@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:latlong2/latlong.dart';
 import '../theme_provider.dart';
 
 class IncomingJobOverlay extends StatefulWidget {
@@ -32,16 +31,7 @@ class _IncomingJobOverlayState extends State<IncomingJobOverlay> {
   @override
   Widget build(BuildContext context) {
     final dark = Theme.of(context).brightness == Brightness.dark;
-    final userLoc = widget.requestData['userLocation'] as Map<String, dynamic>?;
-    final userName = widget.requestData['userName'] ?? 'Anonymous';
     final userAddress = widget.requestData['userAddress'] ?? 'Nearby User';
-    final serviceType =
-        widget.requestData['serviceType'] ?? 'Emergency Service';
-
-    LatLng? center;
-    if (userLoc != null) {
-      center = LatLng(userLoc['lat'], userLoc['lng']);
-    }
 
     return Container(
       decoration: BoxDecoration(

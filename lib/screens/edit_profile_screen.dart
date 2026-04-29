@@ -75,7 +75,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
           TextEditingController(text: data['workshop'] ?? '');
       _controllers['towingCapacity'] =
           TextEditingController(text: data['towingCapacity'] ?? '');
-    } else if (widget.role.toLowerCase() == 'driver') {
+    } else if (widget.role.toLowerCase() == 'delivery') {
       _controllers['plate'] = TextEditingController(text: data['plate'] ?? '');
       _controllers['nic'] = TextEditingController(text: data['nic'] ?? '');
       _controllers['emergency'] =
@@ -667,7 +667,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
             subColor: subColor,
             showDivider: false),
       ];
-    } else if (role == 'driver') {
+    } else if (role == 'delivery') {
       return [
         _buildDropdown(
             label: 'Vehicle Type',

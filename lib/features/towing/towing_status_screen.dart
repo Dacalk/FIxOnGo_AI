@@ -47,6 +47,7 @@ class _TowingStatusScreenState extends State<TowingStatusScreen> {
   }
 
   void _listenToRequest() {
+    debugPrint('[TowingStatus] _listenToRequest: requestId=${widget.requestId}');
     _requestSub = FirebaseFirestore.instance
         .collection('requests')
         .doc(widget.requestId)
@@ -55,6 +56,8 @@ class _TowingStatusScreenState extends State<TowingStatusScreen> {
       if (snap.exists) {
         final data = snap.data()!;
         final status = data['status'] ?? 'pending';
+        final towUid = data['assignedProviderId'] ?? data['mechanicId'];
+        debugPrint('[TowingStatus] update: status=$status tow UID=$towUid result count=1');
         final userLoc = data['userLocation'] as Map<String, dynamic>?;
         final pStatus = data['paymentStatus'] ?? 'pending';
         final amount = data['basePrice'] ?? 0;
@@ -80,7 +83,7 @@ class _TowingStatusScreenState extends State<TowingStatusScreen> {
               _currentStep = 3;
               break;
             case 'completed':
-              _currentStep = 3; // Stay at last step or pop
+              _currentStep = 3;
               break;
           }
 

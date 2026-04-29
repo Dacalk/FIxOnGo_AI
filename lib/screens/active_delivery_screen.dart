@@ -4,6 +4,7 @@ import 'package:latlong2/latlong.dart';
 import 'package:flutter_map/flutter_map.dart';
 import '../theme_provider.dart';
 import '../components/osm_map_widget.dart';
+import '../services/provider_service.dart';
 
 /// Shows the live delivery tracking map + status stepper for an active delivery.
 /// Receives deliveryId as a route argument: Navigator.pushNamed(context, '/active-delivery', arguments: deliveryId)
@@ -56,8 +57,23 @@ class _ActiveDeliveryScreenState extends State<ActiveDeliveryScreen> {
           .doc(_deliveryId)
           .update(updateData);
 
-      if (newStatus == 'delivered' && mounted) {
-        Navigator.pushReplacementNamed(context, '/dashboard');
+      final orderId = _data?['orderId'];
+      if (newStatus == 'delivered' && orderId != null) {
+        await FirebaseFirestore.instance
+            .collection('requests')
+            .doc(orderId)
+            .update({'status': 'delivered'});
+      }
+
+      if (newStatus == 'delivered') {
+        // Mark provider as available again
+        try {
+          await ProviderService.instance.setAvailable('delivery');
+        } catch (_) {}
+        
+        if (mounted) {
+          Navigator.pushReplacementNamed(context, '/dashboard');
+        }
       }
     } finally {
       if (mounted) setState(() => _isUpdating = false);

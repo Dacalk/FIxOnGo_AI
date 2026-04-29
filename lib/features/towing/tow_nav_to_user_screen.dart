@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:latlong2/latlong.dart';
 import 'package:flutter_map/flutter_map.dart';
 import '../../../theme_provider.dart';
@@ -7,6 +8,7 @@ import '../../../components/osm_map_widget.dart';
 import '../../../components/primary_button.dart';
 import '../../../services/location_service.dart';
 import '../../../services/map_service.dart';
+import '../../../services/provider_service.dart';
 import 'dart:async';
 
 class TowNavToUserScreen extends StatefulWidget {
@@ -23,6 +25,7 @@ class _TowNavToUserScreenState extends State<TowNavToUserScreen> {
 
   LatLng? _driverLatLng;
   LatLng? _userLatLng;
+  LatLng? _destinationLatLng;
   List<LatLng> _routePoints = [];
   String _eta = "Fetching...";
   bool _isArrived = false;
@@ -68,6 +71,8 @@ class _TowNavToUserScreenState extends State<TowNavToUserScreen> {
 
   void _listenToRequest() {
     if (_requestId == null) return;
+    final towUid = FirebaseAuth.instance.currentUser?.uid;
+    debugPrint('[TowNavToUser] _listenToRequest: tow UID=$towUid requestId=$_requestId');
     _requestSub = FirebaseFirestore.instance
         .collection('requests')
         .doc(_requestId)
@@ -75,12 +80,22 @@ class _TowNavToUserScreenState extends State<TowNavToUserScreen> {
         .listen((snap) {
       if (snap.exists && mounted) {
         final data = snap.data()!;
+        final status = data['status'];
+        final assignedId = data['assignedProviderId'];
+        debugPrint('[TowNavToUser] request update: '
+            'status=$status assignedProviderId=$assignedId tow UID=$towUid result count=1');
         WidgetsBinding.instance.addPostFrameCallback((_) {
           if (mounted) {
             setState(() {
               _requestData = data;
-              final uLoc = data['userLocation'] as Map<String, dynamic>;
-              _userLatLng = LatLng(uLoc['lat'], uLoc['lng']);
+              final uLoc = data['userLocation'] as Map<String, dynamic>?;
+              if (uLoc != null) {
+                _userLatLng = LatLng(uLoc['lat'], uLoc['lng']);
+              }
+              final dLoc = data['destination'] as Map<String, dynamic>?;
+              if (dLoc != null && dLoc['lat'] != 0) {
+                _destinationLatLng = LatLng((dLoc['lat'] as num).toDouble(), (dLoc['lng'] as num).toDouble());
+              }
               _isArrived = data['status'] == 'arrived';
               _paymentStatus = data['paymentStatus'] ?? 'pending';
             });
@@ -120,6 +135,8 @@ class _TowNavToUserScreenState extends State<TowNavToUserScreen> {
 
   Future<void> _handleArrived() async {
     if (_requestId == null) return;
+    final towUid = FirebaseAuth.instance.currentUser?.uid;
+    debugPrint('[TowNavToUser] _handleArrived: tow UID=$towUid requestId=$_requestId');
     setState(() => _isProcessing = true);
     await FirebaseFirestore.instance
         .collection('requests')
@@ -130,9 +147,11 @@ class _TowNavToUserScreenState extends State<TowNavToUserScreen> {
 
   Future<void> _handleComplete() async {
     if (_requestId == null) return;
+    final towUid = FirebaseAuth.instance.currentUser?.uid;
+    debugPrint('[TowNavToUser] _handleComplete: tow UID=$towUid requestId=$_requestId status=completed');
     setState(() => _isProcessing = true);
-    
-    // Create payment record
+
+    // 1. Create payment record
     await FirebaseFirestore.instance.collection('payments').add({
       'requestId': _requestId,
       'userId': _requestData?['userId'],
@@ -142,11 +161,16 @@ class _TowNavToUserScreenState extends State<TowNavToUserScreen> {
       'createdAt': FieldValue.serverTimestamp(),
     });
 
+    // 2. Mark request completed
     await FirebaseFirestore.instance
         .collection('requests')
         .doc(_requestId)
         .update({'status': 'completed'});
-        
+
+    // 3. Mark tow driver available again for next jobs
+    await ProviderService.instance.setAvailable('tow');
+    debugPrint('[TowNavToUser] _handleComplete: tow UID=$towUid marked available again');
+
     setState(() => _isProcessing = false);
     if (mounted) {
       Navigator.pushReplacementNamed(context, '/payment-successful', arguments: {'role': 'tow'});
@@ -169,7 +193,10 @@ class _TowNavToUserScreenState extends State<TowNavToUserScreen> {
               markers: [
                 if (_driverLatLng != null)
                   Marker(point: _driverLatLng!, width: 40, height: 40, child: const Icon(Icons.local_shipping, color: Colors.blue, size: 30)),
-                Marker(point: _userLatLng!, width: 40, height: 40, child: const Icon(Icons.person_pin_circle, color: Colors.red, size: 30)),
+                if (_userLatLng != null)
+                  Marker(point: _userLatLng!, width: 40, height: 40, child: const Icon(Icons.person_pin_circle, color: Colors.red, size: 30)),
+                if (_destinationLatLng != null)
+                  Marker(point: _destinationLatLng!, width: 40, height: 40, child: const Icon(Icons.flag, color: Colors.green, size: 30)),
               ],
             )
           else
