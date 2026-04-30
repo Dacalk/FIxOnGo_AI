@@ -17,6 +17,8 @@ import 'mechanic_shop_screen.dart';
 import 'garage_screen.dart';
 import 'payment_history_screen.dart';
 import 'profile_screen.dart';
+import 'delivery_history_screen.dart';
+import 'delivery_jobs_screen.dart';
 
 /// Main dashboard screen with bottom navigation.
 /// Renders role-specific content based on the user's role.
@@ -46,8 +48,10 @@ class _DashboardScreenState extends State<DashboardScreen> {
   LatLng? _userLocation;
 
   StreamSubscription? _requestSubscription;
+  StreamSubscription? _deliverySubscription;
   Timer? _posTimer;
   String? _lastDialogRequestId;
+  String? _lastDialogDeliveryId;
   bool _isNavigating = false;
   bool _isOverlayShown = false;
   bool _isInitialized = false;
@@ -55,6 +59,9 @@ class _DashboardScreenState extends State<DashboardScreen> {
   // Real-time data streams
   Stream<List<Map<String, dynamic>>>? _ongoingRequestsStream;
   Stream<List<Map<String, dynamic>>>? _paymentHistoryStream;
+  Stream<List<Map<String, dynamic>>>? _availableJobsStream;
+  bool _isMechanicActive = true;
+  bool _isDeliveryActive = true;
   Stream<List<Map<String, dynamic>>>? _mechanicIncomingRequestsStream;
 
   @override
@@ -155,6 +162,14 @@ class _DashboardScreenState extends State<DashboardScreen> {
           }
           _initMechanicServices(user.uid);
           _initMechanicDataStreams(user.uid);
+        }
+
+        // 🚚 INIT DELIVERY STREAMS IF DELIVERY ROLE EXISTS
+        if (rolesMap.containsKey('delivery') ||
+            role.toLowerCase() == 'delivery') {
+          _initDeliveryDataStreams(user.uid);
+          _isDeliveryActive =
+              (rolesMap['delivery']?['isActive'] as bool?) ?? true;
         }
       } else {
         // No Firestore doc — use Google profile data
@@ -259,8 +274,12 @@ class _DashboardScreenState extends State<DashboardScreen> {
                 _buildDashboardContent(role, dark),
                 role.toLowerCase() == 'mechanic'
                     ? const MechanicShopScreen(isEmbedded: true)
-                    : const GarageScreen(isEmbedded: true),
-                const PaymentHistoryScreen(isEmbedded: true),
+                    : role.toLowerCase() == 'delivery'
+                        ? const DeliveryJobsScreen(isEmbedded: true)
+                        : const GarageScreen(isEmbedded: true),
+                role.toLowerCase() == 'delivery'
+                    ? const DeliveryHistoryScreen(isEmbedded: true)
+                    : const PaymentHistoryScreen(isEmbedded: true),
                 ProfileScreen(
                   isEmbedded: true,
                   role: role,
@@ -387,6 +406,202 @@ class _DashboardScreenState extends State<DashboardScreen> {
     setState(() {});
   }
 
+  void _initDeliveryDataStreams(String uid) {
+    // Active deliveries (accepted or en_route — assigned to this driver)
+    _ongoingRequestsStream = FirebaseFirestore.instance
+        .collection('deliveries')
+        .where('driverId', isEqualTo: uid)
+        .where('status', whereIn: ['accepted', 'en_route'])
+        .snapshots()
+        .map((s) => s.docs.map((d) => {'id': d.id, ...d.data()}).toList());
+
+    // Completed deliveries — for earnings stats
+    _paymentHistoryStream = FirebaseFirestore.instance
+        .collection('deliveries')
+        .where('driverId', isEqualTo: uid)
+        .where('status', isEqualTo: 'delivered')
+        .orderBy('deliveredAt', descending: true)
+        .snapshots()
+        .map((s) => s.docs.map((d) => {'id': d.id, ...d.data()}).toList());
+
+    // Unassigned jobs from Seller or Mechanic
+    _availableJobsStream = FirebaseFirestore.instance
+        .collection('deliveries')
+        .where('status', isEqualTo: 'pending')
+        .where('sourceRole', whereIn: ['seller', 'mechanic'])
+        .snapshots()
+        .map((s) => s.docs.map((d) => {'id': d.id, ...d.data()}).toList());
+
+    // Listen for incoming delivery jobs to show pop-up
+    _deliverySubscription?.cancel();
+    _deliverySubscription = FirebaseFirestore.instance
+        .collection('deliveries')
+        .where('status', isEqualTo: 'pending')
+        .where('sourceRole', whereIn: ['seller', 'mechanic'])
+        .snapshots()
+        .listen((snap) {
+      if (snap.docs.isNotEmpty && _isDeliveryActive) {
+        // Iterate to find a job we haven't popped up for yet
+        for (var doc in snap.docs) {
+          final reqId = doc.id;
+          final req = doc.data();
+          if (_lastDialogDeliveryId != reqId && !_isOverlayShown) {
+            _lastDialogDeliveryId = reqId;
+            req['id'] = reqId;
+            _showNewDeliveryDialog(req);
+            break;
+          }
+        }
+      }
+    });
+  }
+
+  // ─────────────────────────────────────────────
+  //  DELIVERY: Available Jobs Section
+  // ─────────────────────────────────────────────
+  Widget _availableDeliveryJobsSection(bool dark) {
+    return StreamBuilder<List<Map<String, dynamic>>>(
+      stream: _availableJobsStream,
+      builder: (context, snapshot) {
+        if (snapshot.connectionState == ConnectionState.waiting) {
+          return const Center(child: CircularProgressIndicator());
+        }
+        final jobs = snapshot.data ?? [];
+        if (jobs.isEmpty) {
+          return Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 20),
+            child: Text(
+              'No available jobs right now.',
+              style: TextStyle(color: Colors.grey[500], fontSize: 14),
+            ),
+          );
+        }
+        return Column(
+          children: jobs.map((job) => _deliveryJobCard(job, dark)).toList(),
+        );
+      },
+    );
+  }
+
+  Widget _deliveryJobCard(Map<String, dynamic> job, bool dark) {
+    final isSeller = job['sourceRole'] == 'seller';
+    final accent = isSeller ? Colors.orange : Colors.blue;
+    final badge = isSeller ? '🛒 Seller' : '🔧 Mechanic';
+    final uid = FirebaseAuth.instance.currentUser?.uid ?? '';
+
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 5),
+      child: Container(
+        padding: const EdgeInsets.all(14),
+        decoration: BoxDecoration(
+          color: dark ? AppColors.darkSurface : Colors.white,
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(
+            color: dark ? Colors.grey[800]! : Colors.grey[200]!,
+          ),
+        ),
+        child: Row(
+          children: [
+            Container(
+              padding: const EdgeInsets.all(10),
+              decoration: BoxDecoration(
+                color: accent.withValues(alpha: 0.12),
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Icon(
+                isSeller ? Icons.shopping_bag : Icons.build_circle,
+                color: accent,
+                size: 22,
+              ),
+            ),
+            const SizedBox(width: 14),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 8, vertical: 3),
+                        decoration: BoxDecoration(
+                          color: accent.withValues(alpha: 0.12),
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        child: Text(
+                          badge,
+                          style: TextStyle(
+                              fontSize: 10,
+                              fontWeight: FontWeight.bold,
+                              color: accent),
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    job['itemName'] ?? 'Item',
+                    style: TextStyle(
+                      fontSize: 15,
+                      fontWeight: FontWeight.w600,
+                      color: dark ? Colors.white : Colors.black87,
+                    ),
+                  ),
+                  Text(
+                    '${job['pickupAddress'] ?? 'Pickup'} → ${job['dropAddress'] ?? 'Drop'}',
+                    style: TextStyle(
+                      fontSize: 11,
+                      color: dark ? Colors.grey[400] : Colors.grey[600],
+                    ),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                  Text(
+                    'Rs. ${job['earnings'] ?? 0} fee',
+                    style: TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.bold,
+                      color: Colors.green[700],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            ElevatedButton(
+              onPressed: () async {
+                await FirebaseFirestore.instance
+                    .collection('deliveries')
+                    .doc(job['id'])
+                    .update({
+                  'driverId': uid,
+                  'driverName': userName,
+                  'status': 'accepted',
+                  'acceptedAt': FieldValue.serverTimestamp(),
+                });
+                if (mounted) {
+                  Navigator.pushNamed(context, '/active-delivery',
+                      arguments: job['id']);
+                }
+              },
+              style: ElevatedButton.styleFrom(
+                backgroundColor: accent,
+                foregroundColor: Colors.white,
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12)),
+              ),
+              child: const Text('Accept',
+                  style:
+                      TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+
   void _showNewRequestDialog(Map<String, dynamic> req) {
     if (_isOverlayShown) return;
     setState(() => _isOverlayShown = true);
@@ -437,9 +652,80 @@ class _DashboardScreenState extends State<DashboardScreen> {
     });
   }
 
+  void _showNewDeliveryDialog(Map<String, dynamic> req) {
+    if (_isOverlayShown) return;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) {
+        setState(() => _isOverlayShown = true);
+      }
+    });
+
+    // Map delivery fields to IncomingJobOverlay expected format
+    final isSeller = req['sourceRole'] == 'seller';
+    final mappedReq = {
+      ...req,
+      'userAddress': req['pickupAddress'] ?? 'Nearby Pickup',
+      'userName': req['itemName'] ?? 'Delivery Request',
+      'serviceType': isSeller ? 'Store Pickup' : 'Mechanic Request',
+    };
+    if (req['pickupLat'] != null && req['pickupLng'] != null) {
+      mappedReq['userLocation'] = {
+        'lat': req['pickupLat'],
+        'lng': req['pickupLng']
+      };
+    }
+
+    showModalBottomSheet(
+      context: context,
+      isDismissible: false,
+      enableDrag: true,
+      backgroundColor: Colors.transparent,
+      builder: (context) => IncomingJobOverlay(
+        requestData: mappedReq,
+        onReject: () async {
+          // Since it's a broadcast job, rejecting just dismisses it for this driver.
+          // In a real app we might store an array of drivers who skipped it.
+          if (mounted) Navigator.pop(context);
+        },
+        onAccept: () async {
+          final uid = FirebaseAuth.instance.currentUser?.uid;
+          if (uid == null) return;
+
+          final dData = await FirebaseFirestore.instance.collection('users').doc(uid).get();
+          final rd = (dData.data()?['roles'] ?? {})['delivery'] ?? {};
+          final driverName = rd['fullName'] ?? dData.data()?['fullName'] ?? 'Driver';
+
+          await FirebaseFirestore.instance
+              .collection('deliveries')
+              .doc(req['id'])
+              .update({
+            'status': 'accepted',
+            'driverId': uid,
+            'driverName': driverName,
+            'acceptedAt': FieldValue.serverTimestamp(),
+          });
+
+          if (mounted) {
+            Navigator.pop(context);
+            // After accepting, we navigate to the tracking map
+            Navigator.pushNamed(context, '/active-delivery',
+                arguments: req['id']);
+          }
+        },
+      ),
+    ).then((_) {
+      if (mounted) {
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (mounted) setState(() => _isOverlayShown = false);
+        });
+      }
+    });
+  }
+
   @override
   void dispose() {
     _requestSubscription?.cancel();
+    _deliverySubscription?.cancel();
     _posTimer?.cancel();
     super.dispose();
   }
@@ -492,12 +778,29 @@ class _DashboardScreenState extends State<DashboardScreen> {
               label: 'Dashboard',
             ),
             BottomNavigationBarItem(
+<<<<<<< HEAD
               icon: Icon(Icons.garage_rounded),
               label: 'Garage',
+=======
+              icon: Icon(currentRole?.toLowerCase() == 'mechanic'
+                  ? Icons.shopping_bag
+                  : currentRole?.toLowerCase() == 'delivery'
+                      ? Icons.assignment
+                      : Icons.garage_rounded),
+              label: currentRole?.toLowerCase() == 'mechanic'
+                  ? 'Shop'
+                  : currentRole?.toLowerCase() == 'delivery'
+                      ? 'Jobs'
+                      : 'Garage',
+>>>>>>> feature-deliver
             ),
             BottomNavigationBarItem(
-              icon: Icon(Icons.payments_rounded),
-              label: 'Payment',
+              icon: Icon(currentRole?.toLowerCase() == 'delivery'
+                  ? Icons.account_balance_wallet
+                  : Icons.payments_rounded),
+              label: currentRole?.toLowerCase() == 'delivery'
+                  ? 'Earnings'
+                  : 'Payment',
             ),
             BottomNavigationBarItem(
               icon: Icon(Icons.person_rounded),
@@ -520,8 +823,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
         return _towDashboard(role, dark);
       case 'seller':
         return _sellerDashboard(role, dark);
-      case 'driver':
-        return _driverDashboard(role, dark);
+      case 'delivery':
+        return _deliveryDashboard(role, dark);
       default:
         return _userDashboard(role, dark);
     }
@@ -892,13 +1195,106 @@ class _DashboardScreenState extends State<DashboardScreen> {
             ),
           ),
           const SizedBox(height: 24),
+          _partsInTransitCard(
+              FirebaseAuth.instance.currentUser?.uid ?? '', dark),
         ],
       ),
     );
   }
 
   // ═════════════════════════════════════════════
-  //  3. TOW DASHBOARD
+  //  2b. MECHANIC — Parts In Transit card (delivery)
+  // ═════════════════════════════════════════════
+  Widget _partsInTransitCard(String uid, bool dark) {
+    return StreamBuilder<QuerySnapshot>(
+      stream: FirebaseFirestore.instance
+          .collection('deliveries')
+          .where('mechanicId', isEqualTo: uid)
+          .where('status', whereIn: ['accepted', 'en_route'])
+          .snapshots(),
+      builder: (context, snapshot) {
+        final docs = snapshot.data?.docs ?? [];
+        if (docs.isEmpty) return const SizedBox.shrink();
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            _sectionTitle('Parts In Transit', dark),
+            const SizedBox(height: 12),
+            ...docs.map((doc) {
+              final d = doc.data() as Map<String, dynamic>;
+              return Padding(
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 16, vertical: 5),
+                child: Container(
+                  padding: const EdgeInsets.all(14),
+                  decoration: BoxDecoration(
+                    color: dark ? AppColors.darkSurface : Colors.white,
+                    borderRadius: BorderRadius.circular(16),
+                    border: Border.all(
+                        color: dark ? Colors.grey[800]! : Colors.grey[200]!),
+                  ),
+                  child: Row(
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.all(10),
+                        decoration: BoxDecoration(
+                          color: Colors.blue.withValues(alpha: 0.12),
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        child: const Icon(Icons.delivery_dining,
+                            color: Colors.blue, size: 22),
+                      ),
+                      const SizedBox(width: 14),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              d['itemName'] ?? 'Part',
+                              style: TextStyle(
+                                fontSize: 15,
+                                fontWeight: FontWeight.w600,
+                                color: dark ? Colors.white : Colors.black87,
+                              ),
+                            ),
+                            Text(
+                              'Driver: ${d['driverName'] ?? 'Assigned'}',
+                              style: TextStyle(
+                                fontSize: 12,
+                                color:
+                                    dark ? Colors.grey[400] : Colors.grey[600],
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 10, vertical: 4),
+                        decoration: BoxDecoration(
+                          color: Colors.blue.withValues(alpha: 0.12),
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                        child: Text(
+                          (d['status'] as String? ?? 'en_route').toUpperCase(),
+                          style: const TextStyle(
+                              fontSize: 11,
+                              fontWeight: FontWeight.bold,
+                              color: Colors.blue),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              );
+            }),
+            const SizedBox(height: 8),
+          ],
+        );
+      },
+    );
+  }
+
   // ═════════════════════════════════════════════
   Widget _towDashboard(String role, bool dark) {
     return SingleChildScrollView(
@@ -1194,8 +1590,363 @@ class _DashboardScreenState extends State<DashboardScreen> {
   }
 
   // ═════════════════════════════════════════════
-  //  5. DRIVER DASHBOARD
+  //  5. DELIVERY DASHBOARD (replaces old driver stub)
   // ═════════════════════════════════════════════
+  Widget _deliveryDashboard(String role, bool dark) {
+    final uid = FirebaseAuth.instance.currentUser?.uid ?? '';
+    return SingleChildScrollView(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          DashboardHeader(
+            userName: isLoading ? 'Loading...' : userName,
+            role: 'Delivery',
+            photoUrl: userPhotoUrl,
+            vehicleInfo: _rd('plate', _rd('vehicleType', 'My Vehicle')),
+            availableRoles: allRoles.keys.toList(),
+            onSwitchRole: _switchRole,
+          ),
+          const SizedBox(height: 20),
+
+          // Stats row
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16),
+            child: StreamBuilder<List<Map<String, dynamic>>>(
+              stream: _paymentHistoryStream,
+              builder: (context, snapshot) {
+                final done = snapshot.data ?? [];
+                final totalEarnings = done.fold<num>(
+                    0, (s, d) => s + (d['earnings'] ?? 0));
+                return Row(
+                  children: [
+                    StatCard(
+                      icon: Icons.delivery_dining,
+                      value: done.length.toString(),
+                      label: 'Deliveries',
+                      accentColor: Colors.orange,
+                    ),
+                    const SizedBox(width: 12),
+                    StatCard(
+                      icon: Icons.route,
+                      value: '${(done.length * 4.2).toStringAsFixed(0)} km',
+                      label: 'Distance',
+                      accentColor: Colors.blue,
+                    ),
+                    const SizedBox(width: 12),
+                    StatCard(
+                      icon: Icons.account_balance_wallet,
+                      value: 'Rs. ${totalEarnings ~/ 1000}K',
+                      label: 'Earnings',
+                      accentColor: Colors.green,
+                    ),
+                  ],
+                );
+              },
+            ),
+          ),
+          const SizedBox(height: 24),
+
+          // Online / Offline toggle
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 20),
+            child: Container(
+              padding:
+                  const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
+              decoration: BoxDecoration(
+                color: dark ? AppColors.darkSurface : Colors.white,
+                borderRadius: BorderRadius.circular(18),
+                border: Border.all(
+                  color: _isDeliveryActive
+                      ? Colors.green.withValues(alpha: 0.4)
+                      : Colors.grey.withValues(alpha: 0.4),
+                ),
+              ),
+              child: Row(
+                children: [
+                  Container(
+                    width: 10,
+                    height: 10,
+                    decoration: BoxDecoration(
+                      color:
+                          _isDeliveryActive ? Colors.green : Colors.grey,
+                      shape: BoxShape.circle,
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Text(
+                      _isDeliveryActive
+                          ? 'You are Online'
+                          : 'You are Offline',
+                      style: TextStyle(
+                        fontSize: 15,
+                        fontWeight: FontWeight.w600,
+                        color: dark ? Colors.white : Colors.black87,
+                      ),
+                    ),
+                  ),
+                  Switch(
+                    value: _isDeliveryActive,
+                    onChanged: (val) => _toggleDeliveryActive(val, uid),
+                    activeColor: Colors.green,
+                  ),
+                ],
+              ),
+            ),
+          ),
+          const SizedBox(height: 24),
+
+          // ── Live Location Map ──
+          _sectionTitle('Your Location', dark),
+          const SizedBox(height: 12),
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16),
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(20),
+              child: SizedBox(
+                height: 200,
+                child: _userLocation != null
+                    ? OsmMapWidget(
+                        center: _userLocation!,
+                        zoom: 14,
+                        showLocateButton: false,
+                        markers: [
+                          Marker(
+                            point: _userLocation!,
+                            width: 48,
+                            height: 48,
+                            child: Container(
+                              padding: const EdgeInsets.all(8),
+                              decoration: BoxDecoration(
+                                color: Colors.green,
+                                shape: BoxShape.circle,
+                                border: Border.all(
+                                    color: Colors.white, width: 3),
+                                boxShadow: [
+                                  BoxShadow(
+                                    color: Colors.green.withValues(alpha: 0.4),
+                                    blurRadius: 10,
+                                    spreadRadius: 2,
+                                  ),
+                                ],
+                              ),
+                              child: const Icon(Icons.delivery_dining,
+                                  color: Colors.white, size: 18),
+                            ),
+                          ),
+                        ],
+                      )
+                    : Container(
+                        decoration: BoxDecoration(
+                          color: dark
+                              ? AppColors.darkSurface
+                              : Colors.grey[100],
+                          borderRadius: BorderRadius.circular(20),
+                        ),
+                        child: Center(
+                          child: Column(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              Icon(Icons.location_off,
+                                  size: 36,
+                                  color: dark
+                                      ? Colors.grey[600]
+                                      : Colors.grey[400]),
+                              const SizedBox(height: 8),
+                              Text(
+                                'Location unavailable',
+                                style: TextStyle(
+                                    color: dark
+                                        ? Colors.grey[500]
+                                        : Colors.grey[500],
+                                    fontSize: 13),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+              ),
+            ),
+          ),
+          const SizedBox(height: 24),
+
+          // Active delivery (accepted / en_route)
+          _sectionTitle('Active Delivery', dark),
+          const SizedBox(height: 12),
+          StreamBuilder<List<Map<String, dynamic>>>(
+            stream: _ongoingRequestsStream,
+            builder: (context, snapshot) {
+              final active = snapshot.data ?? [];
+              if (active.isEmpty) {
+                return Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 20),
+                  child: Text(
+                    'No active delivery.',
+                    style: TextStyle(
+                        color: Colors.grey[500], fontSize: 14),
+                  ),
+                );
+              }
+              final d = active.first;
+              return Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 16),
+                child: Container(
+                  padding: const EdgeInsets.all(18),
+                  decoration: BoxDecoration(
+                    gradient: LinearGradient(
+                      colors: dark
+                          ? [
+                              const Color(0xFF1E3A5F),
+                              const Color(0xFF15294A)
+                            ]
+                          : [
+                              const Color(0xFFE3F2FD),
+                              const Color(0xFFBBDEFB)
+                            ],
+                    ),
+                    borderRadius: BorderRadius.circular(20),
+                    border: Border.all(
+                      color: dark
+                          ? Colors.blue.withValues(alpha: 0.3)
+                          : Colors.blue.withValues(alpha: 0.2),
+                    ),
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          Container(
+                            padding: const EdgeInsets.all(8),
+                            decoration: BoxDecoration(
+                              color: Colors.blue.withValues(alpha: 0.15),
+                              borderRadius: BorderRadius.circular(10),
+                            ),
+                            child: const Icon(Icons.local_shipping,
+                                color: Colors.blue, size: 22),
+                          ),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  d['itemName'] ?? 'Item',
+                                  style: TextStyle(
+                                    fontSize: 16,
+                                    fontWeight: FontWeight.bold,
+                                    color:
+                                        dark ? Colors.white : Colors.black87,
+                                  ),
+                                ),
+                                Text(
+                                  'To: ${d['dropAddress'] ?? 'Destination'}',
+                                  style: TextStyle(
+                                    color: dark
+                                        ? Colors.grey[400]
+                                        : Colors.grey[600],
+                                    fontSize: 12,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 14),
+                      ClipRRect(
+                        borderRadius: BorderRadius.circular(8),
+                        child: LinearProgressIndicator(
+                          value:
+                              d['status'] == 'en_route' ? 0.65 : 0.3,
+                          minHeight: 6,
+                          backgroundColor: dark
+                              ? Colors.grey[800]
+                              : Colors.blue.withValues(alpha: 0.1),
+                          valueColor: const AlwaysStoppedAnimation(
+                              Colors.blue),
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      ElevatedButton.icon(
+                        onPressed: () => Navigator.pushNamed(
+                            context, '/active-delivery',
+                            arguments: d['id']),
+                        icon: const Icon(Icons.map, size: 16),
+                        label: const Text('View Active Route'),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: Colors.blue,
+                          foregroundColor: Colors.white,
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 14, vertical: 8),
+                          shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(10)),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              );
+            },
+          ),
+          const SizedBox(height: 24),
+
+          // Available jobs (pending from seller / mechanic)
+          _sectionTitle('Available Jobs', dark),
+          const SizedBox(height: 12),
+          _availableDeliveryJobsSection(dark),
+          const SizedBox(height: 20),
+
+          // Quick actions
+          _sectionTitle('Quick Actions', dark),
+          const SizedBox(height: 12),
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16),
+            child: Row(
+              children: [
+                Expanded(
+                  child: QuickActionCard(
+                    icon: Icons.history,
+                    subtitle: 'VIEW',
+                    title: 'Delivery History',
+                    color: const Color(0xFF1565C0),
+                    onTap: () => Navigator.pushNamed(
+                        context, '/delivery-history'),
+                  ),
+                ),
+                const SizedBox(width: 14),
+                Expanded(
+                  child: QuickActionCard(
+                    icon: Icons.support_agent,
+                    subtitle: 'HELP',
+                    title: 'Call Support',
+                    color: const Color(0xFF1A2940),
+                    onTap: () =>
+                        Navigator.pushNamed(context, '/call-support'),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 24),
+        ],
+      ),
+    );
+  }
+
+  // Toggle delivery online/offline
+  Future<void> _toggleDeliveryActive(bool value, String uid) async {
+    setState(() => _isDeliveryActive = value);
+    try {
+      await FirebaseFirestore.instance
+          .collection('users')
+          .doc(uid)
+          .update({'roles.delivery.isActive': value});
+    } catch (e) {
+      if (mounted) setState(() => _isDeliveryActive = !value);
+    }
+  }
+
   Widget _driverDashboard(String role, bool dark) {
     return SingleChildScrollView(
       child: Column(

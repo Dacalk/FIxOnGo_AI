@@ -31,6 +31,11 @@ import 'screens/help_support_screen.dart';
 import 'screens/profile_screen.dart';
 import 'screens/rate_experience_screen.dart';
 import 'screens/user_shop_view_screen.dart';
+import 'screens/job_history_screen.dart';
+import 'screens/delivery_history_screen.dart';
+import 'screens/active_delivery_screen.dart';
+import 'screens/delivery_jobs_screen.dart';
+import 'screens/add_product_screen.dart';
 import 'theme_provider.dart';
 
 import 'package:flutter_dotenv/flutter_dotenv.dart';
@@ -171,6 +176,16 @@ class FixOnGoApp extends StatelessWidget {
                 const AuthGuard(child: UserShopViewScreen()),
             '/rate-experience': (context) =>
                 const AuthGuard(child: RateExperienceScreen()),
+            '/job-history': (context) =>
+                const AuthGuard(child: JobHistoryScreen()),
+            '/delivery-history': (context) =>
+                const AuthGuard(child: DeliveryHistoryScreen()),
+            '/active-delivery': (context) =>
+                const AuthGuard(child: ActiveDeliveryScreen()),
+            '/delivery-jobs': (context) =>
+                const AuthGuard(child: DeliveryJobsScreen()),
+            '/add-product': (context) =>
+                const AuthGuard(child: AddProductScreen()),
             '/home': (context) => const AuthGuard(child: HomeScreen()),
           },
         );

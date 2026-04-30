@@ -39,6 +39,8 @@ class _SignupScreenState extends State<SignupScreen> {
   String towingCapacity = '';
 
   String deliveryArea = '';
+  String vehicleModel = '';
+  String licenseNumber = '';
 
   String shopName = '';
   String category = '';
@@ -151,6 +153,7 @@ class _SignupScreenState extends State<SignupScreen> {
           'truckModel': truckModel,
           'towingCapacity': towingCapacity,
           'deliveryArea': deliveryArea,
+          'vehicleModel': vehicleModel,
           'shopName': shopName,
           'category': category,
           'address': address,
@@ -625,16 +628,57 @@ class _SignupScreenState extends State<SignupScreen> {
     ];
   }
 
+  List<Widget> _deliveryFields() {
+    return [
+      FormInput(
+          label: 'Full Name',
+          hintText: 'Kasun Perera',
+          onChanged: (v) => fullName = v),
+      const SizedBox(height: 20),
+      FormInput(
+          label: 'NIC / ID Number',
+          hintText: '200012345678',
+          onChanged: (v) => nic = v),
+      const SizedBox(height: 20),
+      FormDropdown(
+        label: 'Delivery Vehicle Type',
+        hintText: 'Select Vehicle',
+        items: ['Motorbike', 'Bicycle', 'Three-Wheeler', 'Van'],
+        onChanged: (v) => vehicleType = v ?? '',
+      ),
+      const SizedBox(height: 20),
+      FormInput(
+          label: 'Vehicle Plate Number',
+          hintText: 'WP-CAB-1234',
+          onChanged: (v) => plate = v),
+      const SizedBox(height: 20),
+      FormInput(
+          label: 'Vehicle Model',
+          hintText: 'Honda CB125',
+          onChanged: (v) => vehicleModel = v),
+      const SizedBox(height: 20),
+      FormInput(
+          label: 'Delivery Area / Coverage Zone',
+          hintText: 'e.g. Colombo 01–07',
+          onChanged: (v) => deliveryArea = v),
+      const SizedBox(height: 20),
+      FormInput(
+          label: 'Emergency Contact',
+          hintText: '07XXXXXXXX',
+          onChanged: (v) => emergency = v),
+    ];
+  }
+
   List<Widget> _buildFormFields(String role) {
-    switch (role) {
-      case 'Mechanic':
+    switch (role.toLowerCase()) {
+      case 'mechanic':
         return _mechanicFields();
-      case 'Tow':
+      case 'tow':
         return _towFields();
-      case 'Driver':
-        return _driverFields();
-      case 'Seller':
+      case 'seller':
         return _sellerFields();
+      case 'delivery':
+        return _deliveryFields();
       default:
         return _defaultUserFields();
     }
