@@ -2,13 +2,16 @@ import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 
+// Theme and UI components
 import '../theme_provider.dart';
 import '../components/primary_button.dart';
 import '../components/otp_box.dart';
 
+// Navigation screens
 import 'dashboard_screen.dart';
 import 'signup_screen.dart';
 
+// Main verification screen
 class VerificationScreen extends StatefulWidget {
   const VerificationScreen({super.key});
 
@@ -16,30 +19,38 @@ class VerificationScreen extends StatefulWidget {
   State<VerificationScreen> createState() => _VerificationScreenState();
 }
 
+// State class
 class _VerificationScreenState extends State<VerificationScreen> {
-  String _enteredOtp = '';
-  String _verificationId = '';
-  bool _isLoading = false;
+  String _enteredOtp = ''; // stores entered OTP
+  String _verificationId = ''; // stores Firebase verification ID
+  bool _isLoading = false; // loading state
 
-  // 🔹 SEND OTP
+  // Send OTP to phone
   Future<void> _sendOtp() async {
     final args =
         ModalRoute.of(context)?.settings.arguments as Map<String, String>? ??
             {};
 
     final rawPhone = args['phone'] ?? '';
+
+    // Remove leading 0 from phone number
     final phone = rawPhone.startsWith('0') ? rawPhone.substring(1) : rawPhone;
 
     try {
       if (mounted) setState(() => _isLoading = true);
 
+      // Firebase phone verification
       await FirebaseAuth.instance.verifyPhoneNumber(
         phoneNumber: '+94$phone',
         timeout: const Duration(seconds: 60),
+
+        // Auto verification (if SMS detected)
         verificationCompleted: (PhoneAuthCredential credential) async {
           print("AUTO VERIFIED");
           await FirebaseAuth.instance.signInWithCredential(credential);
         },
+
+        // Error handling
         verificationFailed: (FirebaseAuthException e) {
           print("OTP ERROR: ${e.code} - ${e.message}");
           if (mounted) {
@@ -48,6 +59,8 @@ class _VerificationScreenState extends State<VerificationScreen> {
             );
           }
         },
+
+        // OTP sent successfully
         codeSent: (String verificationId, int? resendToken) {
           print("OTP SENT SUCCESS");
           if (mounted) {
@@ -56,6 +69,8 @@ class _VerificationScreenState extends State<VerificationScreen> {
             });
           }
         },
+
+        // Timeout handling
         codeAutoRetrievalTimeout: (String verificationId) {
           _verificationId = verificationId;
         },
@@ -69,6 +84,7 @@ class _VerificationScreenState extends State<VerificationScreen> {
     }
   }
 
+  // Call OTP when screen loads
   @override
   void initState() {
     super.initState();
@@ -79,6 +95,7 @@ class _VerificationScreenState extends State<VerificationScreen> {
 
   @override
   Widget build(BuildContext context) {
+    // Get arguments
     final args =
         ModalRoute.of(context)?.settings.arguments as Map<String, String>? ??
             {};
@@ -86,6 +103,7 @@ class _VerificationScreenState extends State<VerificationScreen> {
     final role = args['role'];
     final phone = args['phone'] ?? '7X XXX XXXX';
 
+    // Theme settings
     final dark = isDarkMode(context);
     final bgColor = dark ? AppColors.darkBackground : Colors.white;
     final titleColor = dark ? Colors.white : Colors.black;
@@ -96,6 +114,8 @@ class _VerificationScreenState extends State<VerificationScreen> {
 
     return Scaffold(
       backgroundColor: bgColor,
+
+      // App bar with back button
       appBar: AppBar(
         backgroundColor: bgColor,
         elevation: 0,
@@ -114,12 +134,16 @@ class _VerificationScreenState extends State<VerificationScreen> {
           ),
         ),
       ),
+
+      // Main UI
       body: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 24.0),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             const SizedBox(height: 40),
+
+            // Title text
             Text(
               "Verify Your Phone\nNumber",
               style: TextStyle(
@@ -129,7 +153,10 @@ class _VerificationScreenState extends State<VerificationScreen> {
                 color: titleColor,
               ),
             ),
+
             const SizedBox(height: 15),
+
+            // Phone number display
             RichText(
               text: TextSpan(
                 text: "We've sent a code to  ",
@@ -145,7 +172,10 @@ class _VerificationScreenState extends State<VerificationScreen> {
                 ],
               ),
             ),
+
             const SizedBox(height: 40),
+
+            // OTP input field
             OtpInput(
               length: 6,
               onCompleted: (otp) {
@@ -154,7 +184,10 @@ class _VerificationScreenState extends State<VerificationScreen> {
                 });
               },
             ),
+
             const SizedBox(height: 30),
+
+            // Timer UI
             Row(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
@@ -179,12 +212,16 @@ class _VerificationScreenState extends State<VerificationScreen> {
                 ),
               ],
             ),
+
             const Spacer(),
+
+            // Verify button
             Padding(
               padding: const EdgeInsets.only(bottom: 40),
               child: PrimaryButton(
                 label: _isLoading ? "Verifying..." : "Verify & Continue",
                 onPressed: () async {
+                  // Check OTP sent
                   if (_verificationId.isEmpty) {
                     ScaffoldMessenger.of(context).showSnackBar(
                       const SnackBar(content: Text("OTP not sent yet")),
@@ -192,6 +229,7 @@ class _VerificationScreenState extends State<VerificationScreen> {
                     return;
                   }
 
+                  // Check OTP length
                   if (_enteredOtp.length != 6) {
                     ScaffoldMessenger.of(context).showSnackBar(
                       const SnackBar(content: Text("Enter valid 6-digit OTP")),
@@ -202,17 +240,20 @@ class _VerificationScreenState extends State<VerificationScreen> {
                   setState(() => _isLoading = true);
 
                   try {
+                    // Create credential from OTP
                     final credential = PhoneAuthProvider.credential(
                       verificationId: _verificationId,
                       smsCode: _enteredOtp,
                     );
 
+                    // Sign in user
                     final userCredential = await FirebaseAuth.instance
                         .signInWithCredential(credential);
 
                     final user = userCredential.user;
                     if (user == null) return;
 
+                    // Fetch user data from Firestore
                     var doc = await FirebaseFirestore.instance
                         .collection('users')
                         .doc(user.uid)
@@ -223,11 +264,13 @@ class _VerificationScreenState extends State<VerificationScreen> {
                       Map roles = data?['roles'] ?? {};
 
                       if (roles.isNotEmpty) {
+                        // Match role
                         String matchedRole = (role != null &&
                                 roles.containsKey(role.toLowerCase()))
                             ? role.toLowerCase()
                             : roles.keys.first.toString();
 
+                        // Go to dashboard
                         if (mounted) {
                           Navigator.pushReplacement(
                             context,
@@ -238,6 +281,7 @@ class _VerificationScreenState extends State<VerificationScreen> {
                           );
                         }
                       } else {
+                        // No roles → signup
                         if (mounted) {
                           Navigator.pushReplacement(
                             context,
@@ -251,6 +295,7 @@ class _VerificationScreenState extends State<VerificationScreen> {
                         }
                       }
                     } else {
+                      // New user → signup
                       if (mounted) {
                         Navigator.pushReplacement(
                           context,
@@ -264,6 +309,7 @@ class _VerificationScreenState extends State<VerificationScreen> {
                       }
                     }
                   } catch (e) {
+                    // Invalid OTP
                     ScaffoldMessenger.of(context).showSnackBar(
                       const SnackBar(content: Text("Invalid OTP")),
                     );
